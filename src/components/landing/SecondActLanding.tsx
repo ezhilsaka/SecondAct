@@ -138,13 +138,16 @@ export default function SecondActLanding() {
         </div>
 
         <blockquote className={styles.quoteCard}>
-          <p>&quot;After four paid reports in a year, the rest are free for that year.&quot;</p>
-          <footer>Second Act Pricing Policy</footer>
+          <p>
+            &quot;Reports 1-4 are paid with tiered discounts. Reports 5-9 are free, with a maximum of 9
+            reports per calendar year.&quot;
+          </p>
+          <footer>Counter resets every January 1 (Jan-Dec cycle)</footer>
         </blockquote>
 
         <div className={styles.badgeRow}>
-          <span className={styles.badge}>4 Paid Then Free</span>
-          <span className={styles.badge}>Annual Reset</span>
+          <span className={styles.badge}>9 Reports / Year Cap</span>
+          <span className={styles.badge}>Reports 5-9 Free</span>
         </div>
       </section>
 
