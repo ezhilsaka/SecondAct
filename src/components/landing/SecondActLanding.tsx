@@ -123,10 +123,8 @@ export default function SecondActLanding() {
       </section>
 
       <section className={styles.pricingSection}>
-        <p className={styles.kicker}>THE PRICING RULES</p>
-        <h2 className={styles.sectionTitleAlt}>
-          Pay once, then unlock deeper discounts each report.
-        </h2>
+        <p className={styles.kicker}>FLAT FEE PRICING</p>
+        <h2 className={styles.sectionTitleAlt}>Get portfolio clarity. Pay only when it matters.</h2>
 
         <div className={styles.statGrid}>
           {pricingStats.map((stat) => (
@@ -139,15 +137,18 @@ export default function SecondActLanding() {
 
         <blockquote className={styles.quoteCard}>
           <p>
-            &quot;Reports 1-4 are paid with tiered discounts. Reports 5-9 are free, with a maximum of 9
-            reports per calendar year.&quot;
+            &quot;Most tools charge you to track every day. Second Act is built for long-term DIY investors
+            who want high-signal reviews on their schedule.&quot;
           </p>
-          <footer>Counter resets every January 1 (Jan-Dec cycle)</footer>
+          <footer>
+            Get a professional-grade portfolio report for a flat $4.99 per checkup. No monthly fees,
+            no lock-in, no noise.
+          </footer>
         </blockquote>
 
         <div className={styles.badgeRow}>
-          <span className={styles.badge}>9 Reports / Year Cap</span>
-          <span className={styles.badge}>Reports 5-9 Free</span>
+          <span className={styles.badge}>Flat $4.99</span>
+          <span className={styles.badge}>No Monthly Commitment</span>
         </div>
       </section>
 

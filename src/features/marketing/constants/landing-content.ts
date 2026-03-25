@@ -33,10 +33,10 @@ export const flowSteps: StepItem[] = [
 ];
 
 export const pricingStats: StatItem[] = [
-  { value: "$11.11", label: "1st report (full price)" },
-  { value: "$8.33", label: "2nd report (25% off)" },
-  { value: "$5.56", label: "3rd report (50% off)" },
-  { value: "$2.78", label: "4th report (75% off)" }
+  { value: "$4.99", label: "Flat fee / report" },
+  { value: "Flat", label: "One price every report" },
+  { value: "No Sub", label: "No monthly commitment" },
+  { value: "On-Demand", label: "Run reports only when needed" }
 ];
 
 export const footerColumns: FooterColumn[] = [
