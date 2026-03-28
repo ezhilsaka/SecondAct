@@ -137,8 +137,8 @@ export default function SecondActLanding() {
 
         <blockquote className={styles.quoteCard}>
           <p>
-            &quot;Most tools charge you to track every day. Second Act is built for long-term DIY investors
-            who want high-signal reviews on their schedule.&quot;
+            &quot;Most tools charge you to track every day. Second Act is built for long-term DIY
+            investors who want high-signal reviews on their schedule.&quot;
           </p>
           <footer>
             Get a professional-grade portfolio report for a flat $4.99 per checkup. No monthly fees,
