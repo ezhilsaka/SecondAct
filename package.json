@@ -20,6 +20,7 @@
     "db:migrate:deploy": "prisma migrate deploy --schema src/db/prisma/schema.prisma",
     "db:studio": "prisma studio --schema src/db/prisma/schema.prisma",
     "db:seed:phase1": "node --import tsx src/db/seed/phase1-seed.ts",
+    "contracts:check": "node --import tsx src/server/contracts/sanity-check.ts",
     "worker:dev": "node --import tsx src/server/queue/worker.ts",
     "playwright:install": "playwright install chromium",
     "security:audit": "npm audit --audit-level=high"
