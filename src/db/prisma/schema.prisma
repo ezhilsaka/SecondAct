@@ -5,3 +5,164 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum PortfolioSourceType {
+  MANUAL
+  IMPORTED
+}
+
+enum AssetClassType {
+  EQUITY
+}
+
+enum SupportedCurrency {
+  USD
+  CAD
+}
+
+enum ReportRunStatus {
+  DRAFT
+  AWAITING_PAYMENT
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentStatusType {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ArtifactType {
+  PDF_REPORT
+}
+
+model UserProfile {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String             @unique
+  firstName       String             @map("first_name")
+  lastName        String             @map("last_name")
+  investorHandle  String             @unique @map("investor_handle")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  portfolios      Portfolio[]
+  holdings        PortfolioHolding[]
+  reportRuns      ReportRun[]
+  reportArtifacts ReportArtifact[]
+  userUsage       UserUsage?
+
+  @@index([createdAt], map: "user_profiles_created_at_idx")
+  @@map("user_profiles")
+}
+
+model Portfolio {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String              @map("user_id") @db.Uuid
+  name         String
+  description  String?
+  baseCurrency SupportedCurrency   @map("base_currency")
+  sourceType   PortfolioSourceType @default(MANUAL) @map("source_type")
+  archivedAt   DateTime?           @map("archived_at") @db.Timestamptz(6)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         UserProfile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings     PortfolioHolding[]
+  reportRuns   ReportRun[]
+
+  @@index([userId, createdAt], map: "portfolios_user_id_created_at_idx")
+  @@index([userId, archivedAt], map: "portfolios_user_id_archived_at_idx")
+  @@map("portfolios")
+}
+
+model PortfolioHolding {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String            @map("user_id") @db.Uuid
+  portfolioId      String            @map("portfolio_id") @db.Uuid
+  ticker           String
+  securityName     String?           @map("security_name")
+  assetClass       AssetClassType    @default(EQUITY) @map("asset_class")
+  securityCurrency SupportedCurrency @map("security_currency")
+  quantity         Decimal           @db.Decimal(28, 10)
+  averageCost      Decimal           @map("average_cost") @db.Decimal(20, 8)
+  notes            String?
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user             UserProfile       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio        Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, ticker], map: "portfolio_holdings_portfolio_id_ticker_key")
+  @@index([userId, portfolioId], map: "portfolio_holdings_user_id_portfolio_id_idx")
+  @@map("portfolio_holdings")
+}
+
+model ReportRun {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String            @map("user_id") @db.Uuid
+  portfolioId        String            @map("portfolio_id") @db.Uuid
+  reportingCurrency  SupportedCurrency @map("reporting_currency")
+  status             ReportRunStatus   @default(DRAFT)
+  paymentStatus      PaymentStatusType @default(NOT_REQUIRED) @map("payment_status")
+  paymentProvider    String?           @map("payment_provider")
+  paymentReferenceId String?           @map("payment_reference_id")
+  schemaVersion      String?           @map("schema_version")
+  promptVersion      String?           @map("prompt_version")
+  marketDataProvider String?           @map("market_data_provider")
+  narrativeProvider  String?           @map("narrative_provider")
+  narrativeModel     String?           @map("narrative_model")
+  valuationAsOf      DateTime?         @map("valuation_as_of") @db.Timestamptz(6)
+  canonicalSnapshot  Json?             @map("canonical_snapshot")
+  analysisOutput     Json?             @map("analysis_output")
+  narrativeOutput    Json?             @map("narrative_output")
+  errorCode          String?           @map("error_code")
+  errorDetails       Json?             @map("error_details")
+  requestedAt        DateTime          @default(now()) @map("requested_at") @db.Timestamptz(6)
+  startedAt          DateTime?         @map("started_at") @db.Timestamptz(6)
+  completedAt        DateTime?         @map("completed_at") @db.Timestamptz(6)
+  failedAt           DateTime?         @map("failed_at") @db.Timestamptz(6)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user               UserProfile       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolio          Portfolio         @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  artifacts          ReportArtifact[]
+
+  @@index([userId, createdAt], map: "report_runs_user_id_created_at_idx")
+  @@index([portfolioId, createdAt], map: "report_runs_portfolio_id_created_at_idx")
+  @@index([status, createdAt], map: "report_runs_status_created_at_idx")
+  @@index([paymentStatus, createdAt], map: "report_runs_payment_status_created_at_idx")
+  @@map("report_runs")
+}
+
+model ReportArtifact {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  reportRunId    String       @map("report_run_id") @db.Uuid
+  artifactType   ArtifactType @default(PDF_REPORT) @map("artifact_type")
+  storageBucket  String       @map("storage_bucket")
+  storagePath    String       @map("storage_path")
+  mimeType       String       @map("mime_type")
+  fileSizeBytes  BigInt       @map("file_size_bytes")
+  checksumSha256 String?      @map("checksum_sha256")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  user           UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportRun      ReportRun    @relation(fields: [reportRunId], references: [id], onDelete: Cascade)
+
+  @@unique([reportRunId, artifactType], map: "report_artifacts_report_run_id_artifact_type_key")
+  @@unique([storageBucket, storagePath], map: "report_artifacts_storage_bucket_storage_path_key")
+  @@index([userId, createdAt], map: "report_artifacts_user_id_created_at_idx")
+  @@map("report_artifacts")
+}
+
+model UserUsage {
+  userId                String      @id @map("user_id") @db.Uuid
+  reportsGeneratedCount Int         @default(0) @map("reports_generated_count")
+  lastReportGeneratedAt DateTime?   @map("last_report_generated_at") @db.Timestamptz(6)
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                  UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_usage")
+}

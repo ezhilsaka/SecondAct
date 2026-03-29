@@ -19,15 +19,18 @@
     "db:migrate:dev": "prisma migrate dev --schema src/db/prisma/schema.prisma",
     "db:migrate:deploy": "prisma migrate deploy --schema src/db/prisma/schema.prisma",
     "db:studio": "prisma studio --schema src/db/prisma/schema.prisma",
+    "db:seed:phase1": "node --import tsx src/db/seed/phase1-seed.ts",
     "worker:dev": "node --import tsx src/server/queue/worker.ts",
     "playwright:install": "playwright install chromium",
     "security:audit": "npm audit --audit-level=high"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "graphile-worker": "^0.16.6",
     "ky": "^1.14.3",
     "next": "^16.2.1",
+    "pg": "^8.20.0",
     "playwright": "^1.58.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -36,6 +39,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^25.3.3",
+    "@types/pg": "^8.15.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.3",

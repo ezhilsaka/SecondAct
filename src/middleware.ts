@@ -27,19 +27,19 @@ import { NextResponse } from "next/server";
  * not opt-out of protection.
  */
 const PUBLIC_PATHS: string[] = [
-  "/",              // Marketing landing page
-  "/legal",         // Legal/privacy pages
-  "/api/health",    // Uptime health check (keep minimal — no sensitive data)
+  "/", // Marketing landing page
+  "/legal", // Legal/privacy pages
+  "/api/health" // Uptime health check (keep minimal — no sensitive data)
 ];
 
 /**
  * Path prefixes that are always public (static assets, Next.js internals).
  */
 const PUBLIC_PREFIXES: string[] = [
-  "/_next/",        // Next.js static files
-  "/favicon",       // Favicons
+  "/_next/", // Next.js static files
+  "/favicon", // Favicons
   "/robots.txt",
-  "/sitemap.xml",
+  "/sitemap.xml"
 ];
 
 // ---------------------------------------------------------------------------
@@ -86,9 +86,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   // Allow Next.js internals and static assets without any check
-  const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) =>
-    pathname.startsWith(prefix)
-  );
+  const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (isPublicPrefix) {
     return NextResponse.next();
   }
@@ -103,13 +101,10 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   if (!authenticated) {
     // Redirect to login page for browser requests, 401 for API requests
     if (pathname.startsWith("/api/")) {
-      return new NextResponse(
-        JSON.stringify({ error: "Unauthorized" }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
     // Preserve the original destination so the login page can redirect after auth
@@ -139,6 +134,6 @@ export const config = {
      * - _next/image  (Next.js image optimisation)
      * - favicon.ico, robots.txt, sitemap.xml
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)",
-  ],
+    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)"
+  ]
 };
