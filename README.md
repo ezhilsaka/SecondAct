@@ -22,6 +22,32 @@ npm run dev
 npm run build
 ```
 
+## Testing
+
+Run the full validation flow:
+
+```bash
+./test.sh
+```
+
+Run the same flow with coverage output:
+
+```bash
+./test.sh --coverage
+```
+
+Run only the Vitest suite:
+
+```bash
+./test.sh --unit-only
+```
+
+Start watch mode for local test iteration:
+
+```bash
+./test-watch.sh
+```
+
 ## Environment
 
 Copy `.env.example` and set values:

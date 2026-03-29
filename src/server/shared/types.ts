@@ -6,9 +6,10 @@ import { z } from "zod";
 export const uuidSchema = z.uuid();
 export const nonEmptyStringSchema = z.string().trim().min(1);
 export const nullableNonEmptyStringSchema = nonEmptyStringSchema.nullable();
+const isoTimestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 export const isoTimestampStringSchema = z
   .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), {
+  .refine((value) => isoTimestampRegex.test(value) && !Number.isNaN(Date.parse(value)), {
     message: "Expected a valid ISO 8601 timestamp."
   });
 export const decimalStringSchema = z.string().regex(/^-?(0|[1-9]\d*)(\.\d+)?$/, {
