@@ -55,4 +55,16 @@ describe("contract schemas", () => {
 
     expect(() => renderPdfResultSchema.parse(invalidRenderResult)).toThrow(/SHA-256/);
   });
+
+  it("rejects PDF paths that contain traversal segments", () => {
+    const { renderPdfResult } = buildContractFixturePayloads();
+    const invalidRenderResult = {
+      ...renderPdfResult,
+      filePath: "/tmp/secondact/../../etc/passwd"
+    };
+
+    expect(() => renderPdfResultSchema.parse(invalidRenderResult)).toThrow(
+      /filePath must be an absolute path with no traversal components/
+    );
+  });
 });

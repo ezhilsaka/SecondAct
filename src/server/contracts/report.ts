@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { z } from "zod";
 
 import {
@@ -15,6 +17,15 @@ import {
   supportedCurrencySchema,
   uuidSchema
 } from "@/server/shared/types";
+
+const pathTraversalPattern = /(^|[\\/])\.\.([\\/]|$)/;
+
+const absoluteFilePathSchema = nonEmptyStringSchema.refine(
+  (value) => path.isAbsolute(value) && !pathTraversalPattern.test(value),
+  {
+    message: "filePath must be an absolute path with no traversal components."
+  }
+);
 
 /**
  * Shared metadata attached to a report run across generation stages.
@@ -66,7 +77,7 @@ export const reportDocumentSchema = z.object({
 });
 
 export const renderPdfResultSchema = z.object({
-  filePath: nonEmptyStringSchema,
+  filePath: absoluteFilePathSchema,
   mimeType: z.literal("application/pdf"),
   byteSize: z.number().int().nonnegative().optional(),
   checksumSha256: z

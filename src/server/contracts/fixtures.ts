@@ -280,7 +280,7 @@ export function buildContractFixturePayloads() {
   });
 
   const renderPdfResult = renderPdfResultSchema.parse({
-    filePath: "/tmp/report.pdf",
+    filePath: `/tmp/secondact/${runId}/report.pdf`,
     mimeType: "application/pdf",
     byteSize: 128000,
     checksumSha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

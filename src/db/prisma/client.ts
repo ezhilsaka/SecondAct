@@ -1,15 +1,10 @@
-import { loadEnvConfig } from "@next/env";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
 
-loadEnvConfig(process.cwd());
+import { prismaRuntimeEnv } from "@/db/prisma/runtime-env";
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is required to initialize PrismaClient.");
-}
+const connectionString = prismaRuntimeEnv.DATABASE_URL;
 
 const globalForPrisma = globalThis as typeof globalThis & {
   __secondActPrisma?: PrismaClient;
