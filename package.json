@@ -7,7 +7,9 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "prisma generate --schema src/db/prisma/schema.prisma",
     "build": "next build",
+    "postinstall": "prisma generate --schema src/db/prisma/schema.prisma",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
