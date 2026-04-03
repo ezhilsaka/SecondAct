@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+from app.config import ServiceSettings
+from app.errors import ProviderError, ProviderTimeoutError
+from app.main import create_app
+from app.models import MarketDataRequest, MarketSecuritySnapshot, SupportedCurrency
+from app.providers.base import QuoteProvider
+
+
+class FakeProvider(QuoteProvider):
+    provider_name = "fake-provider"
+
+    def __init__(self, mode: str = "success") -> None:
+        self.mode = mode
+
+    def fetch_securities(
+        self, request: MarketDataRequest
+    ) -> list[MarketSecuritySnapshot]:
+        if self.mode == "timeout":
+            raise ProviderTimeoutError("Timed out")
+        if self.mode == "error":
+            raise ProviderError("Provider failed")
+
+        return [
+            MarketSecuritySnapshot(
+                ticker=ticker,
+                securityName=f"{ticker} Inc.",
+                securityCurrency=SupportedCurrency.USD,
+                reportingCurrency=request.reporting_currency,
+                currentPrice=None if ticker == "BAD" else "101.00000000",
+                fxRateToReportingCurrency=None if ticker == "BAD" else "1.00000000",
+                quoteTimestamp=None if ticker == "BAD" else "2026-03-31T00:00:00Z",
+                dataQualityFlags=[] if ticker != "BAD" else ["quote_not_found"],
+            )
+            for ticker in request.tickers
+        ]
+
+
+def build_test_client(provider: QuoteProvider, max_tickers: int = 50) -> TestClient:
+    app = create_app(
+        settings=ServiceSettings(max_tickers_per_request=max_tickers),
+        provider=provider,
+    )
+    return TestClient(app)
+
+
+def test_health_endpoint_returns_service_status() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "market-data-adapter",
+        "provider": "fake-provider",
+    }
+
+
+def test_quotes_endpoint_returns_normalized_payload() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": [" aapl ", "SHOP.TO", "AAPL"], "reportingCurrency": "USD"},
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["provider"] == "fake-provider"
+    assert body["reportingCurrency"] == "USD"
+    assert [security["ticker"] for security in body["securities"]] == ["AAPL", "SHOP.TO"]
+
+
+def test_quotes_endpoint_returns_400_for_invalid_request() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post("/market-data/quotes", json={"tickers": [], "reportingCurrency": "USD"})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_quotes_endpoint_keeps_partial_symbol_failures_in_a_200_response() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL", "BAD"], "reportingCurrency": "USD"},
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["securities"][0]["ticker"] == "AAPL"
+    assert body["securities"][0]["currentPrice"] == "101.00000000"
+    assert body["securities"][1]["ticker"] == "BAD"
+    assert body["securities"][1]["currentPrice"] is None
+    assert body["securities"][1]["dataQualityFlags"] == ["quote_not_found"]
+
+
+def test_quotes_endpoint_returns_400_when_request_exceeds_max_tickers() -> None:
+    client = build_test_client(FakeProvider(), max_tickers=1)
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL", "SHOP.TO"], "reportingCurrency": "USD"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "REQUEST_LIMIT_EXCEEDED"
+
+
+def test_quotes_endpoint_returns_504_when_provider_times_out() -> None:
+    client = build_test_client(FakeProvider(mode="timeout"))
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+    )
+
+    assert response.status_code == 504
+    assert response.json()["error"]["code"] == "MARKET_DATA_PROVIDER_TIMEOUT"
+
+
+def test_quotes_endpoint_returns_502_for_provider_failure() -> None:
+    client = build_test_client(FakeProvider(mode="error"))
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "MARKET_DATA_PROVIDER_ERROR"

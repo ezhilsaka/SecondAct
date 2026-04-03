@@ -43,6 +43,12 @@ next-env.d.ts
 # Testing
 coverage/
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
 # AI Personas (internal project docs — not shipped)
 ai-personas/
 chatbotNotes/
