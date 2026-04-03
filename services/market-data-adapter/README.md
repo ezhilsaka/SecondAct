@@ -26,6 +26,7 @@ pip install .[dev]
 ```bash
 cd services/market-data-adapter
 source .venv/bin/activate
+export MARKET_DATA_ADAPTER_INTERNAL_API_SECRET="replace-with-long-random-secret"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -35,4 +36,15 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 cd services/market-data-adapter
 source .venv/bin/activate
 pytest
+```
+
+## Authenticated local quote request
+
+`/market-data/quotes` is protected with an internal shared secret. Send the same value you used in `MARKET_DATA_ADAPTER_INTERNAL_API_SECRET` as the `X-Internal-Secret` header:
+
+```bash
+curl -X POST http://127.0.0.1:8000/market-data/quotes \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: replace-with-long-random-secret" \
+  -d '{"tickers":["AAPL","SHOP.TO"],"reportingCurrency":"USD"}'
 ```

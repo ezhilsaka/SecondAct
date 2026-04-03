@@ -40,7 +40,10 @@ class FakeProvider(QuoteProvider):
 
 def build_test_client(provider: QuoteProvider, max_tickers: int = 50) -> TestClient:
     app = create_app(
-        settings=ServiceSettings(max_tickers_per_request=max_tickers),
+        settings=ServiceSettings(
+            max_tickers_per_request=max_tickers,
+            internal_api_secret="test-internal-secret",
+        ),
         provider=provider,
     )
     return TestClient(app)
@@ -65,6 +68,7 @@ def test_quotes_endpoint_returns_normalized_payload() -> None:
     response = client.post(
         "/market-data/quotes",
         json={"tickers": [" aapl ", "SHOP.TO", "AAPL"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
     )
 
     body = response.json()
@@ -77,7 +81,11 @@ def test_quotes_endpoint_returns_normalized_payload() -> None:
 def test_quotes_endpoint_returns_400_for_invalid_request() -> None:
     client = build_test_client(FakeProvider())
 
-    response = client.post("/market-data/quotes", json={"tickers": [], "reportingCurrency": "USD"})
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": [], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_REQUEST"
@@ -89,6 +97,7 @@ def test_quotes_endpoint_keeps_partial_symbol_failures_in_a_200_response() -> No
     response = client.post(
         "/market-data/quotes",
         json={"tickers": ["AAPL", "BAD"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
     )
 
     body = response.json()
@@ -106,6 +115,7 @@ def test_quotes_endpoint_returns_400_when_request_exceeds_max_tickers() -> None:
     response = client.post(
         "/market-data/quotes",
         json={"tickers": ["AAPL", "SHOP.TO"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
     )
 
     assert response.status_code == 400
@@ -118,6 +128,7 @@ def test_quotes_endpoint_returns_504_when_provider_times_out() -> None:
     response = client.post(
         "/market-data/quotes",
         json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
     )
 
     assert response.status_code == 504
@@ -130,7 +141,50 @@ def test_quotes_endpoint_returns_502_for_provider_failure() -> None:
     response = client.post(
         "/market-data/quotes",
         json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
     )
 
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "MARKET_DATA_PROVIDER_ERROR"
+
+
+def test_quotes_endpoint_returns_401_when_internal_secret_is_missing() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Unauthorized"
+
+
+def test_quotes_endpoint_returns_401_when_internal_secret_is_invalid() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "wrong-secret"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Unauthorized"
+
+
+def test_quotes_endpoint_fails_closed_when_internal_secret_is_not_configured() -> None:
+    app = create_app(
+        settings=ServiceSettings(internal_api_secret=""),
+        provider=FakeProvider(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Market data adapter internal authentication is not configured."

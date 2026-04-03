@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import secrets
+from typing import Optional
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -20,6 +22,24 @@ from app.services.quote_service import QuoteService
 logger = logging.getLogger(__name__)
 
 
+def verify_internal_secret(
+    request: Request,
+    x_internal_secret: Optional[str] = Header(default=None, alias="X-Internal-Secret"),
+) -> None:
+    expected_secret = request.app.state.settings.internal_api_secret
+
+    if not expected_secret:
+        logger.error("Market data adapter internal API secret is not configured.")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Market data adapter internal authentication is not configured.",
+        )
+
+    provided_secret = x_internal_secret or ""
+    if not secrets.compare_digest(provided_secret, expected_secret):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
 def build_provider(settings: ServiceSettings) -> QuoteProvider:
     if settings.provider_name == "yfinance":
         return YFinanceProvider(settings=settings)
@@ -28,7 +48,7 @@ def build_provider(settings: ServiceSettings) -> QuoteProvider:
 
 
 def create_app(
-    settings: ServiceSettings | None = None, provider: QuoteProvider | None = None
+    settings: Optional[ServiceSettings] = None, provider: Optional[QuoteProvider] = None
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_provider = provider or build_provider(resolved_settings)
@@ -112,7 +132,7 @@ def create_app(
             provider=quote_service.provider_name,
         )
 
-    @app.post("/market-data/quotes")
+    @app.post("/market-data/quotes", dependencies=[Depends(verify_internal_secret)])
     def quotes(payload: MarketDataRequest):
         return quote_service.get_quotes(payload)
 
