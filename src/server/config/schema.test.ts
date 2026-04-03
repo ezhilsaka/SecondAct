@@ -19,6 +19,7 @@ function buildValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.Proce
     NARRATIVE_PROVIDER_API_KEY: "api-key",
     NARRATIVE_MODEL: "gpt-test",
     MARKET_DATA_SERVICE_URL: "https://quotes.example.com",
+    MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "test-internal-secret",
     MARKET_DATA_SERVICE_TIMEOUT_MS: "7000",
     PLAYWRIGHT_BROWSER: "chromium",
     ...overrides
@@ -56,11 +57,12 @@ describe("parseServerEnv", () => {
         buildValidEnv({
           NEXT_PUBLIC_SUPABASE_URL: "not-a-url",
           GRAPHILE_WORKER_CONCURRENCY: "0",
+          MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "",
           MARKET_DATA_SERVICE_TIMEOUT_MS: "-5"
         })
       )
     ).toThrowError(
-      /NEXT_PUBLIC_SUPABASE_URL must be a valid URL\.[\s\S]*GRAPHILE_WORKER_CONCURRENCY must be greater than zero\.[\s\S]*MARKET_DATA_SERVICE_TIMEOUT_MS must be greater than zero\./
+      /NEXT_PUBLIC_SUPABASE_URL must be a valid URL\.[\s\S]*GRAPHILE_WORKER_CONCURRENCY must be greater than zero\.[\s\S]*MARKET_DATA_ADAPTER_INTERNAL_API_SECRET is required\.[\s\S]*MARKET_DATA_SERVICE_TIMEOUT_MS must be greater than zero\./
     );
   });
 });

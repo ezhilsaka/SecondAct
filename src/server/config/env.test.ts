@@ -20,6 +20,7 @@ function applyValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
     NARRATIVE_PROVIDER_API_KEY: "api-key",
     NARRATIVE_MODEL: "gpt-test",
     MARKET_DATA_SERVICE_URL: "https://quotes.example.com",
+    MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "test-internal-secret",
     MARKET_DATA_SERVICE_TIMEOUT_MS: "7000",
     PLAYWRIGHT_BROWSER: "chromium",
     ...overrides
@@ -43,5 +44,6 @@ describe("serverEnv module", () => {
     expect(serverEnv.DIRECT_URL).toBeUndefined();
     expect(serverEnv.GRAPHILE_WORKER_SCHEMA).toBe("graphile_worker");
     expect(serverEnv.GRAPHILE_WORKER_CONCURRENCY).toBe(2);
+    expect(serverEnv.MARKET_DATA_ADAPTER_INTERNAL_API_SECRET).toBe("test-internal-secret");
   });
 });

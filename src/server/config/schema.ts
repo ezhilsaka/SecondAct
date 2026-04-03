@@ -42,6 +42,9 @@ export const serverEnvSchema = z.object({
   NARRATIVE_PROVIDER_API_KEY: requiredString("NARRATIVE_PROVIDER_API_KEY"),
   NARRATIVE_MODEL: requiredString("NARRATIVE_MODEL"),
   MARKET_DATA_SERVICE_URL: z.string().url("MARKET_DATA_SERVICE_URL must be a valid URL."),
+  MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: requiredString(
+    "MARKET_DATA_ADAPTER_INTERNAL_API_SECRET"
+  ),
   MARKET_DATA_SERVICE_TIMEOUT_MS: z.coerce
     .number()
     .int()
