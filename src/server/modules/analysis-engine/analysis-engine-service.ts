@@ -3,7 +3,6 @@ import { ZodError } from "zod";
 
 import { prisma } from "@/db/prisma/client";
 import {
-  analysisOutputSchema,
   canonicalPortfolioSnapshotSchema,
   type AnalysisOutput,
   type CanonicalPortfolioSnapshot
@@ -128,15 +127,13 @@ export class AnalysisEngineService {
       generatedAt: this.now()
     });
 
-    const validatedOutput = analysisOutputSchema.parse(analysisOutput);
-
     await this.repository.persistAnalysisOutput({
       reportRunId: reportRun.id,
-      analysisOutput: validatedOutput
+      analysisOutput
     });
 
     return {
-      analysisOutput: validatedOutput,
+      analysisOutput,
       status: reportRun.status
     };
   }
