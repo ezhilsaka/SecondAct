@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseServerEnv } from "@/server/config/schema";
+import { parseNarrativeEnv, parseServerEnv } from "@/server/config/schema";
 
 function buildValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return {
@@ -14,16 +14,22 @@ function buildValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.Proce
     GRAPHILE_WORKER_CONCURRENCY: "2",
     GRAPHILE_WORKER_POLL_INTERVAL_MS: "2500",
     REPORT_RUN_TASK_IDENTIFIER: "report.run.generate",
-    NARRATIVE_PROVIDER: "openai-compatible",
-    NARRATIVE_PROVIDER_BASE_URL: "https://llm.example.com/v1",
-    NARRATIVE_PROVIDER_API_KEY: "api-key",
-    NARRATIVE_MODEL: "gpt-test",
     MARKET_DATA_SERVICE_URL: "https://quotes.example.com",
     MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "test-internal-secret",
     MARKET_DATA_SERVICE_TIMEOUT_MS: "7000",
     PLAYWRIGHT_BROWSER: "chromium",
     ...overrides
   };
+}
+
+function buildValidNarrativeEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
+  return {
+    NARRATIVE_PROVIDER: "openai-compatible",
+    NARRATIVE_PROVIDER_BASE_URL: "https://llm.example.com/v1",
+    NARRATIVE_PROVIDER_API_KEY: "api-key",
+    NARRATIVE_MODEL: "gpt-test",
+    ...overrides
+  } as NodeJS.ProcessEnv;
 }
 
 describe("parseServerEnv", () => {
@@ -35,7 +41,6 @@ describe("parseServerEnv", () => {
         GRAPHILE_WORKER_CONCURRENCY: undefined,
         GRAPHILE_WORKER_POLL_INTERVAL_MS: undefined,
         REPORT_RUN_TASK_IDENTIFIER: undefined,
-        NARRATIVE_PROVIDER: undefined,
         MARKET_DATA_SERVICE_TIMEOUT_MS: undefined,
         PLAYWRIGHT_BROWSER: undefined
       })
@@ -46,7 +51,6 @@ describe("parseServerEnv", () => {
     expect(parsedEnv.GRAPHILE_WORKER_CONCURRENCY).toBe(1);
     expect(parsedEnv.GRAPHILE_WORKER_POLL_INTERVAL_MS).toBe(1000);
     expect(parsedEnv.REPORT_RUN_TASK_IDENTIFIER).toBe("report.run.generate");
-    expect(parsedEnv.NARRATIVE_PROVIDER).toBe("openai-compatible");
     expect(parsedEnv.MARKET_DATA_SERVICE_TIMEOUT_MS).toBe(10000);
     expect(parsedEnv.PLAYWRIGHT_BROWSER).toBe("chromium");
   });
@@ -63,6 +67,31 @@ describe("parseServerEnv", () => {
       )
     ).toThrowError(
       /NEXT_PUBLIC_SUPABASE_URL must be a valid URL\.[\s\S]*GRAPHILE_WORKER_CONCURRENCY must be greater than zero\.[\s\S]*MARKET_DATA_ADAPTER_INTERNAL_API_SECRET is required\.[\s\S]*MARKET_DATA_SERVICE_TIMEOUT_MS must be greater than zero\./
+    );
+  });
+
+  it("parses narrative env separately", () => {
+    const parsedEnv = parseNarrativeEnv(
+      buildValidNarrativeEnv({
+        NARRATIVE_PROVIDER: undefined
+      })
+    );
+
+    expect(parsedEnv.NARRATIVE_PROVIDER).toBe("openai-compatible");
+    expect(parsedEnv.NARRATIVE_MODEL).toBe("gpt-test");
+  });
+
+  it("surfaces aggregated narrative env validation errors", () => {
+    expect(() =>
+      parseNarrativeEnv(
+        buildValidNarrativeEnv({
+          NARRATIVE_PROVIDER_BASE_URL: "not-a-url",
+          NARRATIVE_PROVIDER_API_KEY: "",
+          NARRATIVE_MODEL: ""
+        })
+      )
+    ).toThrowError(
+      /NARRATIVE_PROVIDER_BASE_URL must be a valid URL\.[\s\S]*NARRATIVE_PROVIDER_API_KEY is required\.[\s\S]*NARRATIVE_MODEL is required\./
     );
   });
 });

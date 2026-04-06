@@ -34,13 +34,6 @@ export const serverEnvSchema = z.object({
   REPORT_RUN_TASK_IDENTIFIER: requiredString("REPORT_RUN_TASK_IDENTIFIER").default(
     "report.run.generate"
   ),
-  NARRATIVE_PROVIDER: z
-    .string()
-    .min(1, "NARRATIVE_PROVIDER is required.")
-    .default("openai-compatible"),
-  NARRATIVE_PROVIDER_BASE_URL: z.string().url("NARRATIVE_PROVIDER_BASE_URL must be a valid URL."),
-  NARRATIVE_PROVIDER_API_KEY: requiredString("NARRATIVE_PROVIDER_API_KEY"),
-  NARRATIVE_MODEL: requiredString("NARRATIVE_MODEL"),
   MARKET_DATA_SERVICE_URL: z.string().url("MARKET_DATA_SERVICE_URL must be a valid URL."),
   MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: requiredString(
     "MARKET_DATA_ADAPTER_INTERNAL_API_SECRET"
@@ -51,6 +44,16 @@ export const serverEnvSchema = z.object({
     .positive("MARKET_DATA_SERVICE_TIMEOUT_MS must be greater than zero.")
     .default(10000),
   PLAYWRIGHT_BROWSER: z.enum(["chromium"]).default("chromium")
+});
+
+export const narrativeEnvSchema = z.object({
+  NARRATIVE_PROVIDER: z
+    .string()
+    .min(1, "NARRATIVE_PROVIDER is required.")
+    .default("openai-compatible"),
+  NARRATIVE_PROVIDER_BASE_URL: z.string().url("NARRATIVE_PROVIDER_BASE_URL must be a valid URL."),
+  NARRATIVE_PROVIDER_API_KEY: requiredString("NARRATIVE_PROVIDER_API_KEY"),
+  NARRATIVE_MODEL: requiredString("NARRATIVE_MODEL")
 });
 
 export function formatIssues(issues: z.ZodIssue[]): string {
@@ -69,4 +72,17 @@ export function parseServerEnv(env: NodeJS.ProcessEnv) {
   return parsedEnv.data;
 }
 
+export function parseNarrativeEnv(env: NodeJS.ProcessEnv) {
+  const parsedEnv = narrativeEnvSchema.safeParse(env);
+
+  if (!parsedEnv.success) {
+    throw new Error(
+      `Invalid narrative environment configuration:\n${formatIssues(parsedEnv.error.issues)}`
+    );
+  }
+
+  return parsedEnv.data;
+}
+
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type NarrativeEnv = z.infer<typeof narrativeEnvSchema>;

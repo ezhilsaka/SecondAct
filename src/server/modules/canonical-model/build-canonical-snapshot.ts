@@ -95,6 +95,8 @@ export function buildCanonicalSnapshot(
   const rawHoldingSnapshots = input.holdings.map((holding) => {
     const security = findSecuritySnapshot(marketDataByTicker, holding.ticker);
     const dataQualityFlags = [...(security?.dataQualityFlags ?? [])];
+    const hasUnsupportedSecurityCurrency =
+      security?.dataQualityFlags.includes("unsupported_security_currency") ?? false;
 
     if (!security) {
       appendFlag(dataQualityFlags, "market_data_missing");
@@ -106,9 +108,14 @@ export function buildCanonicalSnapshot(
 
     const reportingCurrency = input.reportingCurrency;
     const securityCurrency = security?.securityCurrency ?? holding.securityCurrency;
-    const fxRate =
-      security?.fxRateToReportingCurrency ??
-      (securityCurrency === reportingCurrency ? toDecimalString(ONE) : null);
+    const fxRate = security
+      ? (security.fxRateToReportingCurrency ??
+        (securityCurrency === reportingCurrency && !hasUnsupportedSecurityCurrency
+          ? toDecimalString(ONE)
+          : null))
+      : holding.securityCurrency === reportingCurrency
+        ? toDecimalString(ONE)
+        : null;
     const currentPrice = security?.currentPrice ?? null;
 
     const quantity = new Prisma.Decimal(holding.quantity);
@@ -249,7 +256,7 @@ export function buildCanonicalSnapshot(
     portfolioId: input.portfolioId,
     portfolioName: input.portfolioName,
     portfolioDescription: input.portfolioDescription,
-    baseCurrency: input.reportingCurrency,
+    baseCurrency: input.portfolioBaseCurrency,
     holdings,
     portfolioTotals: {
       totalCostBasis: toDecimalString(totalCostBasis),

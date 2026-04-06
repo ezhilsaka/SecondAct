@@ -191,4 +191,95 @@ describe("buildCanonicalSnapshot", () => {
     expect(result.snapshot.dataQualityFlags).toContain("no_priced_holdings");
     expect(result.snapshot.dataQualityFlags).toContain("contains_partial_market_data");
   });
+
+  it("preserves the portfolio base currency when reporting currency differs", () => {
+    const result = buildCanonicalSnapshot(
+      buildBaseInput({
+        portfolioBaseCurrency: "CAD",
+        reportingCurrency: "USD",
+        marketData: {
+          schemaVersion: "market-data.v1",
+          provider: "yfinance",
+          requestedAt: "2026-04-03T15:29:00.000Z",
+          reportingCurrency: "USD",
+          securities: [
+            {
+              ticker: "AAPL",
+              securityName: "Apple Inc.",
+              assetClass: "EQUITY",
+              securityCurrency: "USD",
+              reportingCurrency: "USD",
+              currentPrice: "214.12000000",
+              fxRateToReportingCurrency: "1.00000000",
+              quoteTimestamp: "2026-04-03T15:28:00.000Z",
+              dataQualityFlags: []
+            },
+            {
+              ticker: "SHOP.TO",
+              securityName: "Shopify Inc.",
+              assetClass: "EQUITY",
+              securityCurrency: "CAD",
+              reportingCurrency: "USD",
+              currentPrice: "117.42000000",
+              fxRateToReportingCurrency: "0.72000000",
+              quoteTimestamp: "2026-04-03T15:27:00.000Z",
+              dataQualityFlags: []
+            }
+          ]
+        }
+      })
+    );
+
+    expect(result.snapshot.baseCurrency).toBe("CAD");
+    expect(result.snapshot.dataQualityFlags).toContain(
+      "reporting_currency_differs_from_portfolio_base_currency"
+    );
+  });
+
+  it("does not synthesize a same-currency FX rate for unsupported provider currencies", () => {
+    const result = buildCanonicalSnapshot(
+      buildBaseInput({
+        holdings: [
+          {
+            id: "44444444-4444-4444-8444-444444444444",
+            ticker: "ASML",
+            securityName: "ASML Holding N.V.",
+            assetClass: "EQUITY" as const,
+            securityCurrency: "USD" as const,
+            quantity: new Prisma.Decimal("5"),
+            averageCost: new Prisma.Decimal("900")
+          }
+        ],
+        marketData: {
+          schemaVersion: "market-data.v1",
+          provider: "yfinance",
+          requestedAt: "2026-04-03T15:29:00.000Z",
+          reportingCurrency: "USD",
+          securities: [
+            {
+              ticker: "ASML",
+              securityName: "ASML Holding N.V.",
+              assetClass: "EQUITY",
+              securityCurrency: "USD",
+              reportingCurrency: "USD",
+              currentPrice: "1012.44000000",
+              fxRateToReportingCurrency: null,
+              quoteTimestamp: "2026-04-03T15:28:00.000Z",
+              dataQualityFlags: ["unsupported_security_currency", "fx_rate_unavailable"]
+            }
+          ]
+        }
+      })
+    );
+
+    expect(result.hasPricedHoldings).toBe(false);
+    expect(result.snapshot.holdings[0]?.currentPricePerUnit).toBe("1012.44000000");
+    expect(result.snapshot.holdings[0]?.fxRateToReportingCurrency).toBeNull();
+    expect(result.snapshot.holdings[0]?.marketValueAmount).toBeNull();
+    expect(result.snapshot.holdings[0]?.dataQualityFlags).toEqual([
+      "unsupported_security_currency",
+      "fx_rate_unavailable",
+      "market_value_unavailable"
+    ]);
+  });
 });

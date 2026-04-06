@@ -61,7 +61,7 @@ class YFinanceProvider(QuoteProvider):
         fast_info = payload["fast_info"]
         data_quality_flags: list[str] = []
 
-        security_currency = self._resolve_currency(
+        security_currency, currency_is_supported = self._resolve_currency(
             ticker=ticker,
             raw_currency=info.get("currency") or fast_info.get("currency"),
             reporting_currency=reporting_currency,
@@ -89,11 +89,15 @@ class YFinanceProvider(QuoteProvider):
         if not self._has_metadata(info):
             data_quality_flags.append("metadata_missing")
 
-        fx_rate = self._resolve_fx_rate(
-            security_currency=security_currency,
-            reporting_currency=reporting_currency,
-            data_quality_flags=data_quality_flags,
-        )
+        if currency_is_supported:
+            fx_rate = self._resolve_fx_rate(
+                security_currency=security_currency,
+                reporting_currency=reporting_currency,
+                data_quality_flags=data_quality_flags,
+            )
+        else:
+            data_quality_flags.append("fx_rate_unavailable")
+            fx_rate = None
 
         return MarketSecuritySnapshot(
             ticker=ticker,
@@ -171,15 +175,15 @@ class YFinanceProvider(QuoteProvider):
         raw_currency: Any,
         reporting_currency: SupportedCurrency,
         data_quality_flags: list[str],
-    ) -> SupportedCurrency:
+    ) -> tuple[SupportedCurrency, bool]:
         normalized_currency = str(raw_currency).upper() if raw_currency else ""
         if normalized_currency in SUPPORTED_CURRENCIES:
-            return SupportedCurrency(normalized_currency)
+            return SupportedCurrency(normalized_currency), True
         if ticker.endswith(".TO"):
             data_quality_flags.append("currency_inferred_from_symbol")
-            return SupportedCurrency.CAD
+            return SupportedCurrency.CAD, True
         data_quality_flags.append("unsupported_security_currency")
-        return reporting_currency
+        return reporting_currency, False
 
     @staticmethod
     def _has_metadata(info: Dict[str, Any]) -> bool:

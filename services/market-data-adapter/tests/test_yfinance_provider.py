@@ -38,6 +38,18 @@ def build_fake_factory() -> dict[str, FakeTicker]:
             fast_info={"lastPrice": 117.42, "previousClose": 116.01, "marketCap": 150000000000},
         ),
         "CADUSD=X": FakeTicker(info={"currency": "USD"}, fast_info={"lastPrice": 0.72}),
+        "ASML": FakeTicker(
+            info={
+                "currency": "EUR",
+                "shortName": "ASML Holding N.V.",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "industry": "Semiconductor Equipment & Materials",
+                "country": "Netherlands",
+                "regularMarketTime": 1711843200,
+            },
+            fast_info={"lastPrice": 1012.44, "previousClose": 1008.11, "marketCap": 410000000000},
+        ),
         "BAD": FakeTicker(info={}, fast_info={}),
     }
     return mapping
@@ -73,3 +85,20 @@ def test_yfinance_provider_returns_placeholder_flags_for_missing_quote_data() ->
     assert response[0].current_price is None
     assert "quote_not_found" in response[0].data_quality_flags
     assert "metadata_missing" in response[0].data_quality_flags
+
+
+def test_yfinance_provider_does_not_fake_same_currency_fx_for_unsupported_currencies() -> None:
+    fake_mapping = build_fake_factory()
+    provider = YFinanceProvider(
+        settings=ServiceSettings(request_timeout_seconds=0.1),
+        ticker_factory=lambda symbol: fake_mapping[symbol],
+    )
+    request = MarketDataRequest.model_validate({"tickers": ["ASML"], "reportingCurrency": "USD"})
+
+    response = provider.fetch_securities(request)
+
+    assert response[0].ticker == "ASML"
+    assert response[0].current_price == "1012.44000000"
+    assert response[0].fx_rate_to_reporting_currency is None
+    assert "unsupported_security_currency" in response[0].data_quality_flags
+    assert "fx_rate_unavailable" in response[0].data_quality_flags
