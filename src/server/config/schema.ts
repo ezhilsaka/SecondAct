@@ -53,7 +53,12 @@ export const narrativeEnvSchema = z.object({
     .default("openai-compatible"),
   NARRATIVE_PROVIDER_BASE_URL: z.string().url("NARRATIVE_PROVIDER_BASE_URL must be a valid URL."),
   NARRATIVE_PROVIDER_API_KEY: requiredString("NARRATIVE_PROVIDER_API_KEY"),
-  NARRATIVE_MODEL: requiredString("NARRATIVE_MODEL")
+  NARRATIVE_MODEL: requiredString("NARRATIVE_MODEL"),
+  NARRATIVE_PROVIDER_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive("NARRATIVE_PROVIDER_TIMEOUT_MS must be greater than zero.")
+    .default(30000)
 });
 
 export function formatIssues(issues: z.ZodIssue[]): string {

@@ -17,6 +17,12 @@ export const REPORT_DISCLAIMER_TEXT =
   "This report is provided for informational and educational purposes only. It is not investment, financial, legal, or tax advice and should not be relied on as a recommendation to buy, sell, or hold any security. Consider consulting a qualified professional before making investment decisions.";
 
 /**
+ * Prompt version used by the narrative provider. This stays separate from the
+ * contract schema version so prompt iteration does not imply payload drift.
+ */
+export const NARRATIVE_EXPLAINER_PROMPT_VERSION = "narrative-explainer.v1";
+
+/**
  * Contract design note: analysis sections should be driven by the product taxonomy,
  * not hardcoded provider-specific assumptions.
  */

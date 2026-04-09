@@ -1,5 +1,6 @@
 import {
   CONTRACT_SCHEMA_VERSIONS,
+  NARRATIVE_EXPLAINER_PROMPT_VERSION,
   REPORT_DISCLAIMER_TEXT,
   REPORT_DISCLAIMER_VERSION
 } from "@/server/shared/constants";
@@ -216,15 +217,40 @@ export function buildContractFixturePayloads() {
     generatedAt: now,
     context: {
       runId,
-      userId,
       portfolioId,
       reportingCurrency: "USD",
       valuationAsOf,
       marketDataProvider: marketDataResult.provider,
-      promptVersion: "prompt.v1"
+      promptVersion: NARRATIVE_EXPLAINER_PROMPT_VERSION
     },
-    canonicalSnapshot,
-    analysis: analysisOutput
+    portfolio: {
+      name: canonicalSnapshot.portfolioName,
+      reportingCurrency: "USD",
+      totalValueFormatted: "USD 3,409.34"
+    },
+    sections: analysisOutput.sections.map((section) => ({
+      sectionKey: section.sectionKey,
+      sectionTitle: section.sectionTitle,
+      sectionContext: {
+        deterministic_summary: section.summary ?? null,
+        findings: section.findings
+      },
+      metrics: section.metrics.map((metric) => ({
+        name: metric.key,
+        displayName: metric.label,
+        rawValue: metric.value,
+        formattedValue:
+          metric.displayValue ?? (typeof metric.value === "string" ? metric.value : null),
+        valueType: metric.unit ?? "text",
+        directionHint: null,
+        interpretationHint: null,
+        context: {
+          section_title: section.sectionTitle
+        },
+        dataQualityFlags: section.dataQualityFlags
+      }))
+    })),
+    globalDataQualityFlags: analysisOutput.dataQualityFlags
   });
 
   const narrativeOutput = narrativeOutputSchema.parse({
@@ -232,16 +258,18 @@ export function buildContractFixturePayloads() {
     generatedAt: now,
     provider: "openai-compatible",
     model: "local-mistral",
-    executiveSummary:
-      "The sample portfolio remains concentrated in two technology holdings but currently shows a positive unrealized gain.",
     sections: analysisOutput.sections.map((section) => ({
       sectionKey: section.sectionKey,
       sectionTitle: section.sectionTitle,
-      body: `Narrative for ${section.sectionTitle}`,
-      emphasis: section.sectionKey === "section-6" ? "cautionary" : "neutral"
+      summaryNarrative: `Summary narrative for ${section.sectionTitle}.`,
+      keyTakeaways: [`Key takeaway for ${section.sectionKey}`],
+      metrics: section.metrics.map((metric) => ({
+        name: metric.key,
+        displayName: metric.label,
+        narrative: `Narrative for ${metric.label}.`,
+        takeaways: [`Takeaway for ${metric.key}`]
+      }))
     })),
-    keyTakeaways: ["The portfolio is positive overall.", "Concentration remains elevated."],
-    cautionaryNotes: ["Delayed quotes should be refreshed before final delivery."],
     dataQualityFlags: analysisOutput.dataQualityFlags
   });
 
