@@ -1,12 +1,12 @@
 import type {
-    AnalysisMetric,
-    AnalysisOutput,
-    AnalysisSection,
-    AnalysisTable,
-    CanonicalPortfolioSnapshot,
-    NarrativeOutput,
-    NarrativeSection,
-    ReportDocument
+  AnalysisMetric,
+  AnalysisOutput,
+  AnalysisSection,
+  AnalysisTable,
+  CanonicalPortfolioSnapshot,
+  NarrativeOutput,
+  NarrativeSection,
+  ReportDocument
 } from "@/server/contracts";
 
 // ---------------------------------------------------------------------------
@@ -14,76 +14,76 @@ import type {
 // ---------------------------------------------------------------------------
 
 function esc(value: string): string {
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatCurrency(value: string | null, currency: string): string {
-    if (value === null) return "N/A";
-    const num = Number(value);
-    if (Number.isNaN(num)) return "N/A";
-    const sign = num < 0 ? "-" : "";
-    const formatted = Math.abs(num).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    return `${sign}${currency} ${formatted}`;
+  if (value === null) return "N/A";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "N/A";
+  const sign = num < 0 ? "-" : "";
+  const formatted = Math.abs(num).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  return `${sign}${currency} ${formatted}`;
 }
 
 function formatPercent(value: string | null): string {
-    if (value === null) return "N/A";
-    const num = Number(value);
-    if (Number.isNaN(num)) return "N/A";
-    return `${num >= 0 ? "+" : ""}${num.toFixed(2)}%`;
+  if (value === null) return "N/A";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "N/A";
+  return `${num >= 0 ? "+" : ""}${num.toFixed(2)}%`;
 }
 
 function formatDate(iso: string | null): string {
-    if (!iso) return "N/A";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "N/A";
-    return d.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-    });
+  if (!iso) return "N/A";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "N/A";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
 }
 
 function formatDateTime(iso: string | null): string {
-    if (!iso) return "N/A";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "N/A";
-    return d.toLocaleString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZoneName: "short"
-    });
+  if (!iso) return "N/A";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "N/A";
+  return d.toLocaleString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short"
+  });
 }
 
 function emphasisColor(emphasis: string | undefined): string {
-    switch (emphasis) {
-        case "positive":
-            return "#1a7f37";
-        case "negative":
-            return "#cf222e";
-        case "cautionary":
-            return "#bf6a00";
-        default:
-            return "#24292f";
-    }
+  switch (emphasis) {
+    case "positive":
+      return "#1a7f37";
+    case "negative":
+      return "#cf222e";
+    case "cautionary":
+      return "#bf6a00";
+    default:
+      return "#24292f";
+  }
 }
 
 function metricDisplayValue(metric: AnalysisMetric): string {
-    if (metric.displayValue) return metric.displayValue;
-    if (metric.value === null) return "N/A";
-    if (typeof metric.value === "number") return String(metric.value);
-    return metric.value;
+  if (metric.displayValue) return metric.displayValue;
+  if (metric.value === null) return "N/A";
+  if (typeof metric.value === "number") return String(metric.value);
+  return metric.value;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ function metricDisplayValue(metric: AnalysisMetric): string {
 // ---------------------------------------------------------------------------
 
 function buildStyles(): string {
-    return `
+  return `
     @page {
       size: A4;
       margin: 24mm 20mm 24mm 20mm;
@@ -353,8 +353,8 @@ function buildStyles(): string {
 // ---------------------------------------------------------------------------
 
 function buildCoverPage(report: ReportDocument): string {
-    const { metadata, portfolio } = report;
-    return `
+  const { metadata, portfolio } = report;
+  return `
     <div class="cover">
       <div class="cover-brand">Second Act</div>
       <h1>Quarterly Portfolio<br/>Grading Report</h1>
@@ -378,20 +378,20 @@ function buildCoverPage(report: ReportDocument): string {
 // ---------------------------------------------------------------------------
 
 function buildExecutiveSummary(report: ReportDocument): string {
-    const { analysis, canonicalSnapshot } = report;
-    const totals = canonicalSnapshot.portfolioTotals;
-    const summary = analysis.summary;
-    const currency = report.portfolio.reportingCurrency;
+  const { analysis, canonicalSnapshot } = report;
+  const totals = canonicalSnapshot.portfolioTotals;
+  const summary = analysis.summary;
+  const currency = report.portfolio.reportingCurrency;
 
-    const pnlColor = emphasisColor(
-        summary.totalUnrealizedPnL !== null && Number(summary.totalUnrealizedPnL) >= 0
-            ? "positive"
-            : "negative"
-    );
+  const pnlColor = emphasisColor(
+    summary.totalUnrealizedPnL !== null && Number(summary.totalUnrealizedPnL) >= 0
+      ? "positive"
+      : "negative"
+  );
 
-    const topFindings = analysis.sections.flatMap((s) => s.findings.slice(0, 1)).slice(0, 4);
+  const topFindings = analysis.sections.flatMap((s) => s.findings.slice(0, 1)).slice(0, 4);
 
-    return `
+  return `
     <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
@@ -428,15 +428,16 @@ function buildExecutiveSummary(report: ReportDocument): string {
           <div class="exec-card-value mono">${summary.concentrationHhi ?? "N/A"}</div>
         </div>
       </div>
-      ${topFindings.length > 0
-            ? `
+      ${
+        topFindings.length > 0
+          ? `
         <h3>Key Findings</h3>
         <ul class="findings-list">
           ${topFindings.map((f) => `<li>${esc(f)}</li>`).join("\n          ")}
         </ul>
       `
-            : ""
-        }
+          : ""
+      }
     </div>
   `;
 }
@@ -446,12 +447,12 @@ function buildExecutiveSummary(report: ReportDocument): string {
 // ---------------------------------------------------------------------------
 
 function buildMetricsGrid(metrics: AnalysisMetric[]): string {
-    if (metrics.length === 0) return "";
-    return `
+  if (metrics.length === 0) return "";
+  return `
     <div class="metrics-grid">
       ${metrics
-            .map(
-                (m) => `
+        .map(
+          (m) => `
         <div class="metric-item">
           <div class="metric-label">${esc(m.label)}</div>
           <div class="metric-value" style="color: ${emphasisColor(m.emphasis)};">
@@ -459,14 +460,14 @@ function buildMetricsGrid(metrics: AnalysisMetric[]): string {
           </div>
         </div>
       `
-            )
-            .join("")}
+        )
+        .join("")}
     </div>
   `;
 }
 
 function buildAnalysisTable(table: AnalysisTable): string {
-    return `
+  return `
     <table class="data-table">
       <caption>${esc(table.title)}</caption>
       <thead>
@@ -476,73 +477,76 @@ function buildAnalysisTable(table: AnalysisTable): string {
       </thead>
       <tbody>
         ${table.rows
-            .map(
-                (row) => `
+          .map(
+            (row) => `
           <tr>
             ${row.cells
-                        .map((cell) => {
-                            const display =
-                                cell.displayValue ?? (cell.value !== null ? String(cell.value) : "N/A");
-                            return `<td>${esc(display)}</td>`;
-                        })
-                        .join("")}
+              .map((cell) => {
+                const display =
+                  cell.displayValue ?? (cell.value !== null ? String(cell.value) : "N/A");
+                return `<td>${esc(display)}</td>`;
+              })
+              .join("")}
           </tr>
         `
-            )
-            .join("")}
+          )
+          .join("")}
       </tbody>
     </table>
   `;
 }
 
 function findNarrativeSection(
-    narrativeOutput: NarrativeOutput,
-    sectionKey: string
+  narrativeOutput: NarrativeOutput,
+  sectionKey: string
 ): NarrativeSection | undefined {
-    return narrativeOutput.sections.find((s) => s.sectionKey === sectionKey);
+  return narrativeOutput.sections.find((s) => s.sectionKey === sectionKey);
 }
 
 function buildNarrativeBlock(narrative: NarrativeSection | undefined): string {
-    if (!narrative) return "";
-    return `
+  if (!narrative) return "";
+  return `
     <div class="narrative-block">
       <p>${esc(narrative.summaryNarrative)}</p>
-      ${narrative.keyTakeaways.length > 0
-            ? `
+      ${
+        narrative.keyTakeaways.length > 0
+          ? `
         <ul class="takeaway-list">
           ${narrative.keyTakeaways.map((t) => `<li>${esc(t)}</li>`).join("\n          ")}
         </ul>
       `
-            : ""
-        }
+          : ""
+      }
     </div>
-    ${narrative.metrics.length > 0
-            ? narrative.metrics
-                .map(
-                    (m) => `
+    ${
+      narrative.metrics.length > 0
+        ? narrative.metrics
+            .map(
+              (m) => `
       <h4>${esc(m.displayName)}</h4>
       <p style="margin-bottom: 4pt;">${esc(m.narrative)}</p>
-      ${m.takeaways.length > 0
-                            ? `<ul class="takeaway-list">${m.takeaways.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`
-                            : ""
-                        }
+      ${
+        m.takeaways.length > 0
+          ? `<ul class="takeaway-list">${m.takeaways.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`
+          : ""
+      }
     `
-                )
-                .join("")
-            : ""
-        }
+            )
+            .join("")
+        : ""
+    }
   `;
 }
 
 function buildAnalysisSections(report: ReportDocument): string {
-    const sorted = [...report.analysis.sections].sort((a, b) => a.order - b.order);
+  const sorted = [...report.analysis.sections].sort((a, b) => a.order - b.order);
 
-    return sorted
-        .map((section, index) => {
-            const sectionNumber = String(index + 2).padStart(2, "0");
-            const narrativeSection = findNarrativeSection(report.narrative, section.sectionKey);
+  return sorted
+    .map((section, index) => {
+      const sectionNumber = String(index + 2).padStart(2, "0");
+      const narrativeSection = findNarrativeSection(report.narrative, section.sectionKey);
 
-            return `
+      return `
       <div class="page-break"></div>
       <div class="section-block">
         <div class="section-header">
@@ -551,21 +555,22 @@ function buildAnalysisSections(report: ReportDocument): string {
         ${section.summary ? `<p style="margin-bottom: 10pt;">${esc(section.summary)}</p>` : ""}
         ${buildMetricsGrid(section.metrics)}
         ${section.tables.map(buildAnalysisTable).join("")}
-        ${section.findings.length > 0
-                    ? `
+        ${
+          section.findings.length > 0
+            ? `
           <h3>Findings</h3>
           <ul class="findings-list">
             ${section.findings.map((f) => `<li>${esc(f)}</li>`).join("\n            ")}
           </ul>
         `
-                    : ""
-                }
+            : ""
+        }
         ${buildNarrativeBlock(narrativeSection)}
         ${buildDataQualityFlags(section.dataQualityFlags)}
       </div>
     `;
-        })
-        .join("");
+    })
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -573,8 +578,8 @@ function buildAnalysisSections(report: ReportDocument): string {
 // ---------------------------------------------------------------------------
 
 function buildDataQualityFlags(flags: string[]): string {
-    if (flags.length === 0) return "";
-    return `
+  if (flags.length === 0) return "";
+  return `
     <div class="dq-flags">
       <strong>Data Quality Notes</strong>
       <ul style="margin: 4pt 0 0 16pt; padding: 0;">
@@ -589,10 +594,10 @@ function buildDataQualityFlags(flags: string[]): string {
 // ---------------------------------------------------------------------------
 
 function buildMethodologySection(report: ReportDocument): string {
-    const { metadata, analysis, canonicalSnapshot } = report;
-    const sectionNumber = String(analysis.sections.length + 2).padStart(2, "0");
+  const { metadata, analysis, canonicalSnapshot } = report;
+  const sectionNumber = String(analysis.sections.length + 2).padStart(2, "0");
 
-    return `
+  return `
     <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
@@ -613,15 +618,16 @@ function buildMethodologySection(report: ReportDocument): string {
           <tr><th>Prompt Version</th><td class="mono">${esc(metadata.promptVersion ?? "N/A")}</td></tr>
         </tbody>
       </table>
-      ${analysis.methodologyNotes.length > 0
-            ? `
+      ${
+        analysis.methodologyNotes.length > 0
+          ? `
         <h3>Notes</h3>
         <ul class="findings-list">
           ${analysis.methodologyNotes.map((n) => `<li>${esc(n)}</li>`).join("\n          ")}
         </ul>
       `
-            : ""
-        }
+          : ""
+      }
       ${buildDataQualityFlags([...analysis.dataQualityFlags, ...canonicalSnapshot.dataQualityFlags])}
     </div>
   `;
@@ -632,10 +638,10 @@ function buildMethodologySection(report: ReportDocument): string {
 // ---------------------------------------------------------------------------
 
 function buildDisclaimerSection(report: ReportDocument): string {
-    const { compliance } = report;
-    const sectionNumber = String(report.analysis.sections.length + 3).padStart(2, "0");
+  const { compliance } = report;
+  const sectionNumber = String(report.analysis.sections.length + 3).padStart(2, "0");
 
-    return `
+  return `
     <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
@@ -657,7 +663,7 @@ function buildDisclaimerSection(report: ReportDocument): string {
 // ---------------------------------------------------------------------------
 
 export function buildReportHtml(report: ReportDocument): string {
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />

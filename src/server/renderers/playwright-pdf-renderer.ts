@@ -13,55 +13,55 @@ import { buildReportHtml } from "./build-report-html";
 const PDF_TEMP_ROOT = "/tmp/secondact";
 
 export class PlaywrightPdfRenderer implements PdfRenderer {
-    readonly rendererName = "playwright-chromium";
+  readonly rendererName = "playwright-chromium";
 
-    async render(input: RenderPdfInput): Promise<RenderPdfResult> {
-        const validatedRunId = uuidSchema.parse(input.metadata.runId);
-        const outputDir = path.join(PDF_TEMP_ROOT, validatedRunId);
-        const outputPath = path.join(outputDir, "report.pdf");
+  async render(input: RenderPdfInput): Promise<RenderPdfResult> {
+    const validatedRunId = uuidSchema.parse(input.metadata.runId);
+    const outputDir = path.join(PDF_TEMP_ROOT, validatedRunId);
+    const outputPath = path.join(outputDir, "report.pdf");
 
-        await mkdir(outputDir, { recursive: true });
+    await mkdir(outputDir, { recursive: true });
 
-        const html = buildReportHtml(input);
+    const html = buildReportHtml(input);
 
-        let browser: Browser | null = null;
-        try {
-            browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext();
-            const page = await context.newPage();
+    let browser: Browser | null = null;
+    try {
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext();
+      const page = await context.newPage();
 
-            await page.setContent(html, { waitUntil: "networkidle" });
+      await page.setContent(html, { waitUntil: "networkidle" });
 
-            await page.pdf({
-                path: outputPath,
-                format: "A4",
-                printBackground: true,
-                margin: {
-                    top: "24mm",
-                    bottom: "24mm",
-                    left: "20mm",
-                    right: "20mm"
-                }
-            });
-
-            await context.close();
-        } finally {
-            if (browser) {
-                await browser.close();
-            }
+      await page.pdf({
+        path: outputPath,
+        format: "A4",
+        printBackground: true,
+        margin: {
+          top: "24mm",
+          bottom: "24mm",
+          left: "20mm",
+          right: "20mm"
         }
+      });
 
-        const fileInfo = await stat(outputPath);
-        const byteSize = Number(fileInfo.size);
-
-        const pdfBuffer = await readFile(outputPath);
-        const checksumSha256 = createHash("sha256").update(pdfBuffer).digest("hex");
-
-        return {
-            filePath: outputPath,
-            mimeType: "application/pdf",
-            byteSize,
-            checksumSha256
-        };
+      await context.close();
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
+
+    const fileInfo = await stat(outputPath);
+    const byteSize = Number(fileInfo.size);
+
+    const pdfBuffer = await readFile(outputPath);
+    const checksumSha256 = createHash("sha256").update(pdfBuffer).digest("hex");
+
+    return {
+      filePath: outputPath,
+      mimeType: "application/pdf",
+      byteSize,
+      checksumSha256
+    };
+  }
 }
