@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
 
-import {
-    ArtifactNotFoundError,
-    ReportRunNotFoundError,
-    ReportRunService,
-    SignedUrlError,
-} from "@/server/services/report-run-service";
 import { uuidSchema } from "@/server/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +42,8 @@ export async function GET(
     }
 
     // 3. Call service
+    const { ReportRunService, ReportRunNotFoundError, ArtifactNotFoundError, SignedUrlError } =
+        await import("@/server/services/report-run-service");
     try {
         const service = new ReportRunService();
         const result = await service.getPdfSignedUrl(validatedRunId, userId);

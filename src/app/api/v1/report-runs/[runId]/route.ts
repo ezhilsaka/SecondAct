@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
 
-import {
-    ReportRunNotFoundError,
-    ReportRunService,
-} from "@/server/services/report-run-service";
 import { uuidSchema } from "@/server/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +42,9 @@ export async function GET(
     }
 
     // 3. Call service
+    const { ReportRunService, ReportRunNotFoundError } = await import(
+        "@/server/services/report-run-service"
+    );
     try {
         const service = new ReportRunService();
         const result = await service.getStatus(validatedRunId, userId);
