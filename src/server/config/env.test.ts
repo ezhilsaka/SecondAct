@@ -15,6 +15,8 @@ function applyValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
     GRAPHILE_WORKER_CONCURRENCY: "2",
     GRAPHILE_WORKER_POLL_INTERVAL_MS: "2500",
     REPORT_RUN_TASK_IDENTIFIER: "report.run.generate",
+    PAYMENT_GATE_ENABLED: "false",
+    SIGNED_URL_EXPIRY_SECONDS: "300",
     MARKET_DATA_SERVICE_URL: "https://quotes.example.com",
     MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "test-internal-secret",
     MARKET_DATA_SERVICE_TIMEOUT_MS: "7000",

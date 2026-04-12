@@ -14,6 +14,8 @@ function buildValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): NodeJS.Proce
     GRAPHILE_WORKER_CONCURRENCY: "2",
     GRAPHILE_WORKER_POLL_INTERVAL_MS: "2500",
     REPORT_RUN_TASK_IDENTIFIER: "report.run.generate",
+    PAYMENT_GATE_ENABLED: "false",
+    SIGNED_URL_EXPIRY_SECONDS: "300",
     MARKET_DATA_SERVICE_URL: "https://quotes.example.com",
     MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: "test-internal-secret",
     MARKET_DATA_SERVICE_TIMEOUT_MS: "7000",
@@ -41,6 +43,8 @@ describe("parseServerEnv", () => {
         GRAPHILE_WORKER_CONCURRENCY: undefined,
         GRAPHILE_WORKER_POLL_INTERVAL_MS: undefined,
         REPORT_RUN_TASK_IDENTIFIER: undefined,
+        PAYMENT_GATE_ENABLED: undefined,
+        SIGNED_URL_EXPIRY_SECONDS: undefined,
         MARKET_DATA_SERVICE_TIMEOUT_MS: undefined,
         PLAYWRIGHT_BROWSER: undefined
       })
@@ -51,8 +55,18 @@ describe("parseServerEnv", () => {
     expect(parsedEnv.GRAPHILE_WORKER_CONCURRENCY).toBe(1);
     expect(parsedEnv.GRAPHILE_WORKER_POLL_INTERVAL_MS).toBe(1000);
     expect(parsedEnv.REPORT_RUN_TASK_IDENTIFIER).toBe("report.run.generate");
+    expect(parsedEnv.PAYMENT_GATE_ENABLED).toBe(false);
+    expect(parsedEnv.SIGNED_URL_EXPIRY_SECONDS).toBe(300);
     expect(parsedEnv.MARKET_DATA_SERVICE_TIMEOUT_MS).toBe(10000);
     expect(parsedEnv.PLAYWRIGHT_BROWSER).toBe("chromium");
+  });
+
+  it("coerces PAYMENT_GATE_ENABLED string to boolean", () => {
+    const parsedEnv = parseServerEnv(
+      buildValidEnv({ PAYMENT_GATE_ENABLED: "true" })
+    );
+
+    expect(parsedEnv.PAYMENT_GATE_ENABLED).toBe(true);
   });
 
   it("surfaces aggregated validation errors", () => {

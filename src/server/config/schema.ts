@@ -34,6 +34,12 @@ export const serverEnvSchema = z.object({
   REPORT_RUN_TASK_IDENTIFIER: requiredString("REPORT_RUN_TASK_IDENTIFIER").default(
     "report.run.generate"
   ),
+  PAYMENT_GATE_ENABLED: z.coerce.boolean().default(false),
+  SIGNED_URL_EXPIRY_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive("SIGNED_URL_EXPIRY_SECONDS must be greater than zero.")
+    .default(300),
   MARKET_DATA_SERVICE_URL: z.string().url("MARKET_DATA_SERVICE_URL must be a valid URL."),
   MARKET_DATA_ADAPTER_INTERNAL_API_SECRET: requiredString(
     "MARKET_DATA_ADAPTER_INTERNAL_API_SECRET"
