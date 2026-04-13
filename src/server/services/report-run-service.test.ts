@@ -32,6 +32,7 @@ function buildMockRepository(
     return {
         verifyPortfolioOwnership: vi.fn().mockResolvedValue(true),
         createReportRun: vi.fn().mockResolvedValue({ id: TEST_RUN_ID }),
+        deleteReportRun: vi.fn().mockResolvedValue(undefined),
         getReportRunByIdAndUser: vi.fn().mockResolvedValue(null),
         getArtifactForCompletedRun: vi.fn().mockResolvedValue(null),
         ...overrides,
@@ -164,6 +165,56 @@ describe("ReportRunService", () => {
                     reportingCurrency: "CAD",
                 })
             ).rejects.toThrow();
+        });
+
+        it("deletes the created run when enqueue fails", async () => {
+            const repository = buildMockRepository();
+            const enqueueError = new Error("connection refused");
+            const jobEnqueuer = buildMockJobEnqueuer({
+                enqueue: vi.fn().mockRejectedValue(enqueueError),
+            });
+
+            const service = new ReportRunService({
+                repository,
+                jobEnqueuer,
+                env: BASE_ENV,
+            });
+
+            await expect(
+                service.createAndEnqueue({
+                    userId: TEST_USER_ID,
+                    portfolioId: TEST_PORTFOLIO_ID,
+                    reportingCurrency: "CAD",
+                })
+            ).rejects.toThrow("connection refused");
+
+            expect(repository.createReportRun).toHaveBeenCalled();
+            expect(repository.deleteReportRun).toHaveBeenCalledWith(TEST_RUN_ID);
+        });
+
+        it("preserves the enqueue error when cleanup delete also fails", async () => {
+            const repository = buildMockRepository({
+                deleteReportRun: vi.fn().mockRejectedValue(new Error("delete failed")),
+            });
+            const jobEnqueuer = buildMockJobEnqueuer({
+                enqueue: vi.fn().mockRejectedValue(new Error("connection refused")),
+            });
+
+            const service = new ReportRunService({
+                repository,
+                jobEnqueuer,
+                env: BASE_ENV,
+            });
+
+            await expect(
+                service.createAndEnqueue({
+                    userId: TEST_USER_ID,
+                    portfolioId: TEST_PORTFOLIO_ID,
+                    reportingCurrency: "CAD",
+                })
+            ).rejects.toThrow("connection refused");
+
+            expect(repository.deleteReportRun).toHaveBeenCalledWith(TEST_RUN_ID);
         });
     });
 

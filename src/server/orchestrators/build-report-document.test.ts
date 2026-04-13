@@ -93,6 +93,18 @@ describe("buildReportDocument", () => {
         expect(doc.portfolio.reportingCurrency).toBe("USD");
     });
 
+    it("uses run.reportingCurrency for portfolio context, not baseCurrency", () => {
+        const run = buildCompletedRun();
+        // Portfolio baseCurrency is USD, but run requests CAD
+        run.reportingCurrency = "CAD";
+        const doc = buildReportDocument(run, GENERATED_AT);
+
+        // metadata should match the run's reportingCurrency
+        expect(doc.metadata.reportingCurrency).toBe("CAD");
+        // portfolio context should also use the run's reportingCurrency, NOT the baseCurrency
+        expect(doc.portfolio.reportingCurrency).toBe("CAD");
+    });
+
     it("attaches the system-owned compliance block", () => {
         const run = buildCompletedRun();
         const doc = buildReportDocument(run, GENERATED_AT);

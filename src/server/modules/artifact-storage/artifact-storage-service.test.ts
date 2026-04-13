@@ -5,6 +5,8 @@ import { buildContractFixturePayloads } from "@/server/contracts/fixtures";
 
 import {
   ArtifactStorageService,
+  ArtifactAlreadyExistsError,
+  ArtifactMetadataError,
   ArtifactUploadError,
   type ArtifactStorageRepository,
   type StorageUploader
@@ -246,5 +248,69 @@ describe("ArtifactStorageService", () => {
     const createCall = (repository.createArtifactRecord as ReturnType<typeof vi.fn>).mock
       .calls[0][0];
     expect(typeof createCall.fileSizeBytes).toBe("bigint");
+  });
+
+  it("allows retry after metadata write failure by tolerating duplicate upload", async () => {
+    const { renderPdfResult } = buildContractFixturePayloads();
+
+    // First call: upload succeeds, metadata write fails (orphaned blob)
+    // Second call: upload throws ArtifactAlreadyExistsError (blob exists), service continues to metadata
+    const storageUploader: StorageUploader = {
+      upload: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ArtifactAlreadyExistsError("already exists"))
+    };
+    const repository: ArtifactStorageRepository = {
+      createArtifactRecord: vi.fn()
+        .mockRejectedValueOnce(new ArtifactMetadataError("DB connection lost"))
+        .mockResolvedValueOnce({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" })
+    };
+
+    const service = new ArtifactStorageService({
+      repository,
+      storageUploader,
+      bucket: BUCKET
+    });
+
+    // First attempt: upload succeeds, metadata write fails
+    seedLocalFile(renderPdfResult.filePath);
+    await expect(
+      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+    ).rejects.toBeInstanceOf(ArtifactMetadataError);
+    expect(storageUploader.upload).toHaveBeenCalledTimes(1);
+
+    // Retry: upload throws ArtifactAlreadyExistsError (orphaned blob), service tolerates it and writes metadata
+    seedLocalFile(renderPdfResult.filePath);
+    const result = await service.storeForReportRun({
+      reportRunId: RUN_ID,
+      userId: USER_ID,
+      renderResult: renderPdfResult
+    });
+    expect(storageUploader.upload).toHaveBeenCalledTimes(2);
+    expect(result.artifactId).toBe("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  });
+
+  it("propagates non-duplicate upload errors without catching them", async () => {
+    const { renderPdfResult } = buildContractFixturePayloads();
+    seedLocalFile(renderPdfResult.filePath);
+
+    const repository = buildMockRepository();
+    const storageUploader: StorageUploader = {
+      upload: vi.fn().mockRejectedValue(new ArtifactUploadError("network timeout"))
+    };
+    const service = new ArtifactStorageService({
+      repository,
+      storageUploader,
+      bucket: BUCKET
+    });
+
+    await expect(
+      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+    ).rejects.toBeInstanceOf(ArtifactUploadError);
+    await expect(
+      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+    ).rejects.not.toBeInstanceOf(ArtifactAlreadyExistsError);
+
+    expect(repository.createArtifactRecord).not.toHaveBeenCalled();
   });
 });

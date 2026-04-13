@@ -18,6 +18,10 @@ export class ArtifactUploadError extends Error {
   override name = "ArtifactUploadError";
 }
 
+export class ArtifactAlreadyExistsError extends ArtifactUploadError {
+  override name = "ArtifactAlreadyExistsError";
+}
+
 export class ArtifactMetadataError extends Error {
   override name = "ArtifactMetadataError";
 }
@@ -42,7 +46,7 @@ export interface ArtifactStorageRepository {
 }
 
 export class PrismaArtifactStorageRepository implements ArtifactStorageRepository {
-  constructor(private readonly prismaClient: PrismaClient = prisma) {}
+  constructor(private readonly prismaClient: PrismaClient = prisma) { }
 
   async createArtifactRecord(input: CreateArtifactRecordInput) {
     const artifact = await this.prismaClient.reportArtifact.create({
@@ -71,7 +75,7 @@ export interface StorageUploader {
 }
 
 export class SupabaseStorageUploader implements StorageUploader {
-  constructor(private readonly client: SupabaseClient = supabaseAdmin) {}
+  constructor(private readonly client: SupabaseClient = supabaseAdmin) { }
 
   async upload(bucket: string, storagePath: string, fileBuffer: Buffer) {
     const { error } = await this.client.storage.from(bucket).upload(storagePath, fileBuffer, {
@@ -80,6 +84,16 @@ export class SupabaseStorageUploader implements StorageUploader {
     });
 
     if (error) {
+      const msg = error.message?.toLowerCase() ?? "";
+      // Soft coupling to Supabase error wording. If the message format changes,
+      // duplicates will surface as a generic ArtifactUploadError (an observable
+      // failed run), not silent data corruption. Revisit if Supabase JS client
+      // changes its error messages.
+      if (msg.includes("already exists") || msg.includes("duplicate")) {
+        throw new ArtifactAlreadyExistsError(
+          `Artifact already exists at ${bucket}/${storagePath}: ${error.message}`
+        );
+      }
       throw new ArtifactUploadError(
         `Failed to upload artifact to ${bucket}/${storagePath}: ${error.message}`
       );
@@ -130,8 +144,18 @@ export class ArtifactStorageService {
     // 2. Build the storage path: {userId}/{reportRunId}/report.pdf
     const storagePath = `${userId}/${reportRunId}/report.pdf`;
 
-    // 3. Upload to Supabase Storage
-    await this.storageUploader.upload(this.bucket, storagePath, fileBuffer);
+    // 3. Upload to Supabase Storage (upsert: false rejects duplicates)
+    //    If an orphaned blob exists from a prior attempt where metadata write
+    //    failed, the upload throws ArtifactAlreadyExistsError. We treat that
+    //    as safe to proceed since the path is deterministic and content identical.
+    try {
+      await this.storageUploader.upload(this.bucket, storagePath, fileBuffer);
+    } catch (uploadError) {
+      if (!(uploadError instanceof ArtifactAlreadyExistsError)) {
+        throw uploadError;
+      }
+      // Orphaned blob from a previous attempt — safe to continue to metadata write
+    }
 
     // 4. Resolve file size: prefer the renderer-provided value, fall back to buffer length
     const fileSizeBytes = BigInt(input.renderResult.byteSize ?? fileBuffer.byteLength);

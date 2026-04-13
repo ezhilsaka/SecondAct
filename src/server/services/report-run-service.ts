@@ -60,6 +60,7 @@ export type ArtifactRow = {
 export interface ReportRunRepository {
     verifyPortfolioOwnership(userId: string, portfolioId: string): Promise<boolean>;
     createReportRun(input: CreateReportRunInput): Promise<{ id: string }>;
+    deleteReportRun(runId: string): Promise<void>;
     getReportRunByIdAndUser(runId: string, userId: string): Promise<ReportRunRow | null>;
     getArtifactForCompletedRun(runId: string, userId: string): Promise<ArtifactRow | null>;
 }
@@ -106,6 +107,10 @@ export class PrismaReportRunRepository implements ReportRunRepository {
                 failedAt: true,
             },
         });
+    }
+
+    async deleteReportRun(runId: string): Promise<void> {
+        await this.prismaClient.reportRun.delete({ where: { id: runId } });
     }
 
     async getArtifactForCompletedRun(runId: string, userId: string): Promise<ArtifactRow | null> {
@@ -246,10 +251,19 @@ export class ReportRunService {
             reportingCurrency: input.reportingCurrency,
         });
 
-        // 3. Enqueue the worker job
-        await this.jobEnqueuer.enqueue(this.env.REPORT_RUN_TASK_IDENTIFIER, {
-            reportRunId: run.id,
-        });
+        // 3. Enqueue the worker job; delete the run if enqueue fails
+        try {
+            await this.jobEnqueuer.enqueue(this.env.REPORT_RUN_TASK_IDENTIFIER, {
+                reportRunId: run.id,
+            });
+        } catch (enqueueError) {
+            try {
+                await this.repository.deleteReportRun(run.id);
+            } catch {
+                // Best-effort cleanup — preserve the original enqueue error
+            }
+            throw enqueueError;
+        }
 
         return { runId: run.id, status: "QUEUED" };
     }

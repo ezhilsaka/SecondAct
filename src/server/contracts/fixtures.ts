@@ -295,7 +295,7 @@ export function buildContractFixturePayloads() {
     portfolio: {
       name: canonicalSnapshot.portfolioName,
       description: canonicalSnapshot.portfolioDescription,
-      reportingCurrency: canonicalSnapshot.baseCurrency
+      reportingCurrency: "USD"
     },
     canonicalSnapshot,
     analysis: analysisOutput,

@@ -163,7 +163,7 @@ export function buildReportDocument(
         portfolio: {
             name: canonicalSnapshot.portfolioName,
             description: canonicalSnapshot.portfolioDescription,
-            reportingCurrency: canonicalSnapshot.baseCurrency
+            reportingCurrency: run.reportingCurrency
         },
         canonicalSnapshot,
         analysis: analysisOutput,
