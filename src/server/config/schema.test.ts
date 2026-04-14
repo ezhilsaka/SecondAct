@@ -62,9 +62,7 @@ describe("parseServerEnv", () => {
   });
 
   it("coerces PAYMENT_GATE_ENABLED string to boolean", () => {
-    const parsedEnv = parseServerEnv(
-      buildValidEnv({ PAYMENT_GATE_ENABLED: "true" })
-    );
+    const parsedEnv = parseServerEnv(buildValidEnv({ PAYMENT_GATE_ENABLED: "true" }));
 
     expect(parsedEnv.PAYMENT_GATE_ENABLED).toBe(true);
   });

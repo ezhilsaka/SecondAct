@@ -256,12 +256,14 @@ describe("ArtifactStorageService", () => {
     // First call: upload succeeds, metadata write fails (orphaned blob)
     // Second call: upload throws ArtifactAlreadyExistsError (blob exists), service continues to metadata
     const storageUploader: StorageUploader = {
-      upload: vi.fn()
+      upload: vi
+        .fn()
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new ArtifactAlreadyExistsError("already exists"))
     };
     const repository: ArtifactStorageRepository = {
-      createArtifactRecord: vi.fn()
+      createArtifactRecord: vi
+        .fn()
         .mockRejectedValueOnce(new ArtifactMetadataError("DB connection lost"))
         .mockResolvedValueOnce({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" })
     };
@@ -275,7 +277,11 @@ describe("ArtifactStorageService", () => {
     // First attempt: upload succeeds, metadata write fails
     seedLocalFile(renderPdfResult.filePath);
     await expect(
-      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+      service.storeForReportRun({
+        reportRunId: RUN_ID,
+        userId: USER_ID,
+        renderResult: renderPdfResult
+      })
     ).rejects.toBeInstanceOf(ArtifactMetadataError);
     expect(storageUploader.upload).toHaveBeenCalledTimes(1);
 
@@ -305,10 +311,18 @@ describe("ArtifactStorageService", () => {
     });
 
     await expect(
-      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+      service.storeForReportRun({
+        reportRunId: RUN_ID,
+        userId: USER_ID,
+        renderResult: renderPdfResult
+      })
     ).rejects.toBeInstanceOf(ArtifactUploadError);
     await expect(
-      service.storeForReportRun({ reportRunId: RUN_ID, userId: USER_ID, renderResult: renderPdfResult })
+      service.storeForReportRun({
+        reportRunId: RUN_ID,
+        userId: USER_ID,
+        renderResult: renderPdfResult
+      })
     ).rejects.not.toBeInstanceOf(ArtifactAlreadyExistsError);
 
     expect(repository.createArtifactRecord).not.toHaveBeenCalled();

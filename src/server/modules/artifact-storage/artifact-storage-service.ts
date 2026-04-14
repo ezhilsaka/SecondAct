@@ -46,7 +46,7 @@ export interface ArtifactStorageRepository {
 }
 
 export class PrismaArtifactStorageRepository implements ArtifactStorageRepository {
-  constructor(private readonly prismaClient: PrismaClient = prisma) { }
+  constructor(private readonly prismaClient: PrismaClient = prisma) {}
 
   async createArtifactRecord(input: CreateArtifactRecordInput) {
     const artifact = await this.prismaClient.reportArtifact.create({
@@ -75,7 +75,7 @@ export interface StorageUploader {
 }
 
 export class SupabaseStorageUploader implements StorageUploader {
-  constructor(private readonly client: SupabaseClient = supabaseAdmin) { }
+  constructor(private readonly client: SupabaseClient = supabaseAdmin) {}
 
   async upload(bucket: string, storagePath: string, fileBuffer: Buffer) {
     const { error } = await this.client.storage.from(bucket).upload(storagePath, fileBuffer, {
