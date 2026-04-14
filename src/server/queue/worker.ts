@@ -4,8 +4,14 @@ import { run as graphileRun, type TaskList } from "graphile-worker";
 
 import { serverEnv } from "@/server/config";
 import type { ServerEnv } from "@/server/config";
-import { ReportRunOrchestrator } from "@/server/orchestrators/report-run-orchestrator";
+import {
+  OrchestratorReportRunNotFoundError,
+  ReportRunNotQueuedError,
+  ReportRunOrchestrator
+} from "@/server/orchestrators/report-run-orchestrator";
 import { uuidSchema } from "@/server/shared/types";
+
+type WorkerLogger = Pick<typeof console, "info" | "warn">;
 
 export function getWorkerBaselineMetadata(env: ServerEnv = serverEnv) {
   return {
@@ -20,13 +26,33 @@ export function getWorkerBaselineMetadata(env: ServerEnv = serverEnv) {
  * Build the graphile-worker task list.
  * Each task is keyed by the task identifier from env config.
  */
-export function buildTaskList(env: ServerEnv = serverEnv): TaskList {
+export function buildTaskList(
+  env: ServerEnv = serverEnv,
+  logger: WorkerLogger = console
+): TaskList {
   return {
     [env.REPORT_RUN_TASK_IDENTIFIER]: async (payload) => {
       const { reportRunId } = payload as { reportRunId: unknown };
       const validatedRunId = uuidSchema.parse(reportRunId);
       const orchestrator = new ReportRunOrchestrator();
-      await orchestrator.execute(validatedRunId);
+
+      try {
+        await orchestrator.execute(validatedRunId);
+      } catch (error) {
+        if (
+          error instanceof ReportRunNotQueuedError ||
+          error instanceof OrchestratorReportRunNotFoundError
+        ) {
+          logger.warn("Skipping stale report run job.", {
+            reportRunId: validatedRunId,
+            errorName: error.name,
+            errorMessage: error.message
+          });
+          return;
+        }
+
+        throw error;
+      }
     }
   };
 }
@@ -35,10 +61,7 @@ export function buildTaskList(env: ServerEnv = serverEnv): TaskList {
  * Start the graphile-worker runner, connecting to the Supabase Postgres
  * database and polling for jobs.
  */
-export async function startWorker(
-  env: ServerEnv = serverEnv,
-  logger: Pick<typeof console, "info"> = console
-) {
+export async function startWorker(env: ServerEnv = serverEnv, logger: WorkerLogger = console) {
   const metadata = getWorkerBaselineMetadata(env);
   logger.info("Starting Second Act worker.", metadata);
 
@@ -47,7 +70,7 @@ export async function startWorker(
     schema: env.GRAPHILE_WORKER_SCHEMA,
     concurrency: env.GRAPHILE_WORKER_CONCURRENCY,
     pollInterval: env.GRAPHILE_WORKER_POLL_INTERVAL_MS,
-    taskList: buildTaskList(env)
+    taskList: buildTaskList(env, logger)
   });
 
   logger.info("Second Act worker is running.");

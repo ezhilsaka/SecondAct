@@ -25,9 +25,19 @@ vi.mock("graphile-worker", () => ({
 vi.mock("@/server/orchestrators/report-run-orchestrator", () => ({
   ReportRunOrchestrator: class {
     execute = mockExecute;
+  },
+  ReportRunNotQueuedError: class extends Error {
+    override name = "ReportRunNotQueuedError";
+  },
+  OrchestratorReportRunNotFoundError: class extends Error {
+    override name = "OrchestratorReportRunNotFoundError";
   }
 }));
 
+import {
+  OrchestratorReportRunNotFoundError,
+  ReportRunNotQueuedError
+} from "@/server/orchestrators/report-run-orchestrator";
 import { getWorkerBaselineMetadata, buildTaskList, startWorker } from "@/server/queue/worker";
 
 function buildWorkerEnv(overrides: Partial<ServerEnv> = {}) {
@@ -94,6 +104,63 @@ describe("worker", () => {
       await expect(handler({}, {} as never)).rejects.toThrow();
       expect(mockExecute).not.toHaveBeenCalled();
     });
+
+    it("logs and swallows ReportRunNotQueuedError for stale jobs", async () => {
+      const env = buildWorkerEnv();
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const taskList = buildTaskList(env, logger);
+      const handler = taskList[env.REPORT_RUN_TASK_IDENTIFIER]!;
+      const validId = "22222222-2222-4222-8222-222222222222";
+
+      mockExecute.mockRejectedValueOnce(
+        new ReportRunNotQueuedError("Report run is no longer QUEUED.")
+      );
+
+      await expect(handler({ reportRunId: validId }, {} as never)).resolves.toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Skipping stale report run job.",
+        expect.objectContaining({
+          reportRunId: validId,
+          errorName: "ReportRunNotQueuedError"
+        })
+      );
+    });
+
+    it("logs and swallows OrchestratorReportRunNotFoundError for stale jobs", async () => {
+      const env = buildWorkerEnv();
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const taskList = buildTaskList(env, logger);
+      const handler = taskList[env.REPORT_RUN_TASK_IDENTIFIER]!;
+      const validId = "22222222-2222-4222-8222-222222222222";
+
+      mockExecute.mockRejectedValueOnce(
+        new OrchestratorReportRunNotFoundError("Report run not found.")
+      );
+
+      await expect(handler({ reportRunId: validId }, {} as never)).resolves.toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Skipping stale report run job.",
+        expect.objectContaining({
+          reportRunId: validId,
+          errorName: "OrchestratorReportRunNotFoundError"
+        })
+      );
+    });
+
+    it("rethrows real pipeline failures", async () => {
+      const env = buildWorkerEnv();
+      const logger = { info: vi.fn(), warn: vi.fn() };
+      const taskList = buildTaskList(env, logger);
+      const handler = taskList[env.REPORT_RUN_TASK_IDENTIFIER]!;
+      const validId = "22222222-2222-4222-8222-222222222222";
+
+      mockExecute.mockRejectedValueOnce(new Error("render exploded"));
+
+      await expect(handler({ reportRunId: validId }, {} as never)).rejects.toThrow(
+        "render exploded"
+      );
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 
   describe("startWorker", () => {
@@ -104,7 +171,7 @@ describe("worker", () => {
         GRAPHILE_WORKER_CONCURRENCY: 5,
         GRAPHILE_WORKER_POLL_INTERVAL_MS: 2000
       });
-      const logger = { info: vi.fn() };
+      const logger = { info: vi.fn(), warn: vi.fn() };
 
       await startWorker(env, logger);
 
@@ -120,7 +187,7 @@ describe("worker", () => {
 
     it("logs startup and running messages", async () => {
       const env = buildWorkerEnv();
-      const logger = { info: vi.fn() };
+      const logger = { info: vi.fn(), warn: vi.fn() };
 
       await startWorker(env, logger);
 
@@ -135,7 +202,7 @@ describe("worker", () => {
 
     it("returns the graphile-worker runner", async () => {
       const env = buildWorkerEnv();
-      const logger = { info: vi.fn() };
+      const logger = { info: vi.fn(), warn: vi.fn() };
 
       const runner = await startWorker(env, logger);
 
