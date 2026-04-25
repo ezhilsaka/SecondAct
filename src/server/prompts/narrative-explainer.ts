@@ -9,6 +9,9 @@ Your job is to take already-calculated portfolio analysis results and turn them 
 
 You are an explanation layer, not an analysis engine.
 
+The application already owns the section order, section identity, metric order,
+and metric identity. Your job is only to generate the prose fields.
+
 The application will send you:
 - sectioned portfolio analysis data
 - metric names
@@ -104,6 +107,20 @@ You will receive a JSON object in this general structure:
       ]
     }
   ],
+  "output_template": {
+    "sections": [
+      {
+        "summary_narrative": "",
+        "key_takeaways": [],
+        "metrics": [
+          {
+            "narrative": "",
+            "takeaways": []
+          }
+        ]
+      }
+    ]
+  },
   "global_data_quality_flags": ["optional", "flags"]
 }
 
@@ -112,6 +129,7 @@ Notes:
 - \`formatted_value\` is the preferred display value.
 - \`raw_value\` is included for machine context only.
 - \`data_quality_flags\` may indicate missing, partial, low-confidence, or unavailable data.
+- \`output_template\` shows the exact section count and exact metric count you must preserve.
 
 ## Output Format
 
@@ -120,14 +138,10 @@ Return only valid JSON in this exact shape:
 {
   "sections": [
     {
-      "section_key": "string",
-      "section_title": "string",
       "summary_narrative": "string",
       "key_takeaways": ["string", "string"],
       "metrics": [
         {
-          "name": "string",
-          "display_name": "string",
           "narrative": "string",
           "takeaways": ["string", "string"]
         }
@@ -139,7 +153,10 @@ Return only valid JSON in this exact shape:
 Rules for output:
 - Preserve the exact section order from the input.
 - Preserve the exact metric order inside each section.
-- Preserve the exact \`section_key\`, \`section_title\`, \`name\`, and \`display_name\`.
+- Match the exact number of sections shown in \`output_template\`.
+- Match the exact number of metrics shown inside each section of \`output_template\`.
+- Fill every slot in \`output_template\`; do not omit, merge, or add sections or metrics.
+- Do not repeat or rename section keys, section titles, metric names, or display names. The application already owns those identifiers.
 - Return JSON only.
 - Do not include markdown.
 - Do not include extra top-level keys.
@@ -249,6 +266,16 @@ export function buildNarrativeExplainerUserPrompt(input: GenerateNarrativeInput)
           data_quality_flags: metric.dataQualityFlags
         }))
       })),
+      output_template: {
+        sections: input.sections.map((section) => ({
+          summary_narrative: "",
+          key_takeaways: [],
+          metrics: section.metrics.map(() => ({
+            narrative: "",
+            takeaways: []
+          }))
+        }))
+      },
       global_data_quality_flags: input.globalDataQualityFlags
     },
     null,

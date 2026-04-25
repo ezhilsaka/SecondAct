@@ -56,15 +56,11 @@ export class NarrativeContractError extends Error {
 }
 
 const llmNarrativeMetricSchema = z.object({
-  name: z.string().trim().min(1),
-  display_name: z.string().trim().min(1),
   narrative: z.string().trim().min(1),
   takeaways: z.array(z.string().trim().min(1)).max(2).default([])
 });
 
 const llmNarrativeSectionSchema = z.object({
-  section_key: z.string().trim().min(1),
-  section_title: z.string().trim().min(1),
   summary_narrative: z.string().trim().min(1),
   key_takeaways: z.array(z.string().trim().min(1)).max(2).default([]),
   metrics: z.array(llmNarrativeMetricSchema)
@@ -183,15 +179,6 @@ function validateReturnedStructure(
       throw new NarrativeContractError("Narrative provider returned an unexpected extra section.");
     }
 
-    if (
-      section.section_key !== expectedSection.sectionKey ||
-      section.section_title !== expectedSection.sectionTitle
-    ) {
-      throw new NarrativeContractError(
-        `Narrative provider changed the section identity for ${expectedSection.sectionKey}.`
-      );
-    }
-
     if (section.metrics.length !== expectedSection.metrics.length) {
       throw new NarrativeContractError(
         `Narrative provider returned a different metric count for ${expectedSection.sectionKey}.`
@@ -204,15 +191,6 @@ function validateReturnedStructure(
       if (!expectedMetric) {
         throw new NarrativeContractError(
           `Narrative provider returned an unexpected extra metric for ${expectedSection.sectionKey}.`
-        );
-      }
-
-      if (
-        metric.name !== expectedMetric.name ||
-        metric.display_name !== expectedMetric.displayName
-      ) {
-        throw new NarrativeContractError(
-          `Narrative provider changed the metric identity for ${expectedMetric.name}.`
         );
       }
     });
@@ -231,14 +209,14 @@ function buildNarrativeOutput(
     generatedAt: generatedAt.toISOString(),
     provider: providerName,
     model,
-    sections: payload.sections.map((section) => ({
-      sectionKey: section.section_key,
-      sectionTitle: section.section_title,
+    sections: payload.sections.map((section, sectionIndex) => ({
+      sectionKey: input.sections[sectionIndex]!.sectionKey,
+      sectionTitle: input.sections[sectionIndex]!.sectionTitle,
       summaryNarrative: section.summary_narrative,
       keyTakeaways: section.key_takeaways,
-      metrics: section.metrics.map((metric) => ({
-        name: metric.name,
-        displayName: metric.display_name,
+      metrics: section.metrics.map((metric, metricIndex) => ({
+        name: input.sections[sectionIndex]!.metrics[metricIndex]!.name,
+        displayName: input.sections[sectionIndex]!.metrics[metricIndex]!.displayName,
         narrative: metric.narrative,
         takeaways: metric.takeaways
       }))
@@ -321,7 +299,7 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
     }
 
     const retryInstruction =
-      "Your previous reply was not valid JSON that matched the required schema. Return ONLY valid JSON that exactly matches the requested structure. Do not add markdown fences or extra commentary.";
+      "Your previous reply was not valid JSON that matched the required schema. Return ONLY valid JSON with the top-level key `sections`. Follow the provided `output_template` exactly: preserve the exact section count, preserve the exact metric count inside each section, and fill every slot in the template. Each section must contain `summary_narrative`, `key_takeaways`, and `metrics`. Each metric must contain only `narrative` and `takeaways`. Do not repeat section keys, section titles, metric names, or display names. Do not add markdown fences or extra commentary.";
     const secondAttempt = await this.requestNarrative(
       promptPayload,
       retryInstruction,
@@ -422,6 +400,7 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
           body: JSON.stringify({
             model: this.model,
             temperature: 0.2,
+            response_format: { type: "json_object" },
             messages
           }),
           redirect: "error",
