@@ -64,6 +64,26 @@ function emphasisColor(emphasis: string | undefined): string {
   }
 }
 
+function parseReportNumber(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPnlWithOptionalPercent(
+  amount: string | number | null | undefined,
+  percent: string | number | null | undefined,
+  currency: string
+): string {
+  const amountText = formatReportCurrency(amount, currency);
+  return parseReportNumber(percent) === null
+    ? amountText
+    : `${amountText} (${formatReportPercentage(percent, { showPositiveSign: true })})`;
+}
+
 function metricDisplayValue(metric: AnalysisMetric, currency: string): string {
   if (metric.displayValue && (metric.unit === "text" || metric.unit === undefined)) {
     return metric.displayValue;
@@ -154,6 +174,11 @@ function buildStyles(): string {
       grid-template-columns: 1fr 1fr;
       gap: 10pt;
       margin: 12pt 0 16pt;
+    }
+    .exec-overview {
+      margin: 0 0 12pt;
+      font-size: 10.5pt;
+      color: #24292f;
     }
     .exec-card {
       background: #f6f8fa;
@@ -363,6 +388,80 @@ function buildCoverPage(report: ReportDocument): string {
 // Executive summary
 // ---------------------------------------------------------------------------
 
+function buildExecutiveOverview(report: ReportDocument): string {
+  const summary = report.analysis.summary;
+  const currency = report.portfolio.reportingCurrency;
+  const pnl = parseReportNumber(summary.totalUnrealizedPnL);
+  const largestWeight = parseReportNumber(summary.largestPositionWeightPercent);
+
+  if (pnl === null) {
+    return "Portfolio-level performance is partially unavailable because market-value coverage is incomplete. The summary below highlights the values that can be calculated safely from the available data.";
+  }
+
+  const pnlDirection = pnl >= 0 ? "ahead of" : "below";
+  const pnlValue = formatPnlWithOptionalPercent(
+    summary.totalUnrealizedPnL,
+    summary.totalUnrealizedPnLPercent,
+    currency
+  );
+
+  if (largestWeight !== null) {
+    return `Your portfolio is currently ${pnlDirection} cost basis by ${pnlValue}. The main item to watch is concentration: the largest holding represents ${formatReportPercentage(summary.largestPositionWeightPercent)} of the portfolio, so one position has an outsized influence on results.`;
+  }
+
+  return `Your portfolio is currently ${pnlDirection} cost basis by ${pnlValue}. Concentration metrics are partially unavailable, so read the portfolio-level view alongside the data quality notes in this report.`;
+}
+
+function buildExecutiveFindings(report: ReportDocument): string[] {
+  const { analysis, canonicalSnapshot } = report;
+  const summary = analysis.summary;
+  const currency = report.portfolio.reportingCurrency;
+  const findings: string[] = [];
+  const pnl = parseReportNumber(summary.totalUnrealizedPnL);
+  const largestWeight = parseReportNumber(summary.largestPositionWeightPercent);
+  const riskSection = analysis.sections.find((section) => section.sectionKey === "risk-proxies");
+  const drawdownMetric = riskSection?.metrics.find(
+    (metric) => metric.key === "portfolio-drawdown-minus-20"
+  );
+
+  if (pnl !== null) {
+    const direction = pnl >= 0 ? "ahead of" : "below";
+    findings.push(
+      `The portfolio is ${direction} cost basis by ${formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency)}.`
+    );
+  } else {
+    findings.push(
+      "Portfolio-level paper profit/loss is unavailable because market-value coverage is incomplete."
+    );
+  }
+
+  if (largestWeight !== null) {
+    findings.push(
+      `The largest holding represents ${formatReportPercentage(summary.largestPositionWeightPercent)} of the portfolio, making concentration the main item to watch.`
+    );
+  } else {
+    findings.push("Concentration cannot be fully assessed until all holdings have usable weights.");
+  }
+
+  if (drawdownMetric?.value !== null && drawdownMetric?.value !== undefined) {
+    findings.push(
+      `A uniform -20% market shock would imply an estimated portfolio move of ${formatReportCurrency(drawdownMetric.value, currency)}.`
+    );
+  }
+
+  findings.push(
+    `The portfolio currently has ${formatReportCount(summary.gainersCount)} winning holdings and ${formatReportCount(summary.losersCount)} losing holdings.`
+  );
+
+  if (canonicalSnapshot.dataQualityFlags.length > 0 || analysis.dataQualityFlags.length > 0) {
+    findings.push(
+      "Some results should be read alongside the data quality notes later in the report."
+    );
+  }
+
+  return findings.slice(0, 4);
+}
+
 function buildExecutiveSummary(report: ReportDocument): string {
   const { analysis, canonicalSnapshot } = report;
   const totals = canonicalSnapshot.portfolioTotals;
@@ -375,7 +474,8 @@ function buildExecutiveSummary(report: ReportDocument): string {
       : "negative"
   );
 
-  const topFindings = analysis.sections.flatMap((s) => s.findings.slice(0, 1)).slice(0, 4);
+  const executiveFindings = buildExecutiveFindings(report);
+  const executiveOverview = buildExecutiveOverview(report);
 
   return `
     <div class="page-break"></div>
@@ -383,6 +483,7 @@ function buildExecutiveSummary(report: ReportDocument): string {
       <div class="section-header">
         <h2><span class="accent">01</span> Executive Summary</h2>
       </div>
+      <p class="exec-overview">${esc(executiveOverview)}</p>
       <div class="exec-grid">
         <div class="exec-card">
           <div class="exec-card-label">Total Market Value</div>
@@ -415,11 +516,11 @@ function buildExecutiveSummary(report: ReportDocument): string {
         </div>
       </div>
       ${
-        topFindings.length > 0
+        executiveFindings.length > 0
           ? `
         <h3>Key Findings</h3>
         <ul class="findings-list">
-          ${topFindings.map((f) => `<li>${esc(f)}</li>`).join("\n          ")}
+          ${executiveFindings.map((f) => `<li>${esc(f)}</li>`).join("\n          ")}
         </ul>
       `
           : ""

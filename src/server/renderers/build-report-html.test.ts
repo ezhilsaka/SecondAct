@@ -105,13 +105,27 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain("37.40171975");
   });
 
-  it("renders key findings from analysis sections", () => {
+  it("renders a productized executive overview before the summary cards", () => {
+    const report = getFixtureReport();
+    const html = buildReportHtml(report);
+
+    expect(html).toContain(
+      "Your portfolio is currently ahead of cost basis by USD 637.34 (+22.99%)."
+    );
+    expect(html).toContain("The main item to watch is concentration");
+    expect(html).not.toContain("reporting-currency terms");
+  });
+
+  it("renders curated executive key findings from summary metrics", () => {
     const report = getFixtureReport();
     const html = buildReportHtml(report);
 
     expect(html).toContain("Key Findings");
-    // Fixture sections have findings like "Finding for section-1"
-    expect(html).toContain("Finding for section-1");
+    expect(html).toContain("The portfolio is ahead of cost basis by USD 637.34 (+22.99%).");
+    expect(html).toContain(
+      "The largest holding represents 76.82% of the portfolio, making concentration the main item to watch."
+    );
+    expect(html).toContain("The portfolio currently has 2 winning holdings and 0 losing holdings.");
   });
 
   // ------- Analysis + Narrative sections -------
