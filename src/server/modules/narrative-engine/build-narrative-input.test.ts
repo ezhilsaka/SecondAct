@@ -31,6 +31,55 @@ describe("buildNarrativeInput", () => {
     expect(result.sections[0]?.metrics.map((metric) => metric.name)).toEqual(
       analysisOutput.sections[0]?.metrics.map((metric) => metric.key)
     );
+    expect(result.sections[0]?.metrics[0]?.formattedValue).toBe("USD 3,409.34");
+    expect(result.sections[0]?.metrics[1]?.formattedValue).toBe("2");
+  });
+
+  it("uses centralized display formatting for prompt values", () => {
+    const { canonicalSnapshot, analysisOutput } = buildContractFixturePayloads();
+    analysisOutput.sections[0]!.metrics = [
+      {
+        key: "large-raw-currency",
+        label: "Large raw currency",
+        value: "1196.15374975",
+        unit: "currency",
+        displayValue: "1196.15374975"
+      },
+      {
+        key: "raw-percentage",
+        label: "Raw percentage",
+        value: "37.40171975",
+        unit: "percentage",
+        displayValue: "37.40171975"
+      },
+      {
+        key: "raw-ratio",
+        label: "Raw ratio",
+        value: "0.64694640",
+        unit: "ratio",
+        displayValue: "0.64694640"
+      }
+    ];
+
+    const result = buildNarrativeInput({
+      generatedAt: new Date("2026-04-06T12:00:00.000Z"),
+      canonicalSnapshot,
+      analysisOutput,
+      context: {
+        runId: canonicalSnapshot.runId,
+        portfolioId: canonicalSnapshot.portfolioId,
+        reportingCurrency: "USD",
+        valuationAsOf: "2026-03-28T20:00:00.000Z",
+        marketDataProvider: "yfinance",
+        promptVersion: NARRATIVE_EXPLAINER_PROMPT_VERSION
+      }
+    });
+
+    expect(result.sections[0]?.metrics.map((metric) => metric.formattedValue)).toEqual([
+      "USD 1,196.15",
+      "37.4%",
+      "0.65"
+    ]);
   });
 
   it("passes section and global data-quality flags through to the prompt payload", () => {

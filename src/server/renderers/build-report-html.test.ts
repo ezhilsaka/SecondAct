@@ -92,6 +92,19 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Concentration (HHI)");
   });
 
+  it("formats executive summary numbers with report display rules", () => {
+    const report = getFixtureReport();
+    report.analysis.summary.concentrationHhi = "0.64694640";
+    report.analysis.summary.totalUnrealizedPnLPercent = "37.40171975";
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("0.65");
+    expect(html).toContain("+37.4%");
+    expect(html).not.toContain("0.64694640");
+    expect(html).not.toContain("37.40171975");
+  });
+
   it("renders key findings from analysis sections", () => {
     const report = getFixtureReport();
     const html = buildReportHtml(report);
@@ -130,6 +143,75 @@ describe("buildReportHtml", () => {
     // Fixture holdings AAPL should appear in table rows
     expect(html).toContain("AAPL");
     expect(html).toContain("SHOP.TO");
+  });
+
+  it("formats metric and table values by unit instead of leaking raw decimal strings", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    section.metrics = [
+      {
+        key: "raw-currency",
+        label: "Raw currency",
+        value: "3198.12500000",
+        unit: "currency"
+      },
+      {
+        key: "raw-percentage",
+        label: "Raw percentage",
+        value: "77.10594076",
+        unit: "percentage"
+      },
+      {
+        key: "raw-ratio",
+        label: "Raw ratio",
+        value: "0.64694640",
+        unit: "ratio"
+      }
+    ];
+    section.tables = [
+      {
+        tableKey: "raw-values",
+        title: "Raw values",
+        columns: [
+          { key: "ticker", label: "Ticker", unit: "text" },
+          { key: "currency", label: "Currency", unit: "currency" },
+          { key: "percentage", label: "Percentage", unit: "percentage" },
+          { key: "ratio", label: "Ratio", unit: "ratio" }
+        ],
+        rows: [
+          {
+            rowKey: "row-1",
+            cells: [
+              { columnKey: "ticker", value: "AAPL" },
+              {
+                columnKey: "currency",
+                value: "3198.12500000",
+                displayValue: "3198.12500000"
+              },
+              {
+                columnKey: "percentage",
+                value: "77.10594076",
+                displayValue: "77.10594076"
+              },
+              {
+                columnKey: "ratio",
+                value: "0.64694640",
+                displayValue: "0.64694640"
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("USD 3,198.13");
+    expect(html).toContain("77.11%");
+    expect(html).toContain("0.65");
+    expect(html).not.toContain("3198.12500000");
+    expect(html).not.toContain("77.10594076");
+    expect(html).not.toContain("0.64694640");
   });
 
   it("renders narrative summary and takeaways for sections", () => {

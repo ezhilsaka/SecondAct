@@ -8,6 +8,11 @@ import {
   type CanonicalPortfolioSnapshot
 } from "@/server/contracts";
 import { CONTRACT_SCHEMA_VERSIONS } from "@/server/shared/constants";
+import {
+  formatReportCurrency,
+  formatReportPercentage,
+  formatReportRatio
+} from "@/server/shared/report-formatting";
 
 type AnalysisHolding = {
   holdingId: string;
@@ -77,6 +82,29 @@ function toDecimalString(value: Prisma.Decimal | null): string | null {
   }
 
   return value.toFixed(8);
+}
+
+function toDisplayNumber(value: Prisma.Decimal | null): string | null {
+  return value ? toDecimalString(value) : null;
+}
+
+function displayCurrency(value: Prisma.Decimal | null, currency: string): string {
+  return formatReportCurrency(toDisplayNumber(value), currency);
+}
+
+function displayPercent(
+  value: Prisma.Decimal | null,
+  options: { showPositiveSign?: boolean } = {}
+): string {
+  return formatReportPercentage(toDisplayNumber(value), options);
+}
+
+function displayRatio(value: Prisma.Decimal | null): string {
+  return formatReportRatio(toDisplayNumber(value));
+}
+
+function inferReportingCurrency(snapshot: CanonicalPortfolioSnapshot): string {
+  return snapshot.holdings[0]?.reportingCurrency ?? snapshot.baseCurrency;
 }
 
 function decimalAbs(value: Prisma.Decimal): Prisma.Decimal {
@@ -240,6 +268,7 @@ function buildPerformanceSection(
   snapshot: CanonicalPortfolioSnapshot,
   holdings: AnalysisHolding[]
 ): AnalysisSection {
+  const reportingCurrency = inferReportingCurrency(snapshot);
   const totalCostBasis = snapshot.portfolioTotals.totalCostBasis;
   const totalMarketValue = snapshot.portfolioTotals.totalMarketValue;
   const totalUnrealizedPnL = snapshot.portfolioTotals.totalUnrealizedPnL;
@@ -262,13 +291,13 @@ function buildPerformanceSection(
 
   const findings = [
     totalUnrealizedPnL
-      ? `The portfolio's current paper P&L is ${totalUnrealizedPnL} in reporting-currency terms.`
+      ? `The portfolio's current paper P&L is ${formatReportCurrency(totalUnrealizedPnL, reportingCurrency)}.`
       : "Portfolio-level paper P&L is unavailable because market-value coverage is incomplete.",
     topWinner && topWinner.unrealizedPnLAmount
-      ? `${topWinner.ticker} is the strongest paper winner at ${toDecimalString(topWinner.unrealizedPnLAmount)}.`
+      ? `${topWinner.ticker} is the strongest paper winner at ${displayCurrency(topWinner.unrealizedPnLAmount, reportingCurrency)}.`
       : "There is no priced winning position to highlight yet.",
     topLoser && topLoser.unrealizedPnLAmount
-      ? `${topLoser.ticker} is the largest paper drag at ${toDecimalString(topLoser.unrealizedPnLAmount)}.`
+      ? `${topLoser.ticker} is the largest paper drag at ${displayCurrency(topLoser.unrealizedPnLAmount, reportingCurrency)}.`
       : "There is no priced losing position to highlight right now."
   ];
 
@@ -277,7 +306,7 @@ function buildPerformanceSection(
     sectionTitle: "Performance & P&L Analysis",
     order: 1,
     summary: totalUnrealizedPnLPercent
-      ? `Portfolio return from cost basis is currently ${totalUnrealizedPnLPercent}%.`
+      ? `Portfolio return from cost basis is currently ${formatReportPercentage(totalUnrealizedPnLPercent)}.`
       : "Portfolio-level return is only partially available because not every holding has a usable market value.",
     metrics: [
       buildMetric({
@@ -378,13 +407,13 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
 
   const findings = [
     largestPositionWeightPercent
-      ? `The largest holding represents ${toDecimalString(largestPositionWeightPercent)}% of total market value.`
+      ? `The largest holding represents ${displayPercent(largestPositionWeightPercent)} of total market value.`
       : "Position-weight concentration is unavailable because not every holding has a usable market value.",
     top3Concentration
-      ? `The top three holdings account for ${toDecimalString(top3Concentration)}% of the portfolio.`
+      ? `The top three holdings account for ${displayPercent(top3Concentration)} of the portfolio.`
       : "Top-holding concentration cannot be measured until all holdings have valid weights.",
     effectivePositions
-      ? `The effective number of positions is approximately ${toDecimalString(effectivePositions)}.`
+      ? `The effective number of positions is approximately ${displayRatio(effectivePositions)}.`
       : "Effective position count is unavailable under the current data-quality state."
   ];
 
@@ -393,7 +422,7 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
     sectionTitle: "Allocation & Concentration Analysis",
     order: 2,
     summary: largestPositionWeightPercent
-      ? `Current concentration is led by a ${toDecimalString(largestPositionWeightPercent)}% largest position.`
+      ? `Current concentration is led by a ${displayPercent(largestPositionWeightPercent)} largest position.`
       : "Allocation concentration metrics are partially unavailable because portfolio weights are incomplete.",
     metrics: [
       buildMetric({
@@ -467,6 +496,7 @@ function buildRiskSection(
   snapshot: CanonicalPortfolioSnapshot,
   holdings: AnalysisHolding[]
 ): AnalysisSection {
+  const reportingCurrency = inferReportingCurrency(snapshot);
   const totalMarketValue = hasCompleteMarketCoverage(holdings)
     ? toDecimal(snapshot.portfolioTotals.totalMarketValue)
     : null;
@@ -485,13 +515,13 @@ function buildRiskSection(
 
   const findings = [
     portfolioDrawdownValue
-      ? `Under a uniform -20% market shock, the estimated portfolio drawdown is ${toDecimalString(portfolioDrawdownValue)}.`
+      ? `Under a uniform -20% market shock, the estimated portfolio drawdown is ${displayCurrency(portfolioDrawdownValue, reportingCurrency)}.`
       : "Portfolio drawdown exposure cannot be estimated until total market value is available.",
     largestCapitalAtRisk?.capitalAtRisk20Amount
       ? `${largestCapitalAtRisk.ticker} contributes the largest dollar downside under the -20% shock assumption.`
       : "No single-position downside leader can be identified yet.",
     largestLossShare?.lossShare20Percent
-      ? `${largestLossShare.ticker} would account for ${toDecimalString(largestLossShare.lossShare20Percent)}% of modeled downside loss under the uniform shock.`
+      ? `${largestLossShare.ticker} would account for ${displayPercent(largestLossShare.lossShare20Percent)} of modeled downside loss under the uniform shock.`
       : "Loss concentration cannot be calculated until all holdings have market values."
   ];
 
@@ -611,10 +641,10 @@ function buildPortfolioHealthSection(
   const findings = [
     `The portfolio currently has ${winners.length} winning holdings and ${losers.length} losing holdings.`,
     avgGainPercent !== null && avgLossPercent !== null
-      ? `Average winning return is ${toDecimalString(avgGainPercent)}% versus ${toDecimalString(avgLossPercent)}% for average losing return.`
+      ? `Average winning return is ${displayPercent(avgGainPercent)} versus ${displayPercent(avgLossPercent)} for average losing return.`
       : "Average winner-versus-loser comparison is incomplete because one side of the distribution is missing.",
     portfolioBreakevenReturnFromToday !== null
-      ? `From today's mark, the portfolio would need ${toDecimalString(portfolioBreakevenReturnFromToday)}% to get back to total cost basis.`
+      ? `From today's mark, the portfolio would need ${displayPercent(portfolioBreakevenReturnFromToday, { showPositiveSign: true })} to get back to total cost basis.`
       : "Portfolio breakeven distance from today's value is unavailable with the current market-value coverage."
   ];
 
@@ -715,6 +745,7 @@ function buildScenarioSection(
   snapshot: CanonicalPortfolioSnapshot,
   holdings: AnalysisHolding[]
 ): AnalysisSection {
+  const reportingCurrency = inferReportingCurrency(snapshot);
   const totalMarketValue = hasCompleteMarketCoverage(holdings)
     ? toDecimal(snapshot.portfolioTotals.totalMarketValue)
     : null;
@@ -746,10 +777,10 @@ function buildScenarioSection(
 
   const findings = [
     scenarioRows[0]?.scenarioPnl
-      ? `${scenarioRows[0].scenario.label} implies a portfolio P&L of ${toDecimalString(scenarioRows[0].scenarioPnl)}.`
+      ? `${scenarioRows[0].scenario.label} implies a portfolio P&L of ${displayCurrency(scenarioRows[0].scenarioPnl, reportingCurrency)}.`
       : "Scenario portfolio values are unavailable because total market value is incomplete.",
     scenarioRows[1]?.scenarioPnl
-      ? `${scenarioRows[1].scenario.label} implies a portfolio P&L of ${toDecimalString(scenarioRows[1].scenarioPnl)}.`
+      ? `${scenarioRows[1].scenario.label} implies a portfolio P&L of ${displayCurrency(scenarioRows[1].scenarioPnl, reportingCurrency)}.`
       : "Deeper downside scenario results are unavailable with the current data coverage.",
     topPositionStress?.positionStress30LossAmount
       ? `${topPositionStress.ticker} has the largest single-name impact under a -30% position stress.`
@@ -850,13 +881,13 @@ function buildBenchmarkSection(
 
   const findings = [
     actualPortfolioReturnPercent !== null
-      ? `Actual portfolio return is ${toDecimalString(actualPortfolioReturnPercent)}% from cost basis.`
+      ? `Actual portfolio return is ${displayPercent(actualPortfolioReturnPercent)} from cost basis.`
       : "Actual portfolio return is incomplete because total portfolio return is unavailable.",
     equalWeightBenchmarkReturnPercent !== null
-      ? `The equal-weight internal benchmark return is ${toDecimalString(equalWeightBenchmarkReturnPercent)}%.`
+      ? `The equal-weight internal benchmark return is ${displayPercent(equalWeightBenchmarkReturnPercent)}.`
       : "Equal-weight benchmark return is unavailable because not every holding has a valid return.",
     activeReturnPercent !== null
-      ? `Active return versus the equal-weight benchmark is ${toDecimalString(activeReturnPercent)}%.`
+      ? `Active return versus the equal-weight benchmark is ${displayPercent(activeReturnPercent, { showPositiveSign: true })}.`
       : "Active return versus the equal-weight benchmark cannot be computed yet."
   ];
 

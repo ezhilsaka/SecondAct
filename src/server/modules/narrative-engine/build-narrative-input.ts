@@ -6,6 +6,7 @@ import type {
   NarrativeMetricInput
 } from "@/server/contracts";
 import { generateNarrativeInputSchema } from "@/server/contracts";
+import { formatReportValue } from "@/server/shared/report-formatting";
 
 type BuildNarrativeInputContext = {
   runId: string;
@@ -27,38 +28,11 @@ function toIsoString(value: Date): string {
   return value.toISOString();
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("en-CA", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function formatDecimalString(value: string): number {
-  return Number.parseFloat(value);
-}
-
-function formatCurrency(value: string, reportingCurrency: "USD" | "CAD"): string {
-  return `${reportingCurrency} ${formatNumber(formatDecimalString(value))}`;
-}
-
-function formatPercentage(value: string): string {
-  return `${formatNumber(formatDecimalString(value))}%`;
-}
-
-function formatRatio(value: string): string {
-  return `${formatNumber(formatDecimalString(value))}x`;
-}
-
-function formatCount(value: number | string): string {
-  return formatNumber(typeof value === "number" ? value : formatDecimalString(value));
-}
-
 function inferFormattedValue(
   metric: AnalysisMetric,
   reportingCurrency: "USD" | "CAD"
 ): string | null | undefined {
-  if (metric.displayValue) {
+  if (metric.displayValue && (metric.unit === "text" || metric.unit === undefined)) {
     return metric.displayValue;
   }
 
@@ -66,43 +40,7 @@ function inferFormattedValue(
     return null;
   }
 
-  if (typeof metric.value === "string") {
-    switch (metric.unit) {
-      case "currency":
-        return formatCurrency(metric.value, reportingCurrency);
-      case "percentage":
-        return formatPercentage(metric.value);
-      case "ratio":
-        return formatRatio(metric.value);
-      case "count":
-        return formatCount(metric.value);
-      case "text":
-      case undefined:
-        return metric.value;
-      default:
-        return metric.value;
-    }
-  }
-
-  if (typeof metric.value === "number") {
-    switch (metric.unit) {
-      case "currency":
-        return `${reportingCurrency} ${formatNumber(metric.value)}`;
-      case "percentage":
-        return `${formatNumber(metric.value)}%`;
-      case "ratio":
-        return `${formatNumber(metric.value)}x`;
-      case "count":
-        return formatCount(metric.value);
-      case "text":
-      case undefined:
-        return String(metric.value);
-      default:
-        return String(metric.value);
-    }
-  }
-
-  return null;
+  return formatReportValue(metric.value, metric.unit, { currency: reportingCurrency });
 }
 
 function inferValueType(metric: AnalysisMetric): NarrativeMetricInput["valueType"] {
@@ -220,10 +158,9 @@ export function buildNarrativeInput(input: BuildNarrativeInputInput): GenerateNa
       name: input.canonicalSnapshot.portfolioName,
       reportingCurrency: input.context.reportingCurrency,
       totalValueFormatted: input.analysisOutput.summary.totalMarketValue
-        ? formatCurrency(
-            input.analysisOutput.summary.totalMarketValue,
-            input.context.reportingCurrency
-          )
+        ? formatReportValue(input.analysisOutput.summary.totalMarketValue, "currency", {
+            currency: input.context.reportingCurrency
+          })
         : null
     },
     sections: input.analysisOutput.sections.map((section) => ({

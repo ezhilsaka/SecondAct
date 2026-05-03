@@ -1,13 +1,17 @@
 import type {
   AnalysisMetric,
-  AnalysisOutput,
-  AnalysisSection,
   AnalysisTable,
-  CanonicalPortfolioSnapshot,
   NarrativeOutput,
   NarrativeSection,
   ReportDocument
 } from "@/server/contracts";
+import {
+  formatReportCount,
+  formatReportCurrency,
+  formatReportPercentage,
+  formatReportRatio,
+  formatReportValue
+} from "@/server/shared/report-formatting";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,25 +24,6 @@ function esc(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
-}
-
-function formatCurrency(value: string | null, currency: string): string {
-  if (value === null) return "N/A";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "N/A";
-  const sign = num < 0 ? "-" : "";
-  const formatted = Math.abs(num).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-  return `${sign}${currency} ${formatted}`;
-}
-
-function formatPercent(value: string | null): string {
-  if (value === null) return "N/A";
-  const num = Number(value);
-  if (Number.isNaN(num)) return "N/A";
-  return `${num >= 0 ? "+" : ""}${num.toFixed(2)}%`;
 }
 
 function formatDate(iso: string | null): string {
@@ -79,11 +64,12 @@ function emphasisColor(emphasis: string | undefined): string {
   }
 }
 
-function metricDisplayValue(metric: AnalysisMetric): string {
-  if (metric.displayValue) return metric.displayValue;
-  if (metric.value === null) return "N/A";
-  if (typeof metric.value === "number") return String(metric.value);
-  return metric.value;
+function metricDisplayValue(metric: AnalysisMetric, currency: string): string {
+  if (metric.displayValue && (metric.unit === "text" || metric.unit === undefined)) {
+    return metric.displayValue;
+  }
+
+  return formatReportValue(metric.value, metric.unit, { currency });
 }
 
 // ---------------------------------------------------------------------------
@@ -400,32 +386,32 @@ function buildExecutiveSummary(report: ReportDocument): string {
       <div class="exec-grid">
         <div class="exec-card">
           <div class="exec-card-label">Total Market Value</div>
-          <div class="exec-card-value">${formatCurrency(totals.totalMarketValue, currency)}</div>
+          <div class="exec-card-value">${formatReportCurrency(totals.totalMarketValue, currency)}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Total Cost Basis</div>
-          <div class="exec-card-value">${formatCurrency(totals.totalCostBasis, currency)}</div>
+          <div class="exec-card-value">${formatReportCurrency(totals.totalCostBasis, currency)}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Unrealized P&amp;L</div>
           <div class="exec-card-value" style="color: ${pnlColor};">
-            ${formatCurrency(summary.totalUnrealizedPnL, currency)}
-            (${formatPercent(summary.totalUnrealizedPnLPercent)})
+            ${formatReportCurrency(summary.totalUnrealizedPnL, currency)}
+            (${formatReportPercentage(summary.totalUnrealizedPnLPercent, { showPositiveSign: true })})
           </div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Holdings</div>
-          <div class="exec-card-value">${totals.holdingCount}</div>
+          <div class="exec-card-value">${formatReportCount(totals.holdingCount)}</div>
         </div>
       </div>
       <div class="exec-grid">
         <div class="exec-card">
           <div class="exec-card-label">Gainers / Losers</div>
-          <div class="exec-card-value">${summary.gainersCount} / ${summary.losersCount}</div>
+          <div class="exec-card-value">${formatReportCount(summary.gainersCount)} / ${formatReportCount(summary.losersCount)}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Concentration (HHI)</div>
-          <div class="exec-card-value mono">${summary.concentrationHhi ?? "N/A"}</div>
+          <div class="exec-card-value mono">${formatReportRatio(summary.concentrationHhi)}</div>
         </div>
       </div>
       ${
@@ -446,7 +432,7 @@ function buildExecutiveSummary(report: ReportDocument): string {
 // Analysis + Narrative sections
 // ---------------------------------------------------------------------------
 
-function buildMetricsGrid(metrics: AnalysisMetric[]): string {
+function buildMetricsGrid(metrics: AnalysisMetric[], currency: string): string {
   if (metrics.length === 0) return "";
   return `
     <div class="metrics-grid">
@@ -456,7 +442,7 @@ function buildMetricsGrid(metrics: AnalysisMetric[]): string {
         <div class="metric-item">
           <div class="metric-label">${esc(m.label)}</div>
           <div class="metric-value" style="color: ${emphasisColor(m.emphasis)};">
-            ${esc(metricDisplayValue(m))}
+            ${esc(metricDisplayValue(m, currency))}
           </div>
         </div>
       `
@@ -466,7 +452,9 @@ function buildMetricsGrid(metrics: AnalysisMetric[]): string {
   `;
 }
 
-function buildAnalysisTable(table: AnalysisTable): string {
+function buildAnalysisTable(table: AnalysisTable, currency: string): string {
+  const columnsByKey = new Map(table.columns.map((column) => [column.key, column]));
+
   return `
     <table class="data-table">
       <caption>${esc(table.title)}</caption>
@@ -482,8 +470,14 @@ function buildAnalysisTable(table: AnalysisTable): string {
           <tr>
             ${row.cells
               .map((cell) => {
+                const column = columnsByKey.get(cell.columnKey);
                 const display =
-                  cell.displayValue ?? (cell.value !== null ? String(cell.value) : "N/A");
+                  (column?.unit === "text" || column?.unit === undefined
+                    ? cell.displayValue
+                    : undefined) ??
+                  formatReportValue(cell.value, column?.unit, {
+                    currency
+                  });
                 return `<td>${esc(display)}</td>`;
               })
               .join("")}
@@ -540,6 +534,7 @@ function buildNarrativeBlock(narrative: NarrativeSection | undefined): string {
 
 function buildAnalysisSections(report: ReportDocument): string {
   const sorted = [...report.analysis.sections].sort((a, b) => a.order - b.order);
+  const currency = report.portfolio.reportingCurrency;
 
   return sorted
     .map((section, index) => {
@@ -553,8 +548,8 @@ function buildAnalysisSections(report: ReportDocument): string {
           <h2><span class="accent">${sectionNumber}</span> ${esc(section.sectionTitle)}</h2>
         </div>
         ${section.summary ? `<p style="margin-bottom: 10pt;">${esc(section.summary)}</p>` : ""}
-        ${buildMetricsGrid(section.metrics)}
-        ${section.tables.map(buildAnalysisTable).join("")}
+        ${buildMetricsGrid(section.metrics, currency)}
+        ${section.tables.map((table) => buildAnalysisTable(table, currency)).join("")}
         ${
           section.findings.length > 0
             ? `

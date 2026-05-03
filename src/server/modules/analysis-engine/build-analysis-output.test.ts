@@ -105,6 +105,16 @@ describe("buildAnalysisOutput", () => {
     ]);
 
     const performanceSection = analysisOutput.sections[0];
+    expect(performanceSection?.summary).toBe(
+      "Portfolio return from cost basis is currently 8.23%."
+    );
+    expect(performanceSection?.findings).toEqual(
+      expect.arrayContaining([
+        "The portfolio's current paper P&L is USD 259.34.",
+        "AAPL is the strongest paper winner at USD 341.20.",
+        "SHOP.TO is the largest paper drag at -USD 81.86."
+      ])
+    );
     expect(performanceSection?.tables[0]?.rows[0]?.cells).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -230,6 +240,10 @@ describe("buildAnalysisOutput", () => {
       ])
     );
 
+    const reportText = analysisOutput.sections
+      .flatMap((section) => [section.summary ?? "", ...section.findings])
+      .join(" ");
+    expect(reportText).not.toMatch(/-?\d+\.\d{3,}%?/);
     expect(analysisOutput.dataQualityFlags).toEqual(["currency_inferred_from_symbol"]);
   });
 
