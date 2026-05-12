@@ -105,6 +105,24 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain("37.40171975");
   });
 
+  it("uses regular tabular values for executive cards instead of monospace card styling", () => {
+    const html = buildReportHtml(getFixtureReport());
+
+    expect(html).toContain("font-variant-numeric: tabular-nums");
+    expect(html).not.toContain('class="exec-card-value mono"');
+  });
+
+  it("renders unavailable executive P&L without negative color or duplicated N/A text", () => {
+    const report = getFixtureReport();
+    report.analysis.summary.totalUnrealizedPnL = null;
+    report.analysis.summary.totalUnrealizedPnLPercent = null;
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain('<div class="exec-card-value" style="color: #24292f;">');
+    expect(html).not.toContain("N/A (N/A)");
+  });
+
   it("renders a productized executive overview before the summary cards", () => {
     const report = getFixtureReport();
     const html = buildReportHtml(report);
@@ -226,6 +244,58 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain("3198.12500000");
     expect(html).not.toContain("77.10594076");
     expect(html).not.toContain("0.64694640");
+  });
+
+  it("adds numeric alignment classes to table headers and cells", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    section.tables = [
+      {
+        tableKey: "alignment",
+        title: "Alignment",
+        columns: [
+          { key: "ticker", label: "Ticker", unit: "text" },
+          { key: "marketValue", label: "Market Value", unit: "currency" },
+          { key: "return", label: "Return", unit: "percentage" }
+        ],
+        rows: [
+          {
+            rowKey: "row-1",
+            cells: [
+              { columnKey: "ticker", value: "AAPL" },
+              { columnKey: "marketValue", value: "3501.75000000" },
+              { columnKey: "return", value: "53.71000000" }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain('<th class="text-cell">Ticker</th>');
+    expect(html).toContain('<th class="numeric-cell">Market Value</th>');
+    expect(html).toContain('<td class="text-cell">AAPL</td>');
+    expect(html).toContain('<td class="numeric-cell">USD 3,501.75</td>');
+    expect(html).toContain('<td class="numeric-cell">53.71%</td>');
+  });
+
+  it("renders N/A metric values with neutral color even when the metric emphasis is negative", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    section.metrics = [
+      {
+        key: "unavailable-negative",
+        label: "Unavailable negative",
+        value: null,
+        unit: "percentage",
+        emphasis: "negative"
+      }
+    ];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toMatch(/<div class="metric-value" style="color: #24292f;">\s*N\/A\s*<\/div>/);
   });
 
   it("renders narrative summary and takeaways for sections", () => {

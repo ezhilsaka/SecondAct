@@ -64,6 +64,14 @@ function emphasisColor(emphasis: string | undefined): string {
   }
 }
 
+function displayValueColor(displayValue: string, emphasis: string | undefined): string {
+  return displayValue === "N/A" ? "#24292f" : emphasisColor(emphasis);
+}
+
+function isNumericUnit(unit: string | undefined): boolean {
+  return unit === "currency" || unit === "percentage" || unit === "count" || unit === "ratio";
+}
+
 function parseReportNumber(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined) {
     return null;
@@ -194,9 +202,10 @@ function buildStyles(): string {
       margin-bottom: 4pt;
     }
     .exec-card-value {
-      font-family: 'Courier New', Courier, monospace;
       font-size: 14pt;
       font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     /* Section blocks */
@@ -228,10 +237,11 @@ function buildStyles(): string {
       letter-spacing: 0.3pt;
     }
     .metric-value {
-      font-family: 'Courier New', Courier, monospace;
       font-size: 11pt;
       font-weight: 700;
       margin-top: 2pt;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     /* Tables */
@@ -239,7 +249,7 @@ function buildStyles(): string {
       width: 100%;
       border-collapse: collapse;
       margin: 10pt 0;
-      font-size: 9pt;
+      font-size: 8.75pt;
     }
     .data-table caption {
       text-align: left;
@@ -261,6 +271,14 @@ function buildStyles(): string {
     .data-table td {
       padding: 5pt 8pt;
       border-bottom: 0.5pt solid #d0d7de;
+    }
+    .data-table .numeric-cell {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .data-table .text-cell {
+      text-align: left;
     }
     .data-table tr:last-child td {
       border-bottom: none;
@@ -467,11 +485,10 @@ function buildExecutiveSummary(report: ReportDocument): string {
   const totals = canonicalSnapshot.portfolioTotals;
   const summary = analysis.summary;
   const currency = report.portfolio.reportingCurrency;
+  const parsedPnl = parseReportNumber(summary.totalUnrealizedPnL);
 
   const pnlColor = emphasisColor(
-    summary.totalUnrealizedPnL !== null && Number(summary.totalUnrealizedPnL) >= 0
-      ? "positive"
-      : "negative"
+    parsedPnl === null ? "neutral" : parsedPnl >= 0 ? "positive" : "negative"
   );
 
   const executiveFindings = buildExecutiveFindings(report);
@@ -496,8 +513,7 @@ function buildExecutiveSummary(report: ReportDocument): string {
         <div class="exec-card">
           <div class="exec-card-label">Unrealized P&amp;L</div>
           <div class="exec-card-value" style="color: ${pnlColor};">
-            ${formatReportCurrency(summary.totalUnrealizedPnL, currency)}
-            (${formatReportPercentage(summary.totalUnrealizedPnLPercent, { showPositiveSign: true })})
+            ${formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency)}
           </div>
         </div>
         <div class="exec-card">
@@ -512,7 +528,7 @@ function buildExecutiveSummary(report: ReportDocument): string {
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Concentration (HHI)</div>
-          <div class="exec-card-value mono">${formatReportRatio(summary.concentrationHhi)}</div>
+          <div class="exec-card-value">${formatReportRatio(summary.concentrationHhi)}</div>
         </div>
       </div>
       ${
@@ -538,16 +554,18 @@ function buildMetricsGrid(metrics: AnalysisMetric[], currency: string): string {
   return `
     <div class="metrics-grid">
       ${metrics
-        .map(
-          (m) => `
+        .map((m) => {
+          const displayValue = metricDisplayValue(m, currency);
+
+          return `
         <div class="metric-item">
           <div class="metric-label">${esc(m.label)}</div>
-          <div class="metric-value" style="color: ${emphasisColor(m.emphasis)};">
-            ${esc(metricDisplayValue(m, currency))}
+          <div class="metric-value" style="color: ${displayValueColor(displayValue, m.emphasis)};">
+            ${esc(displayValue)}
           </div>
         </div>
-      `
-        )
+      `;
+        })
         .join("")}
     </div>
   `;
@@ -561,7 +579,12 @@ function buildAnalysisTable(table: AnalysisTable, currency: string): string {
       <caption>${esc(table.title)}</caption>
       <thead>
         <tr>
-          ${table.columns.map((col) => `<th>${esc(col.label)}</th>`).join("")}
+          ${table.columns
+            .map((col) => {
+              const cellClass = isNumericUnit(col.unit) ? "numeric-cell" : "text-cell";
+              return `<th class="${cellClass}">${esc(col.label)}</th>`;
+            })
+            .join("")}
         </tr>
       </thead>
       <tbody>
@@ -572,6 +595,7 @@ function buildAnalysisTable(table: AnalysisTable, currency: string): string {
             ${row.cells
               .map((cell) => {
                 const column = columnsByKey.get(cell.columnKey);
+                const cellClass = isNumericUnit(column?.unit) ? "numeric-cell" : "text-cell";
                 const display =
                   (column?.unit === "text" || column?.unit === undefined
                     ? cell.displayValue
@@ -579,7 +603,7 @@ function buildAnalysisTable(table: AnalysisTable, currency: string): string {
                   formatReportValue(cell.value, column?.unit, {
                     currency
                   });
-                return `<td>${esc(display)}</td>`;
+                return `<td class="${cellClass}">${esc(display)}</td>`;
               })
               .join("")}
           </tr>
