@@ -112,7 +112,7 @@ describe("buildNarrativeInput", () => {
     analysisOutput.sections[0]!.metrics = [
       {
         key: "herfindahl-index",
-        label: "Herfindahl Index (HHI)",
+        label: "Concentration score",
         value: "0.64694640",
         unit: "ratio"
       },
@@ -124,13 +124,13 @@ describe("buildNarrativeInput", () => {
       },
       {
         key: "portfolio-breakeven-return-from-today",
-        label: "Portfolio breakeven return from today",
+        label: "Return needed to breakeven",
         value: "-27.22345678",
         unit: "percentage"
       },
       {
         key: "active-return-vs-benchmark-percent",
-        label: "Active return vs benchmark",
+        label: "Difference vs equal weight",
         value: "1.78711111",
         unit: "percentage"
       }

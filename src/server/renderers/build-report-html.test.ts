@@ -77,7 +77,7 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Executive Summary");
     expect(html).toContain("Total Market Value");
     expect(html).toContain("Total Cost Basis");
-    expect(html).toContain("Unrealized P&amp;L");
+    expect(html).toContain("Paper Gain / Loss");
     expect(html).toContain("Holdings");
   });
 
@@ -88,8 +88,10 @@ describe("buildReportHtml", () => {
 
     // The formatted currency should contain the numeric portion
     expect(html).toContain(totals.holdingCount.toString());
-    expect(html).toContain("Gainers / Losers");
-    expect(html).toContain("Concentration (HHI)");
+    expect(html).toContain("Winners / Losers");
+    expect(html).toContain("Concentration Score");
+    expect(html).not.toContain("Gainers / Losers");
+    expect(html).not.toContain("Concentration (HHI)");
   });
 
   it("formats executive summary numbers with report display rules", () => {
@@ -112,7 +114,7 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain('class="exec-card-value mono"');
   });
 
-  it("renders unavailable executive P&L without negative color or duplicated N/A text", () => {
+  it("renders unavailable executive paper gain/loss without negative color or duplicated N/A text", () => {
     const report = getFixtureReport();
     report.analysis.summary.totalUnrealizedPnL = null;
     report.analysis.summary.totalUnrealizedPnLPercent = null;
@@ -150,7 +152,7 @@ describe("buildReportHtml", () => {
     const report = getFixtureReport();
     report.analysis.sections.push({
       sectionKey: "risk-proxies",
-      sectionTitle: "Risk Proxies",
+      sectionTitle: "Downside Risk Snapshot",
       order: 99,
       summary: undefined,
       metrics: [
@@ -350,6 +352,70 @@ describe("buildReportHtml", () => {
 
     expect(html).toContain("Findings");
     expect(html).toContain("Finding for section-2");
+  });
+
+  it("renders beginner-friendly analysis labels without old jargon labels", () => {
+    const report = getFixtureReport();
+    report.analysis.sections[0] = {
+      ...report.analysis.sections[0]!,
+      sectionTitle: "Performance & Paper Gains",
+      metrics: [
+        {
+          key: "total-unrealized-pnl",
+          label: "Total paper gain/loss",
+          value: "123.45000000",
+          unit: "currency"
+        },
+        {
+          key: "herfindahl-index",
+          label: "Concentration score",
+          value: "0.64694640",
+          unit: "ratio"
+        },
+        {
+          key: "active-return-vs-benchmark-percent",
+          label: "Difference vs equal weight",
+          value: "1.25000000",
+          unit: "percentage"
+        }
+      ],
+      tables: [
+        {
+          tableKey: "friendly-labels",
+          title: "Friendly labels",
+          columns: [
+            { key: "ticker", label: "Ticker", unit: "text" },
+            { key: "unrealizedPnL", label: "Paper Gain / Loss", unit: "currency" },
+            { key: "costVsValueRatio", label: "Value / Cost", unit: "ratio" },
+            { key: "scenarioPnl", label: "Scenario Gain / Loss", unit: "currency" }
+          ],
+          rows: [
+            {
+              rowKey: "row-1",
+              cells: [
+                { columnKey: "ticker", value: "AAPL" },
+                { columnKey: "unrealizedPnL", value: "123.45000000" },
+                { columnKey: "costVsValueRatio", value: "1.25000000" },
+                { columnKey: "scenarioPnl", value: "-100.00000000" }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("Performance &amp; Paper Gains");
+    expect(html).toContain("Total paper gain/loss");
+    expect(html).toContain("Concentration score");
+    expect(html).toContain("Difference vs equal weight");
+    expect(html).toContain("Paper Gain / Loss");
+    expect(html).toContain("Value / Cost");
+    expect(html).toContain("Scenario Gain / Loss");
+    expect(html).not.toContain("Herfindahl Index (HHI)");
+    expect(html).not.toContain("Cost vs Value Ratio");
+    expect(html).not.toContain("Scenario P&amp;L");
   });
 
   it("renders data quality flags on sections that have them", () => {

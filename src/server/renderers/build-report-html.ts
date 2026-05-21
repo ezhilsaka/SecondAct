@@ -459,7 +459,7 @@ function buildExecutiveFindings(report: ReportDocument): string[] {
     );
   } else {
     findings.push(
-      "Portfolio-level paper profit/loss is unavailable because market-value coverage is incomplete."
+      "Portfolio-level paper gain/loss is unavailable because market-value coverage is incomplete."
     );
   }
 
@@ -521,7 +521,7 @@ function buildExecutiveSummary(report: ReportDocument): string {
           <div class="exec-card-value">${formatReportCurrency(totals.totalCostBasis, currency)}</div>
         </div>
         <div class="exec-card">
-          <div class="exec-card-label">Unrealized P&amp;L</div>
+          <div class="exec-card-label">Paper Gain / Loss</div>
           <div class="exec-card-value" style="color: ${pnlColor};">
             ${formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency)}
           </div>
@@ -533,11 +533,11 @@ function buildExecutiveSummary(report: ReportDocument): string {
       </div>
       <div class="exec-grid">
         <div class="exec-card">
-          <div class="exec-card-label">Gainers / Losers</div>
+          <div class="exec-card-label">Winners / Losers</div>
           <div class="exec-card-value">${formatReportCount(summary.gainersCount)} / ${formatReportCount(summary.losersCount)}</div>
         </div>
         <div class="exec-card">
-          <div class="exec-card-label">Concentration (HHI)</div>
+          <div class="exec-card-label">Concentration Score</div>
           <div class="exec-card-value">${formatReportRatio(summary.concentrationHhi)}</div>
         </div>
       </div>

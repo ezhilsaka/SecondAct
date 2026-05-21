@@ -108,9 +108,22 @@ describe("buildAnalysisOutput", () => {
     expect(performanceSection?.summary).toBe(
       "Portfolio return from cost basis is currently 8.23%."
     );
+    expect(performanceSection?.sectionTitle).toBe("Performance & Paper Gains");
+    expect(performanceSection?.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "total-unrealized-pnl",
+          label: "Total paper gain/loss"
+        }),
+        expect.objectContaining({
+          key: "total-unrealized-pnl-percent",
+          label: "Return vs cost"
+        })
+      ])
+    );
     expect(performanceSection?.findings).toEqual(
       expect.arrayContaining([
-        "The portfolio's current paper P&L is USD 259.34.",
+        "The portfolio's current paper gain/loss is USD 259.34.",
         "AAPL is the strongest paper winner at USD 341.20.",
         "SHOP.TO is the largest paper drag at -USD 81.86."
       ])
@@ -141,6 +154,7 @@ describe("buildAnalysisOutput", () => {
     );
 
     const concentrationSection = analysisOutput.sections[1];
+    expect(concentrationSection?.sectionTitle).toBe("Allocation & Diversification");
     expect(concentrationSection?.metrics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -148,11 +162,17 @@ describe("buildAnalysisOutput", () => {
           value: "100.00000000"
         }),
         expect.objectContaining({
+          key: "herfindahl-index",
+          label: "Concentration score"
+        }),
+        expect.objectContaining({
           key: "effective-number-of-positions",
+          label: "Effective position count",
           value: "1.87691712"
         }),
         expect.objectContaining({
           key: "equal-weight-drift-percent",
+          label: "Drift from equal weight",
           value: "12.80401814"
         })
       ])
@@ -162,14 +182,17 @@ describe("buildAnalysisOutput", () => {
     );
 
     const riskSection = analysisOutput.sections[2];
+    expect(riskSection?.sectionTitle).toBe("Downside Risk Snapshot");
     expect(riskSection?.metrics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: "portfolio-capital-at-risk-minus-20",
+          label: "Capital exposed in -20% shock",
           value: "681.86720000"
         }),
         expect.objectContaining({
           key: "largest-loss-share-minus-20",
+          label: "Largest share of modeled loss",
           value: "62.80401814"
         })
       ])
@@ -179,10 +202,12 @@ describe("buildAnalysisOutput", () => {
     );
 
     const healthSection = analysisOutput.sections[3];
+    expect(healthSection?.sectionTitle).toBe("Portfolio Health Check");
     expect(healthSection?.metrics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: "win-loss-ratio",
+          label: "Winner / loser ratio",
           value: "1.00000000"
         }),
         expect.objectContaining({
@@ -195,6 +220,7 @@ describe("buildAnalysisOutput", () => {
         }),
         expect.objectContaining({
           key: "portfolio-breakeven-return-from-today",
+          label: "Return needed to breakeven",
           value: "-7.60664247"
         })
       ])
@@ -204,6 +230,15 @@ describe("buildAnalysisOutput", () => {
     );
 
     const scenarioSection = analysisOutput.sections[4];
+    expect(scenarioSection?.sectionTitle).toBe("What-If Stress Tests");
+    expect(scenarioSection?.metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "position-stress-shock-percent",
+          label: "Single-position stress assumption"
+        })
+      ])
+    );
     expect(scenarioSection?.findings).toEqual(
       expect.arrayContaining([
         "Market shock -10% would reduce portfolio value by about USD 340.93.",
@@ -242,14 +277,17 @@ describe("buildAnalysisOutput", () => {
     );
 
     const benchmarkSection = analysisOutput.sections[5];
+    expect(benchmarkSection?.sectionTitle).toBe("Internal Benchmark Comparison");
     expect(benchmarkSection?.metrics).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           key: "equal-weight-benchmark-return-percent",
+          label: "Equal-weight comparison return",
           value: "6.44577778"
         }),
         expect.objectContaining({
           key: "active-return-vs-benchmark-percent",
+          label: "Difference vs equal weight",
           value: "1.78711111"
         })
       ])
@@ -267,7 +305,7 @@ describe("buildAnalysisOutput", () => {
     expect(reportText).not.toMatch(/-?\d+\.\d{3,}%?/);
     expect(reportText).not.toContain("would need -");
     expect(reportText).not.toContain("drawdown is -");
-    expect(reportText).not.toContain("portfolio P&L of -");
+    expect(reportText).not.toContain("paper gain/loss of -");
     expect(reportText).not.toContain("Active return versus");
     expect(analysisOutput.dataQualityFlags).toEqual(["currency_inferred_from_symbol"]);
   });

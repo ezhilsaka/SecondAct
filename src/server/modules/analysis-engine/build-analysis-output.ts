@@ -368,8 +368,8 @@ function buildPerformanceSection(
 
   const findings = [
     totalUnrealizedPnL
-      ? `The portfolio's current paper P&L is ${formatReportCurrency(totalUnrealizedPnL, reportingCurrency)}.`
-      : "Portfolio-level paper P&L is unavailable because market-value coverage is incomplete.",
+      ? `The portfolio's current paper gain/loss is ${formatReportCurrency(totalUnrealizedPnL, reportingCurrency)}.`
+      : "Portfolio-level paper gain/loss is unavailable because market-value coverage is incomplete.",
     topWinner && topWinner.unrealizedPnLAmount
       ? `${topWinner.ticker} is the strongest paper winner at ${displayCurrency(topWinner.unrealizedPnLAmount, reportingCurrency)}.`
       : "There is no priced winning position to highlight yet.",
@@ -380,7 +380,7 @@ function buildPerformanceSection(
 
   return {
     sectionKey: "performance-pnl",
-    sectionTitle: "Performance & P&L Analysis",
+    sectionTitle: "Performance & Paper Gains",
     order: 1,
     summary: totalUnrealizedPnLPercent
       ? `Portfolio return from cost basis is currently ${formatReportPercentage(totalUnrealizedPnLPercent)}.`
@@ -400,14 +400,14 @@ function buildPerformanceSection(
       }),
       buildMetric({
         key: "total-unrealized-pnl",
-        label: "Total unrealized gain/loss",
+        label: "Total paper gain/loss",
         value: totalUnrealizedPnL,
         unit: "currency",
         emphasis: inferPnlEmphasis(toDecimal(totalUnrealizedPnL))
       }),
       buildMetric({
         key: "total-unrealized-pnl-percent",
-        label: "Portfolio return from cost basis",
+        label: "Return vs cost",
         value: totalUnrealizedPnLPercent,
         unit: "percentage",
         emphasis: inferPnlEmphasis(toDecimal(totalUnrealizedPnLPercent))
@@ -422,9 +422,9 @@ function buildPerformanceSection(
           { key: "ticker", label: "Ticker", unit: "text" },
           { key: "costBasis", label: "Cost Basis", unit: "currency" },
           { key: "marketValue", label: "Market Value", unit: "currency" },
-          { key: "unrealizedPnL", label: "Unrealized P&L", unit: "currency" },
-          { key: "returnContribution", label: "Return Contribution", unit: "percentage" },
-          { key: "costVsValueRatio", label: "Cost vs Value Ratio", unit: "ratio" }
+          { key: "unrealizedPnL", label: "Paper Gain / Loss", unit: "currency" },
+          { key: "returnContribution", label: "Contribution to Return", unit: "percentage" },
+          { key: "costVsValueRatio", label: "Value / Cost", unit: "ratio" }
         ],
         rows: holdings.map((holding) => ({
           rowKey: holding.holdingId,
@@ -494,7 +494,7 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
 
   return {
     sectionKey: "allocation-concentration",
-    sectionTitle: "Allocation & Concentration Analysis",
+    sectionTitle: "Allocation & Diversification",
     order: 2,
     summary: largestPositionWeightPercent
       ? `Current concentration is led by a ${displayPercent(largestPositionWeightPercent)} largest position.`
@@ -520,19 +520,19 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
       }),
       buildMetric({
         key: "herfindahl-index",
-        label: "Herfindahl Index (HHI)",
+        label: "Concentration score",
         value: toDecimalString(hhi),
         unit: "ratio"
       }),
       buildMetric({
         key: "effective-number-of-positions",
-        label: "Effective number of positions",
+        label: "Effective position count",
         value: toDecimalString(effectivePositions),
         unit: "ratio"
       }),
       buildMetric({
         key: "equal-weight-drift-percent",
-        label: "Total drift vs equal-weight",
+        label: "Drift from equal weight",
         value: toDecimalString(totalDriftPercent),
         unit: "percentage"
       })
@@ -544,8 +544,8 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
         title: "Position weights and equal-weight drift",
         columns: [
           { key: "ticker", label: "Ticker", unit: "text" },
-          { key: "weight", label: "Position Weight", unit: "percentage" },
-          { key: "equalWeightTarget", label: "Equal Weight Target", unit: "percentage" },
+          { key: "weight", label: "Portfolio Weight", unit: "percentage" },
+          { key: "equalWeightTarget", label: "Equal-Weight Target", unit: "percentage" },
           { key: "drift", label: "Drift", unit: "percentage" }
         ],
         rows: holdings.map((holding) => ({
@@ -600,7 +600,7 @@ function buildRiskSection(
 
   return {
     sectionKey: "risk-proxies",
-    sectionTitle: "Risk Proxies",
+    sectionTitle: "Downside Risk Snapshot",
     order: 3,
     summary: portfolioDrawdownValue
       ? `Static downside exposure is modeled using a uniform -20% shock.`
@@ -608,27 +608,27 @@ function buildRiskSection(
     metrics: [
       buildMetric({
         key: "portfolio-capital-at-risk-minus-20",
-        label: "Portfolio capital at risk (-20% shock)",
+        label: "Capital exposed in -20% shock",
         value: portfolioDrawdownValue ? toDecimalString(decimalAbs(portfolioDrawdownValue)) : null,
         unit: "currency"
       }),
       buildMetric({
         key: "portfolio-drawdown-minus-20",
-        label: "Portfolio drawdown (-20% shock)",
+        label: "Estimated loss in -20% shock",
         value: toDecimalString(portfolioDrawdownValue),
         unit: "currency",
         emphasis: "cautionary"
       }),
       buildMetric({
         key: "portfolio-drawdown-percent-minus-20",
-        label: "Portfolio drawdown % (-20% shock)",
+        label: "Estimated loss % in -20% shock",
         value: totalMarketValue !== null ? toDecimalString(NEGATIVE_TWENTY_PERCENT) : null,
         unit: "percentage",
         emphasis: "cautionary"
       }),
       buildMetric({
         key: "largest-loss-share-minus-20",
-        label: "Largest loss share (-20% shock)",
+        label: "Largest share of modeled loss",
         value: toDecimalString(largestLossShare?.lossShare20Percent ?? null),
         unit: "percentage"
       })
@@ -637,12 +637,12 @@ function buildRiskSection(
     tables: [
       {
         tableKey: "capital-at-risk-by-position",
-        title: "Capital at risk by position (-20% shock)",
+        title: "Capital exposed by position (-20% shock)",
         columns: [
           { key: "ticker", label: "Ticker", unit: "text" },
           { key: "marketValue", label: "Market Value", unit: "currency" },
-          { key: "capitalAtRisk", label: "Capital at Risk", unit: "currency" },
-          { key: "lossShare", label: "Loss Share", unit: "percentage" },
+          { key: "capitalAtRisk", label: "Capital Exposed", unit: "currency" },
+          { key: "lossShare", label: "Share of Modeled Loss", unit: "percentage" },
           { key: "portfolioImpact", label: "Portfolio Impact", unit: "percentage" }
         ],
         rows: holdings.map((holding) => ({
@@ -721,7 +721,7 @@ function buildPortfolioHealthSection(
 
   return {
     sectionKey: "portfolio-health-diagnostics",
-    sectionTitle: "Portfolio Health & Diagnostics",
+    sectionTitle: "Portfolio Health Check",
     order: 5,
     summary:
       topWinner && topLoser
@@ -730,7 +730,7 @@ function buildPortfolioHealthSection(
     metrics: [
       buildMetric({
         key: "win-loss-ratio",
-        label: "Win/Loss ratio",
+        label: "Winner / loser ratio",
         value: toDecimalString(winLossRatio),
         unit: "ratio"
       }),
@@ -750,7 +750,7 @@ function buildPortfolioHealthSection(
       }),
       buildMetric({
         key: "portfolio-breakeven-return-from-today",
-        label: "Portfolio breakeven return from today",
+        label: "Return needed to breakeven",
         value: toDecimalString(portfolioBreakevenReturnFromToday),
         unit: "percentage"
       })
@@ -866,7 +866,7 @@ function buildScenarioSection(
 
   return {
     sectionKey: "scenario-stress-testing",
-    sectionTitle: "Scenario & Stress Testing",
+    sectionTitle: "What-If Stress Tests",
     order: 6,
     summary:
       totalMarketValue !== null
@@ -881,7 +881,7 @@ function buildScenarioSection(
       }),
       buildMetric({
         key: "position-stress-shock-percent",
-        label: "Position-level stress assumption",
+        label: "Single-position stress assumption",
         value: toDecimalString(NEGATIVE_THIRTY_PERCENT),
         unit: "percentage"
       })
@@ -895,7 +895,7 @@ function buildScenarioSection(
           { key: "scenario", label: "Scenario", unit: "text" },
           { key: "shockPercent", label: "Shock %", unit: "percentage" },
           { key: "portfolioValue", label: "Scenario Portfolio Value", unit: "currency" },
-          { key: "scenarioPnl", label: "Scenario P&L", unit: "currency" }
+          { key: "scenarioPnl", label: "Scenario Gain / Loss", unit: "currency" }
         ],
         rows: scenarioRows.map(({ scenario, scenarioPortfolioValue, scenarioPnl }) => ({
           rowKey: scenario.key,
@@ -910,10 +910,10 @@ function buildScenarioSection(
       },
       {
         tableKey: "position-level-stress",
-        title: "Position-level stress (-30% single-name shock)",
+        title: "Single-position stress (-30% shock)",
         columns: [
           { key: "ticker", label: "Ticker", unit: "text" },
-          { key: "stressLoss", label: "Stress Loss", unit: "currency" },
+          { key: "stressLoss", label: "Modeled Loss", unit: "currency" },
           { key: "portfolioImpact", label: "Portfolio Impact", unit: "percentage" }
         ],
         rows: sortedPositionStress.map((holding) => ({
@@ -968,7 +968,7 @@ function buildBenchmarkSection(
 
   return {
     sectionKey: "comparative-benchmark-lite",
-    sectionTitle: "Comparative & Benchmark-lite Analysis",
+    sectionTitle: "Internal Benchmark Comparison",
     order: 7,
     summary:
       activeReturnPercent !== null
@@ -983,13 +983,13 @@ function buildBenchmarkSection(
       }),
       buildMetric({
         key: "equal-weight-benchmark-return-percent",
-        label: "Equal-weight internal benchmark return",
+        label: "Equal-weight comparison return",
         value: toDecimalString(equalWeightBenchmarkReturnPercent),
         unit: "percentage"
       }),
       buildMetric({
         key: "active-return-vs-benchmark-percent",
-        label: "Active return vs benchmark",
+        label: "Difference vs equal weight",
         value: toDecimalString(activeReturnPercent),
         unit: "percentage",
         emphasis: inferPnlEmphasis(activeReturnPercent)
@@ -999,12 +999,16 @@ function buildBenchmarkSection(
     tables: [
       {
         tableKey: "equal-weight-benchmark-components",
-        title: "Equal-weight internal benchmark",
+        title: "Equal-weight internal comparison",
         columns: [
           { key: "ticker", label: "Ticker", unit: "text" },
           { key: "positionReturn", label: "Position Return", unit: "percentage" },
           { key: "equalWeight", label: "Equal Weight", unit: "percentage" },
-          { key: "equalWeightContribution", label: "Equal-Weight Contribution", unit: "percentage" }
+          {
+            key: "equalWeightContribution",
+            label: "Equal-Weight Return Contribution",
+            unit: "percentage"
+          }
         ],
         rows: holdings.map((holding) => {
           const equalWeightPercent = holdings.length > 0 ? HUNDRED.div(holdings.length) : null;
