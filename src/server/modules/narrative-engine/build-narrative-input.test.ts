@@ -106,4 +106,57 @@ describe("buildNarrativeInput", () => {
       findings: analysisOutput.sections[1]?.findings ?? []
     });
   });
+
+  it("adds metric-specific interpretation hints for awkward wording cases", () => {
+    const { canonicalSnapshot, analysisOutput } = buildContractFixturePayloads();
+    analysisOutput.sections[0]!.metrics = [
+      {
+        key: "herfindahl-index",
+        label: "Herfindahl Index (HHI)",
+        value: "0.64694640",
+        unit: "ratio"
+      },
+      {
+        key: "effective-number-of-positions",
+        label: "Effective number of positions",
+        value: "1.54572311",
+        unit: "ratio"
+      },
+      {
+        key: "portfolio-breakeven-return-from-today",
+        label: "Portfolio breakeven return from today",
+        value: "-27.22345678",
+        unit: "percentage"
+      },
+      {
+        key: "active-return-vs-benchmark-percent",
+        label: "Active return vs benchmark",
+        value: "1.78711111",
+        unit: "percentage"
+      }
+    ];
+
+    const result = buildNarrativeInput({
+      generatedAt: new Date("2026-04-06T12:00:00.000Z"),
+      canonicalSnapshot,
+      analysisOutput,
+      context: {
+        runId: canonicalSnapshot.runId,
+        portfolioId: canonicalSnapshot.portfolioId,
+        reportingCurrency: "USD",
+        valuationAsOf: "2026-03-28T20:00:00.000Z",
+        marketDataProvider: "yfinance",
+        promptVersion: NARRATIVE_EXPLAINER_PROMPT_VERSION
+      }
+    });
+
+    const hints = result.sections[0]?.metrics.map((metric) => metric.interpretationHint);
+
+    expect(hints?.[0]).toContain("concentration score");
+    expect(hints?.[0]).toContain("not an x-multiple");
+    expect(hints?.[1]).toContain("equally sized positions");
+    expect(hints?.[2]).toContain("If negative");
+    expect(hints?.[2]).toContain("could fall");
+    expect(hints?.[3]).toContain("equal-weight version of the same holdings");
+  });
 });

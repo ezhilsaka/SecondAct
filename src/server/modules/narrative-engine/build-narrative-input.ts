@@ -92,33 +92,34 @@ function inferInterpretationHint(metricKey: string): string | undefined {
     "top-3-concentration-percent":
       "Higher values usually mean the portfolio relies heavily on a few positions.",
     "top-5-concentration-percent": "Higher values usually mean the portfolio is less diversified.",
-    "herfindahl-index": "Higher values indicate more concentration and less diversification.",
+    "herfindahl-index":
+      "This is a concentration score, not an x-multiple. Higher values mean the portfolio is more concentrated.",
     "effective-number-of-positions":
-      "Lower values suggest the portfolio behaves like it owns fewer meaningful positions.",
+      "Explain this as how many equally sized positions the portfolio behaves like it has.",
     "equal-weight-drift-percent":
       "Higher values suggest the portfolio has drifted away from a balanced equal-weight shape.",
     "portfolio-capital-at-risk-minus-20":
       "This estimates how much value could be exposed in a broad market drop scenario.",
     "portfolio-drawdown-minus-20":
-      "This shows the expected paper loss under a portfolio-wide shock scenario.",
+      "The stored value may be negative; explain it as a potential dollar loss or portfolio-value reduction.",
     "portfolio-drawdown-percent-minus-20":
-      "This shows the expected percentage loss under a broad portfolio shock.",
+      "The stored value may be negative; explain it as the percentage loss from a broad portfolio shock.",
     "largest-loss-share-minus-20":
       "Higher values mean one position would drive a larger share of the total downside.",
     "win-loss-ratio": "This compares how many positions are currently ahead versus behind.",
     "average-gain-percent": "This shows how large the typical winning position is.",
     "average-loss-percent": "This shows how large the typical losing position is.",
     "portfolio-breakeven-return-from-today":
-      "This shows how far the portfolio would need to move from today to get back to average cost.",
+      "If negative, say the portfolio is above cost basis and could fall by that amount before breakeven. If positive, say it needs that gain to get back to breakeven.",
     "scenario-count": "This tells the investor how many stress cases were reviewed.",
     "position-stress-shock-percent":
       "This is the single-position stress assumption used in the scenario table.",
     "actual-portfolio-return-percent":
       "This is the portfolio's actual return using the current position sizes.",
     "equal-weight-benchmark-return-percent":
-      "This is a simpler equal-weight internal benchmark using the same holdings.",
+      "This is an internal equal-weight version of the same holdings, not an external market index.",
     "active-return-vs-benchmark-percent":
-      "This shows whether the current weighting choices helped or hurt relative to equal weight."
+      "This compares current position weights against the equal-weight version of the same holdings."
   };
 
   return mapping[metricKey];

@@ -62,6 +62,7 @@ Assume they:
 - Keep each metric narrative to 2-4 sentences
 - Keep each section summary to 2-3 sentences
 - Each narrative must stand on its own
+- Explain negative values in human terms when needed. For example, a negative breakeven value means the portfolio is above cost basis and could fall before reaching breakeven; it does not mean the portfolio "needs a negative return."
 
 ## Critical Boundaries
 
@@ -199,23 +200,29 @@ When these metric names appear, use the following explanation intent:
 - position_weight / largest_position_weight / top_k_concentration:
   explain diversification versus concentration, and how much a small number of holdings drive results
 
+- herfindahl-index:
+  explain this as a concentration score. Do not describe it as an “x” multiple. Higher values mean the portfolio is more concentrated and less spread out.
+
+- effective-number-of-positions:
+  explain this as how many equally sized positions the portfolio behaves like it has, after considering position sizes.
+
 - equal_weight_drift:
   explain how far the portfolio has moved away from an equal-weight structure and what that says about balance
 
 - capital_at_risk / drawdown_exposure / loss_concentration:
-  explain potential downside in a simple “if markets fall” way
+  explain potential downside in a simple “if markets fall” way. If a drawdown value is negative, describe it as a possible loss or reduction, not as a negative amount the user should seek.
 
 - win_loss_ratio / average_gain_vs_loss:
   explain whether winners outnumber losers and whether gains tend to be bigger than losses
 
 - breakeven:
-  explain how far above or below the investor is from getting back to even
+  explain how far above or below the investor is from getting back to even. If the value is negative, say the portfolio is above cost basis and could fall by that amount before breakeven. If it is positive, say the portfolio needs that gain to get back to breakeven.
 
 - scenario_shock / position_stress:
   explain what a hypothetical drop would do to the portfolio or to a specific position
 
 - internal_benchmark / active_return:
-  explain whether the portfolio is doing better or worse than a simpler equal-weight version of the same holdings
+  explain whether the portfolio is doing better or worse than a simpler equal-weight version of the same holdings. Do not imply this is an external market index.
 
 If a metric name is unknown:
 - use \`display_name\`

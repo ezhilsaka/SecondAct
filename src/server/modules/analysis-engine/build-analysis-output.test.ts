@@ -157,6 +157,9 @@ describe("buildAnalysisOutput", () => {
         })
       ])
     );
+    expect(concentrationSection?.findings).toContain(
+      "Based on current weights, the portfolio behaves like about 1.88 equally sized positions."
+    );
 
     const riskSection = analysisOutput.sections[2];
     expect(riskSection?.metrics).toEqual(
@@ -170,6 +173,9 @@ describe("buildAnalysisOutput", () => {
           value: "62.80401814"
         })
       ])
+    );
+    expect(riskSection?.findings).toContain(
+      "A uniform -20% market shock would reduce the portfolio by about USD 681.87."
     );
 
     const healthSection = analysisOutput.sections[3];
@@ -193,8 +199,17 @@ describe("buildAnalysisOutput", () => {
         })
       ])
     );
+    expect(healthSection?.findings).toContain(
+      "The portfolio is above total cost basis; it could fall 7.61% before returning to breakeven."
+    );
 
     const scenarioSection = analysisOutput.sections[4];
+    expect(scenarioSection?.findings).toEqual(
+      expect.arrayContaining([
+        "Market shock -10% would reduce portfolio value by about USD 340.93.",
+        "Market shock -20% would reduce portfolio value by about USD 681.87."
+      ])
+    );
     expect(scenarioSection?.tables[0]?.rows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -239,11 +254,21 @@ describe("buildAnalysisOutput", () => {
         })
       ])
     );
+    expect(benchmarkSection?.findings).toEqual(
+      expect.arrayContaining([
+        "The equal-weight version of the same holdings returned 6.45%.",
+        "The current position weights are ahead of the equal-weight version by +1.79%."
+      ])
+    );
 
     const reportText = analysisOutput.sections
       .flatMap((section) => [section.summary ?? "", ...section.findings])
       .join(" ");
     expect(reportText).not.toMatch(/-?\d+\.\d{3,}%?/);
+    expect(reportText).not.toContain("would need -");
+    expect(reportText).not.toContain("drawdown is -");
+    expect(reportText).not.toContain("portfolio P&L of -");
+    expect(reportText).not.toContain("Active return versus");
     expect(analysisOutput.dataQualityFlags).toEqual(["currency_inferred_from_symbol"]);
   });
 

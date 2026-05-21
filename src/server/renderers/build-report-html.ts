@@ -92,6 +92,16 @@ function formatPnlWithOptionalPercent(
     : `${amountText} (${formatReportPercentage(percent, { showPositiveSign: true })})`;
 }
 
+function formatAbsoluteCurrency(
+  value: string | number | null | undefined,
+  currency: string
+): string {
+  const parsed = parseReportNumber(value);
+  return parsed === null
+    ? formatReportCurrency(value, currency)
+    : formatReportCurrency(Math.abs(parsed), currency);
+}
+
 function metricDisplayValue(metric: AnalysisMetric, currency: string): string {
   if (metric.displayValue && (metric.unit === "text" || metric.unit === undefined)) {
     return metric.displayValue;
@@ -463,7 +473,7 @@ function buildExecutiveFindings(report: ReportDocument): string[] {
 
   if (drawdownMetric?.value !== null && drawdownMetric?.value !== undefined) {
     findings.push(
-      `A uniform -20% market shock would imply an estimated portfolio move of ${formatReportCurrency(drawdownMetric.value, currency)}.`
+      `A uniform -20% market shock would reduce the portfolio by about ${formatAbsoluteCurrency(drawdownMetric.value, currency)}.`
     );
   }
 

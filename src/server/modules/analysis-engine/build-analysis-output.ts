@@ -103,6 +103,83 @@ function displayRatio(value: Prisma.Decimal | null): string {
   return formatReportRatio(toDisplayNumber(value));
 }
 
+function displayAbsoluteCurrency(value: Prisma.Decimal, currency: string): string {
+  return displayCurrency(decimalAbs(value), currency);
+}
+
+function buildDrawdownFinding(value: Prisma.Decimal | null, currency: string): string {
+  if (value === null) {
+    return "Portfolio drawdown exposure cannot be estimated until total market value is available.";
+  }
+
+  if (value.isZero()) {
+    return "The -20% shock does not change the modeled portfolio value.";
+  }
+
+  return `A uniform -20% market shock would reduce the portfolio by about ${displayAbsoluteCurrency(value, currency)}.`;
+}
+
+function buildEffectivePositionsFinding(value: Prisma.Decimal | null): string {
+  if (value === null) {
+    return "Effective position count is unavailable under the current data-quality state.";
+  }
+
+  return `Based on current weights, the portfolio behaves like about ${displayRatio(value)} equally sized positions.`;
+}
+
+function buildBreakevenFinding(value: Prisma.Decimal | null): string {
+  if (value === null) {
+    return "Portfolio breakeven distance from today's value is unavailable with the current market-value coverage.";
+  }
+
+  if (value.gt(ZERO)) {
+    return `The portfolio is below total cost basis; it would need to gain ${displayPercent(value)} from today's value to get back to breakeven.`;
+  }
+
+  if (value.lt(ZERO)) {
+    return `The portfolio is above total cost basis; it could fall ${displayPercent(decimalAbs(value))} before returning to breakeven.`;
+  }
+
+  return "The portfolio is roughly at total cost basis today.";
+}
+
+function buildScenarioPnlFinding(
+  scenarioLabel: string,
+  scenarioPnl: Prisma.Decimal | null,
+  currency: string,
+  fallback: string
+): string {
+  if (scenarioPnl === null) {
+    return fallback;
+  }
+
+  if (scenarioPnl.lt(ZERO)) {
+    return `${scenarioLabel} would reduce portfolio value by about ${displayAbsoluteCurrency(scenarioPnl, currency)}.`;
+  }
+
+  if (scenarioPnl.gt(ZERO)) {
+    return `${scenarioLabel} would increase portfolio value by about ${displayCurrency(scenarioPnl, currency)}.`;
+  }
+
+  return `${scenarioLabel} would leave modeled portfolio value unchanged.`;
+}
+
+function buildActiveReturnFinding(value: Prisma.Decimal | null): string {
+  if (value === null) {
+    return "The equal-weight comparison cannot be computed until every holding has a valid return.";
+  }
+
+  if (value.gt(ZERO)) {
+    return `The current position weights are ahead of the equal-weight version by ${displayPercent(value, { showPositiveSign: true })}.`;
+  }
+
+  if (value.lt(ZERO)) {
+    return `The current position weights trail the equal-weight version by ${displayPercent(decimalAbs(value))}.`;
+  }
+
+  return "The current position weights are in line with the equal-weight version.";
+}
+
 function inferReportingCurrency(snapshot: CanonicalPortfolioSnapshot): string {
   return snapshot.holdings[0]?.reportingCurrency ?? snapshot.baseCurrency;
 }
@@ -412,9 +489,7 @@ function buildConcentrationSection(holdings: AnalysisHolding[]): AnalysisSection
     top3Concentration
       ? `The top three holdings account for ${displayPercent(top3Concentration)} of the portfolio.`
       : "Top-holding concentration cannot be measured until all holdings have valid weights.",
-    effectivePositions
-      ? `The effective number of positions is approximately ${displayRatio(effectivePositions)}.`
-      : "Effective position count is unavailable under the current data-quality state."
+    buildEffectivePositionsFinding(effectivePositions)
   ];
 
   return {
@@ -514,9 +589,7 @@ function buildRiskSection(
       : null;
 
   const findings = [
-    portfolioDrawdownValue
-      ? `Under a uniform -20% market shock, the estimated portfolio drawdown is ${displayCurrency(portfolioDrawdownValue, reportingCurrency)}.`
-      : "Portfolio drawdown exposure cannot be estimated until total market value is available.",
+    buildDrawdownFinding(portfolioDrawdownValue, reportingCurrency),
     largestCapitalAtRisk?.capitalAtRisk20Amount
       ? `${largestCapitalAtRisk.ticker} contributes the largest dollar downside under the -20% shock assumption.`
       : "No single-position downside leader can be identified yet.",
@@ -643,9 +716,7 @@ function buildPortfolioHealthSection(
     avgGainPercent !== null && avgLossPercent !== null
       ? `Average winning return is ${displayPercent(avgGainPercent)} versus ${displayPercent(avgLossPercent)} for average losing return.`
       : "Average winner-versus-loser comparison is incomplete because one side of the distribution is missing.",
-    portfolioBreakevenReturnFromToday !== null
-      ? `From today's mark, the portfolio would need ${displayPercent(portfolioBreakevenReturnFromToday, { showPositiveSign: true })} to get back to total cost basis.`
-      : "Portfolio breakeven distance from today's value is unavailable with the current market-value coverage."
+    buildBreakevenFinding(portfolioBreakevenReturnFromToday)
   ];
 
   return {
@@ -776,12 +847,18 @@ function buildScenarioSection(
   const topPositionStress = sortedPositionStress[0] ?? null;
 
   const findings = [
-    scenarioRows[0]?.scenarioPnl
-      ? `${scenarioRows[0].scenario.label} implies a portfolio P&L of ${displayCurrency(scenarioRows[0].scenarioPnl, reportingCurrency)}.`
-      : "Scenario portfolio values are unavailable because total market value is incomplete.",
-    scenarioRows[1]?.scenarioPnl
-      ? `${scenarioRows[1].scenario.label} implies a portfolio P&L of ${displayCurrency(scenarioRows[1].scenarioPnl, reportingCurrency)}.`
-      : "Deeper downside scenario results are unavailable with the current data coverage.",
+    buildScenarioPnlFinding(
+      scenarioRows[0]!.scenario.label,
+      scenarioRows[0]!.scenarioPnl,
+      reportingCurrency,
+      "Scenario portfolio values are unavailable because total market value is incomplete."
+    ),
+    buildScenarioPnlFinding(
+      scenarioRows[1]!.scenario.label,
+      scenarioRows[1]!.scenarioPnl,
+      reportingCurrency,
+      "Deeper downside scenario results are unavailable with the current data coverage."
+    ),
     topPositionStress?.positionStress30LossAmount
       ? `${topPositionStress.ticker} has the largest single-name impact under a -30% position stress.`
       : "No position-level stress leader can be identified yet."
@@ -884,11 +961,9 @@ function buildBenchmarkSection(
       ? `Actual portfolio return is ${displayPercent(actualPortfolioReturnPercent)} from cost basis.`
       : "Actual portfolio return is incomplete because total portfolio return is unavailable.",
     equalWeightBenchmarkReturnPercent !== null
-      ? `The equal-weight internal benchmark return is ${displayPercent(equalWeightBenchmarkReturnPercent)}.`
+      ? `The equal-weight version of the same holdings returned ${displayPercent(equalWeightBenchmarkReturnPercent)}.`
       : "Equal-weight benchmark return is unavailable because not every holding has a valid return.",
-    activeReturnPercent !== null
-      ? `Active return versus the equal-weight benchmark is ${displayPercent(activeReturnPercent, { showPositiveSign: true })}.`
-      : "Active return versus the equal-weight benchmark cannot be computed yet."
+    buildActiveReturnFinding(activeReturnPercent)
   ];
 
   return {

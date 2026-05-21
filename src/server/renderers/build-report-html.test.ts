@@ -146,6 +146,34 @@ describe("buildReportHtml", () => {
     expect(html).toContain("The portfolio currently has 2 winning holdings and 0 losing holdings.");
   });
 
+  it("phrases executive shock findings as readable loss amounts", () => {
+    const report = getFixtureReport();
+    report.analysis.sections.push({
+      sectionKey: "risk-proxies",
+      sectionTitle: "Risk Proxies",
+      order: 99,
+      summary: undefined,
+      metrics: [
+        {
+          key: "portfolio-drawdown-minus-20",
+          label: "Portfolio drawdown (-20% shock)",
+          value: "-878.85574995",
+          unit: "currency"
+        }
+      ],
+      findings: [],
+      tables: [],
+      dataQualityFlags: []
+    });
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain(
+      "A uniform -20% market shock would reduce the portfolio by about USD 878.86."
+    );
+    expect(html).not.toContain("estimated portfolio move of -USD 878.86");
+  });
+
   // ------- Analysis + Narrative sections -------
 
   it("renders all analysis sections", () => {
