@@ -65,7 +65,7 @@ function emphasisColor(emphasis: string | undefined): string {
 }
 
 function displayValueColor(displayValue: string, emphasis: string | undefined): string {
-  return displayValue === "N/A" ? "#24292f" : emphasisColor(emphasis);
+  return isUnavailableDisplayValue(displayValue) ? "#24292f" : emphasisColor(emphasis);
 }
 
 function isNumericUnit(unit: string | undefined): boolean {
@@ -86,6 +86,10 @@ function formatPnlWithOptionalPercent(
   percent: string | number | null | undefined,
   currency: string
 ): string {
+  if (parseReportNumber(amount) === null) {
+    return "N/A";
+  }
+
   const amountText = formatReportCurrency(amount, currency);
   return parseReportNumber(percent) === null
     ? amountText
@@ -104,10 +108,18 @@ function formatAbsoluteCurrency(
 
 function metricDisplayValue(metric: AnalysisMetric, currency: string): string {
   if (metric.displayValue && (metric.unit === "text" || metric.unit === undefined)) {
-    return metric.displayValue;
+    return cardDisplayValue(metric.displayValue);
   }
 
-  return formatReportValue(metric.value, metric.unit, { currency });
+  return cardDisplayValue(formatReportValue(metric.value, metric.unit, { currency }));
+}
+
+function isUnavailableDisplayValue(value: string): boolean {
+  return value === "N/A" || value === "Not available";
+}
+
+function cardDisplayValue(value: string): string {
+  return value === "N/A" ? "Not available" : value;
 }
 
 // ---------------------------------------------------------------------------
@@ -336,11 +348,17 @@ function buildStyles(): string {
       border: 1pt solid #d4a72c;
       border-radius: 3pt;
       font-size: 9pt;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .dq-flags strong {
       font-size: 8pt;
       text-transform: uppercase;
       letter-spacing: 0.3pt;
+    }
+    .dq-flags ul {
+      margin: 4pt 0 0 16pt;
+      padding: 0;
     }
 
     /* Methodology */
@@ -514,31 +532,31 @@ function buildExecutiveSummary(report: ReportDocument): string {
       <div class="exec-grid">
         <div class="exec-card">
           <div class="exec-card-label">Total Market Value</div>
-          <div class="exec-card-value">${formatReportCurrency(totals.totalMarketValue, currency)}</div>
+          <div class="exec-card-value">${cardDisplayValue(formatReportCurrency(totals.totalMarketValue, currency))}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Total Cost Basis</div>
-          <div class="exec-card-value">${formatReportCurrency(totals.totalCostBasis, currency)}</div>
+          <div class="exec-card-value">${cardDisplayValue(formatReportCurrency(totals.totalCostBasis, currency))}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Paper Gain / Loss</div>
           <div class="exec-card-value" style="color: ${pnlColor};">
-            ${formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency)}
+            ${cardDisplayValue(formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency))}
           </div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Holdings</div>
-          <div class="exec-card-value">${formatReportCount(totals.holdingCount)}</div>
+          <div class="exec-card-value">${cardDisplayValue(formatReportCount(totals.holdingCount))}</div>
         </div>
       </div>
       <div class="exec-grid">
         <div class="exec-card">
           <div class="exec-card-label">Winners / Losers</div>
-          <div class="exec-card-value">${formatReportCount(summary.gainersCount)} / ${formatReportCount(summary.losersCount)}</div>
+          <div class="exec-card-value">${cardDisplayValue(formatReportCount(summary.gainersCount))} / ${cardDisplayValue(formatReportCount(summary.losersCount))}</div>
         </div>
         <div class="exec-card">
           <div class="exec-card-label">Concentration Score</div>
-          <div class="exec-card-value">${formatReportRatio(summary.concentrationHhi)}</div>
+          <div class="exec-card-value">${cardDisplayValue(formatReportRatio(summary.concentrationHhi))}</div>
         </div>
       </div>
       ${
@@ -684,6 +702,7 @@ function buildAnalysisSections(report: ReportDocument): string {
         </div>
         ${section.summary ? `<p style="margin-bottom: 10pt;">${esc(section.summary)}</p>` : ""}
         ${buildMetricsGrid(section.metrics, currency)}
+        ${buildDataQualityFlags(section.dataQualityFlags)}
         ${section.tables.map((table) => buildAnalysisTable(table, currency)).join("")}
         ${
           section.findings.length > 0
@@ -696,7 +715,6 @@ function buildAnalysisSections(report: ReportDocument): string {
             : ""
         }
         ${buildNarrativeBlock(narrativeSection)}
-        ${buildDataQualityFlags(section.dataQualityFlags)}
       </div>
     `;
     })
@@ -707,13 +725,49 @@ function buildAnalysisSections(report: ReportDocument): string {
 // Data quality flags
 // ---------------------------------------------------------------------------
 
+const DATA_QUALITY_FLAG_LABELS: Record<string, string> = {
+  benchmark_metrics_incomplete: "Internal benchmark metrics incomplete",
+  concentration_metrics_incomplete: "Diversification metrics incomplete",
+  contains_delayed_quotes: "Contains delayed quotes",
+  contains_partial_market_data: "Some holdings have incomplete market data",
+  currency_inferred_from_symbol: "Security currency inferred from ticker",
+  delayed_quote: "Delayed quote",
+  fx_rate_unavailable: "Currency conversion rate unavailable",
+  market_data_missing: "Market data missing",
+  market_value_unavailable: "Market value unavailable",
+  no_priced_holdings: "No priced holdings available",
+  quote_not_found: "Quote not found",
+  reporting_currency_differs_from_portfolio_base_currency:
+    "Reporting currency differs from portfolio base currency",
+  risk_proxy_metrics_incomplete: "Downside risk metrics incomplete",
+  scenario_metrics_incomplete: "What-if stress-test metrics incomplete",
+  security_currency_mismatch_with_provider: "Security currency mismatch with provider",
+  unsupported_security_currency: "Unsupported security currency",
+  zero_cost_basis: "Zero cost basis"
+};
+
+function uniqueDataQualityFlags(flags: string[]): string[] {
+  return [...new Set(flags.filter((flag) => flag.trim().length > 0))];
+}
+
+function fallbackDataQualityLabel(flag: string): string {
+  const readable = flag.replace(/[_-]+/g, " ").trim();
+  return readable.length === 0 ? flag : readable.charAt(0).toUpperCase() + readable.slice(1);
+}
+
+function formatDataQualityFlag(flag: string): string {
+  return DATA_QUALITY_FLAG_LABELS[flag] ?? fallbackDataQualityLabel(flag);
+}
+
 function buildDataQualityFlags(flags: string[]): string {
-  if (flags.length === 0) return "";
+  const uniqueFlags = uniqueDataQualityFlags(flags);
+  if (uniqueFlags.length === 0) return "";
+
   return `
     <div class="dq-flags">
       <strong>Data Quality Notes</strong>
-      <ul style="margin: 4pt 0 0 16pt; padding: 0;">
-        ${flags.map((f) => `<li>${esc(f.replace(/_/g, " "))}</li>`).join("\n        ")}
+      <ul>
+        ${uniqueFlags.map((f) => `<li>${esc(formatDataQualityFlag(f))}</li>`).join("\n        ")}
       </ul>
     </div>
   `;

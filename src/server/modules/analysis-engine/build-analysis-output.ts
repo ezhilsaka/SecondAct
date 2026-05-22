@@ -604,7 +604,7 @@ function buildRiskSection(
     order: 3,
     summary: portfolioDrawdownValue
       ? `Static downside exposure is modeled using a uniform -20% shock.`
-      : "Risk-proxy metrics are partially unavailable because market-value coverage is incomplete.",
+      : "Downside risk metrics are partially unavailable because market-value coverage is incomplete.",
     metrics: [
       buildMetric({
         key: "portfolio-capital-at-risk-minus-20",

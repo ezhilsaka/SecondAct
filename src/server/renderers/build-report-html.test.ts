@@ -122,6 +122,7 @@ describe("buildReportHtml", () => {
     const html = buildReportHtml(report);
 
     expect(html).toContain('<div class="exec-card-value" style="color: #24292f;">');
+    expect(html).toContain("Not available");
     expect(html).not.toContain("N/A (N/A)");
   });
 
@@ -310,7 +311,7 @@ describe("buildReportHtml", () => {
     expect(html).toContain('<td class="numeric-cell">53.71%</td>');
   });
 
-  it("renders N/A metric values with neutral color even when the metric emphasis is negative", () => {
+  it("renders unavailable metric-card values with neutral color and friendly wording", () => {
     const report = getFixtureReport();
     const section = report.analysis.sections[0]!;
     section.metrics = [
@@ -325,7 +326,37 @@ describe("buildReportHtml", () => {
 
     const html = buildReportHtml(report);
 
-    expect(html).toMatch(/<div class="metric-value" style="color: #24292f;">\s*N\/A\s*<\/div>/);
+    expect(html).toMatch(
+      /<div class="metric-value" style="color: #24292f;">\s*Not available\s*<\/div>/
+    );
+  });
+
+  it("keeps unavailable table values compact as N/A", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    section.tables = [
+      {
+        tableKey: "unavailable-table-values",
+        title: "Unavailable table values",
+        columns: [
+          { key: "ticker", label: "Ticker", unit: "text" },
+          { key: "marketValue", label: "Market Value", unit: "currency" }
+        ],
+        rows: [
+          {
+            rowKey: "row-1",
+            cells: [
+              { columnKey: "ticker", value: "AAPL" },
+              { columnKey: "marketValue", value: null }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain('<td class="numeric-cell">N/A</td>');
   });
 
   it("renders narrative summary and takeaways for sections", () => {
@@ -424,7 +455,34 @@ describe("buildReportHtml", () => {
 
     // Fixture section at index 1 has "contains_delayed_quotes"
     expect(html).toContain("Data Quality Notes");
-    expect(html).toContain("contains delayed quotes");
+    expect(html).toContain("Contains delayed quotes");
+  });
+
+  it("renders data quality flags as deduped human-friendly labels", () => {
+    const report = getFixtureReport();
+    report.analysis.sections.forEach((section) => {
+      section.dataQualityFlags = [];
+    });
+    report.analysis.dataQualityFlags = [
+      "quote_not_found",
+      "risk_proxy_metrics_incomplete",
+      "quote_not_found"
+    ];
+    report.canonicalSnapshot.dataQualityFlags = ["quote_not_found"];
+
+    const html = buildReportHtml(report);
+
+    expect(html.match(/Quote not found/g)).toHaveLength(1);
+    expect(html).toContain("Downside risk metrics incomplete");
+    expect(html).not.toContain("risk proxy metrics incomplete");
+    expect(html).not.toContain("risk_proxy_metrics_incomplete");
+  });
+
+  it("keeps data quality note boxes together across PDF page breaks", () => {
+    const html = buildReportHtml(getFixtureReport());
+
+    expect(html).toContain("break-inside: avoid");
+    expect(html).toContain("page-break-inside: avoid");
   });
 
   // ------- Methodology -------
@@ -511,7 +569,7 @@ describe("buildReportHtml", () => {
 
     const html = buildReportHtml(report);
 
-    expect(html).toContain("N/A");
+    expect(html).toContain("Not available");
     expect(html).not.toContain("undefined");
     expect(html).not.toContain("NaN");
   });

@@ -363,6 +363,10 @@ describe("buildAnalysisOutput", () => {
         })
       ])
     );
+    expect(riskSection?.summary).toBe(
+      "Downside risk metrics are partially unavailable because market-value coverage is incomplete."
+    );
+    expect(riskSection?.summary).not.toContain("Risk-proxy");
     expect(riskSection?.dataQualityFlags).toContain("risk_proxy_metrics_incomplete");
 
     const benchmarkSection = analysisOutput.sections.find(
