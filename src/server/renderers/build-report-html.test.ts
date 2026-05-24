@@ -377,6 +377,97 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Takeaway for section-1-market-value");
   });
 
+  it("caps rendered narrative takeaways to one item per section and metric", () => {
+    const report = getFixtureReport();
+    const narrativeSection = report.narrative.sections[0]!;
+    const narrativeMetric = narrativeSection.metrics[0]!;
+    narrativeSection.keyTakeaways = ["Keep this section takeaway.", "Drop this section takeaway."];
+    narrativeMetric.takeaways = ["Keep this metric takeaway.", "Drop this metric takeaway."];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("Keep this section takeaway.");
+    expect(html).not.toContain("Drop this section takeaway.");
+    expect(html).toContain("Keep this metric takeaway.");
+    expect(html).not.toContain("Drop this metric takeaway.");
+  });
+
+  it("suppresses repeated metric takeaways when the matching metric is unavailable", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    const metric = section.metrics[0]!;
+    const narrativeMetric = report.narrative.sections[0]!.metrics[0]!;
+
+    metric.value = null;
+    narrativeMetric.name = metric.key;
+    narrativeMetric.displayName = metric.label;
+    narrativeMetric.narrative = "This metric is still explained in plain language.";
+    narrativeMetric.takeaways = ["This repeated unavailable takeaway should not render."];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain(metric.label);
+    expect(html).toContain("This metric is still explained in plain language.");
+    expect(html).not.toContain("This repeated unavailable takeaway should not render.");
+  });
+
+  it("keeps metric takeaways when the matching metric is available", () => {
+    const report = getFixtureReport();
+    const section = report.analysis.sections[0]!;
+    const metric = section.metrics[0]!;
+    const narrativeMetric = report.narrative.sections[0]!.metrics[0]!;
+
+    narrativeMetric.name = metric.key;
+    narrativeMetric.displayName = metric.label;
+    narrativeMetric.takeaways = ["This useful available-metric takeaway should render."];
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("This useful available-metric takeaway should render.");
+  });
+
+  it("trims long rendered narrative text at sentence boundaries", () => {
+    const report = getFixtureReport();
+    const narrativeSection = report.narrative.sections[0]!;
+    const narrativeMetric = narrativeSection.metrics[0]!;
+    narrativeSection.summaryNarrative = [
+      "This section summary keeps the main investor message.",
+      `${"It adds useful context without jargon ".repeat(15).trim()}.`,
+      "This section sentence should not render."
+    ].join(" ");
+    narrativeMetric.narrative = [
+      "This metric narrative keeps the useful plain-English meaning.",
+      `${"It explains the portfolio impact in practical terms ".repeat(7).trim()}.`,
+      "This metric sentence should not render."
+    ].join(" ");
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain("This section summary keeps the main investor message.");
+    expect(html).not.toContain("This section sentence should not render.");
+    expect(html).toContain("This metric narrative keeps the useful plain-English meaning.");
+    expect(html).not.toContain("This metric sentence should not render.");
+  });
+
+  it("uses compact but readable table spacing for dense report sections", () => {
+    const html = buildReportHtml(getFixtureReport());
+
+    expect(html).toContain("font-size: 8.5pt;");
+    expect(html).toContain("margin: 8pt 0;");
+    expect(html).toContain("padding: 5pt 7pt;");
+    expect(html).toContain("padding: 4pt 7pt;");
+  });
+
+  it("adds PDF page-break guardrails for long table continuations", () => {
+    const html = buildReportHtml(getFixtureReport());
+
+    expect(html).toContain(".data-table thead");
+    expect(html).toContain("display: table-header-group;");
+    expect(html).toContain(".data-table tbody tr");
+    expect(html).toContain("break-inside: avoid;");
+    expect(html).toContain("page-break-inside: avoid;");
+  });
+
   it("renders section findings", () => {
     const report = getFixtureReport();
     const html = buildReportHtml(report);

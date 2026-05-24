@@ -20,7 +20,7 @@ export const REPORT_DISCLAIMER_TEXT =
  * Prompt version used by the narrative provider. This stays separate from the
  * contract schema version so prompt iteration does not imply payload drift.
  */
-export const NARRATIVE_EXPLAINER_PROMPT_VERSION = "narrative-explainer.v2";
+export const NARRATIVE_EXPLAINER_PROMPT_VERSION = "narrative-explainer.v3";
 
 /**
  * Contract design note: analysis sections should be driven by the product taxonomy,

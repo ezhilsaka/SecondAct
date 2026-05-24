@@ -114,6 +114,61 @@ function metricDisplayValue(metric: AnalysisMetric, currency: string): string {
   return cardDisplayValue(formatReportValue(metric.value, metric.unit, { currency }));
 }
 
+function unavailableMetricNames(metrics: AnalysisMetric[], currency: string): Set<string> {
+  return new Set(
+    metrics
+      .filter((metric) => isUnavailableDisplayValue(metricDisplayValue(metric, currency)))
+      .map((metric) => metric.key)
+  );
+}
+
+const SECTION_NARRATIVE_MAX_CHARS = 500;
+const METRIC_NARRATIVE_MAX_CHARS = 420;
+const TAKEAWAY_MAX_CHARS = 180;
+const MAX_RENDERED_TAKEAWAYS = 1;
+
+function normalizeNarrativeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function trimToSentenceBoundary(value: string, maxChars: number): string {
+  const normalized = normalizeNarrativeWhitespace(value);
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+
+  const sentences = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) ?? [normalized];
+  let result = "";
+
+  for (const sentence of sentences) {
+    const trimmedSentence = sentence.trim();
+    const candidate = result ? `${result} ${trimmedSentence}` : trimmedSentence;
+
+    if (candidate.length > maxChars) {
+      break;
+    }
+
+    result = candidate;
+  }
+
+  // If the first sentence is long, prefer one complete sentence over a mid-sentence cutoff.
+  return result || sentences[0]?.trim() || normalized;
+}
+
+function renderedSectionNarrative(value: string): string {
+  return trimToSentenceBoundary(value, SECTION_NARRATIVE_MAX_CHARS);
+}
+
+function renderedMetricNarrative(value: string): string {
+  return trimToSentenceBoundary(value, METRIC_NARRATIVE_MAX_CHARS);
+}
+
+function renderedTakeaways(takeaways: string[]): string[] {
+  return takeaways
+    .slice(0, MAX_RENDERED_TAKEAWAYS)
+    .map((takeaway) => trimToSentenceBoundary(takeaway, TAKEAWAY_MAX_CHARS));
+}
+
 function isUnavailableDisplayValue(value: string): boolean {
   return value === "N/A" || value === "Not available";
 }
@@ -270,8 +325,15 @@ function buildStyles(): string {
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 10pt 0;
-      font-size: 8.75pt;
+      margin: 8pt 0;
+      font-size: 8.5pt;
+    }
+    .data-table thead {
+      display: table-header-group;
+    }
+    .data-table tbody tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .data-table caption {
       text-align: left;
@@ -286,12 +348,12 @@ function buildStyles(): string {
       text-transform: uppercase;
       letter-spacing: 0.3pt;
       color: #656d76;
-      padding: 6pt 8pt;
+      padding: 5pt 7pt;
       border-bottom: 1.5pt solid #d0d7de;
       background: #f6f8fa;
     }
     .data-table td {
-      padding: 5pt 8pt;
+      padding: 4pt 7pt;
       border-bottom: 0.5pt solid #d0d7de;
     }
     .data-table .numeric-cell {
@@ -650,16 +712,21 @@ function findNarrativeSection(
   return narrativeOutput.sections.find((s) => s.sectionKey === sectionKey);
 }
 
-function buildNarrativeBlock(narrative: NarrativeSection | undefined): string {
+function buildNarrativeBlock(
+  narrative: NarrativeSection | undefined,
+  unavailableMetrics: Set<string> = new Set()
+): string {
   if (!narrative) return "";
+  const sectionTakeaways = renderedTakeaways(narrative.keyTakeaways);
+
   return `
     <div class="narrative-block">
-      <p>${esc(narrative.summaryNarrative)}</p>
+      <p>${esc(renderedSectionNarrative(narrative.summaryNarrative))}</p>
       ${
-        narrative.keyTakeaways.length > 0
+        sectionTakeaways.length > 0
           ? `
         <ul class="takeaway-list">
-          ${narrative.keyTakeaways.map((t) => `<li>${esc(t)}</li>`).join("\n          ")}
+          ${sectionTakeaways.map((t) => `<li>${esc(t)}</li>`).join("\n          ")}
         </ul>
       `
           : ""
@@ -669,15 +736,20 @@ function buildNarrativeBlock(narrative: NarrativeSection | undefined): string {
       narrative.metrics.length > 0
         ? narrative.metrics
             .map(
-              (m) => `
+              (m) => {
+                const metricTakeaways = unavailableMetrics.has(m.name)
+                  ? []
+                  : renderedTakeaways(m.takeaways);
+                return `
       <h4>${esc(m.displayName)}</h4>
-      <p style="margin-bottom: 4pt;">${esc(m.narrative)}</p>
+      <p style="margin-bottom: 4pt;">${esc(renderedMetricNarrative(m.narrative))}</p>
       ${
-        m.takeaways.length > 0
-          ? `<ul class="takeaway-list">${m.takeaways.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`
+        metricTakeaways.length > 0
+          ? `<ul class="takeaway-list">${metricTakeaways.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>`
           : ""
       }
-    `
+    `;
+              }
             )
             .join("")
         : ""
@@ -693,6 +765,7 @@ function buildAnalysisSections(report: ReportDocument): string {
     .map((section, index) => {
       const sectionNumber = String(index + 2).padStart(2, "0");
       const narrativeSection = findNarrativeSection(report.narrative, section.sectionKey);
+      const unavailableMetrics = unavailableMetricNames(section.metrics, currency);
 
       return `
       <div class="page-break"></div>
@@ -714,7 +787,7 @@ function buildAnalysisSections(report: ReportDocument): string {
         `
             : ""
         }
-        ${buildNarrativeBlock(narrativeSection)}
+        ${buildNarrativeBlock(narrativeSection, unavailableMetrics)}
       </div>
     `;
     })
