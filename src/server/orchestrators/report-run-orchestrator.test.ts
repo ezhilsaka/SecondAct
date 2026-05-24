@@ -5,6 +5,7 @@ import {
   ReportRunOrchestrator,
   ReportRunNotQueuedError,
   OrchestratorReportRunNotFoundError,
+  ORCHESTRATOR_ERROR_CATEGORIES,
   ORCHESTRATOR_ERROR_CODES,
   type OrchestratorRepository,
   type ArtifactStorageStage
@@ -96,7 +97,8 @@ const QUEUED_RUN = {
   id: RUN_ID,
   userId: USER_ID,
   portfolioId: PORTFOLIO_ID,
-  status: "QUEUED" as const
+  status: "QUEUED" as const,
+  paymentStatus: "NOT_REQUIRED" as const
 };
 
 const COMPLETED_RUN_DATA: ReportRunForDocumentAssembly = {
@@ -243,6 +245,74 @@ describe("ReportRunOrchestrator", () => {
         artifactId: ARTIFACT_ID
       });
     });
+
+    it("logs status transitions with payment status for auditability", async () => {
+      await orchestrator.execute(RUN_ID);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run status transition.",
+        expect.objectContaining({
+          event: "report_run.status_transition",
+          runId: RUN_ID,
+          userId: USER_ID,
+          portfolioId: PORTFOLIO_ID,
+          paymentStatus: "NOT_REQUIRED",
+          statusFrom: "QUEUED",
+          statusTo: "PROCESSING"
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run status transition.",
+        expect.objectContaining({
+          event: "report_run.status_transition",
+          runId: RUN_ID,
+          paymentStatus: "NOT_REQUIRED",
+          statusFrom: "PROCESSING",
+          statusTo: "COMPLETED"
+        })
+      );
+    });
+
+    it("logs stage timing metadata for successful pipeline stages", async () => {
+      await orchestrator.execute(RUN_ID);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run stage started.",
+        expect.objectContaining({
+          event: "report_run.stage_started",
+          runId: RUN_ID,
+          userId: USER_ID,
+          portfolioId: PORTFOLIO_ID,
+          paymentStatus: "NOT_REQUIRED",
+          stage: "canonical_model"
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run stage completed.",
+        expect.objectContaining({
+          event: "report_run.stage_completed",
+          runId: RUN_ID,
+          stage: "canonical_model",
+          durationMs: expect.any(Number)
+        })
+      );
+    });
+
+    it("logs overall processing completion duration", async () => {
+      await orchestrator.execute(RUN_ID);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run processing completed.",
+        expect.objectContaining({
+          event: "report_run.processing_completed",
+          runId: RUN_ID,
+          userId: USER_ID,
+          portfolioId: PORTFOLIO_ID,
+          artifactId: ARTIFACT_ID,
+          durationMs: expect.any(Number)
+        })
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -292,12 +362,14 @@ describe("ReportRunOrchestrator", () => {
     const stageScenarios: {
       label: string;
       errorCode: string;
+      errorCategory: string;
       failFn: () => void;
       shouldNotBeCalled: string[];
     }[] = [
       {
         label: "canonical model service",
         errorCode: ORCHESTRATOR_ERROR_CODES.CANONICAL_FAILURE,
+        errorCategory: ORCHESTRATOR_ERROR_CATEGORIES.MARKET_DATA_OR_CANONICAL_FAILURE,
         failFn: () => {
           canonical.buildForReportRun.mockRejectedValue(new Error("Market data unavailable"));
         },
@@ -306,6 +378,7 @@ describe("ReportRunOrchestrator", () => {
       {
         label: "analysis engine service",
         errorCode: ORCHESTRATOR_ERROR_CODES.ANALYSIS_FAILURE,
+        errorCategory: ORCHESTRATOR_ERROR_CATEGORIES.ANALYSIS_FAILURE,
         failFn: () => {
           analysis.buildForReportRun.mockRejectedValue(new Error("Analysis computation failed"));
         },
@@ -314,6 +387,7 @@ describe("ReportRunOrchestrator", () => {
       {
         label: "narrative engine service",
         errorCode: ORCHESTRATOR_ERROR_CODES.NARRATIVE_FAILURE,
+        errorCategory: ORCHESTRATOR_ERROR_CATEGORIES.NARRATIVE_FAILURE,
         failFn: () => {
           narrative.buildForReportRun.mockRejectedValue(new Error("LLM timeout"));
         },
@@ -322,6 +396,7 @@ describe("ReportRunOrchestrator", () => {
       {
         label: "PDF renderer",
         errorCode: ORCHESTRATOR_ERROR_CODES.RENDER_FAILURE,
+        errorCategory: ORCHESTRATOR_ERROR_CATEGORIES.PDF_FAILURE,
         failFn: () => {
           renderer.render.mockRejectedValue(new Error("Chromium crash"));
         },
@@ -330,6 +405,7 @@ describe("ReportRunOrchestrator", () => {
       {
         label: "artifact storage",
         errorCode: ORCHESTRATOR_ERROR_CODES.STORAGE_FAILURE,
+        errorCategory: ORCHESTRATOR_ERROR_CATEGORIES.STORAGE_FAILURE,
         failFn: () => {
           storage.storeForReportRun.mockRejectedValue(new Error("Upload failed"));
         },
@@ -363,7 +439,41 @@ describe("ReportRunOrchestrator", () => {
             expect.objectContaining({
               event: "report.failed",
               runId: RUN_ID,
-              errorCode: scenario.errorCode
+              errorCode: scenario.errorCode,
+              errorCategory: scenario.errorCategory
+            })
+          );
+        });
+
+        it("logs stage failure timing and error category", async () => {
+          await expect(orchestrator.execute(RUN_ID)).rejects.toThrow();
+
+          expect(logger.error).toHaveBeenCalledWith(
+            "Report run stage failed.",
+            expect.objectContaining({
+              event: "report_run.stage_failed",
+              runId: RUN_ID,
+              userId: USER_ID,
+              portfolioId: PORTFOLIO_ID,
+              paymentStatus: "NOT_REQUIRED",
+              errorCode: scenario.errorCode,
+              errorCategory: scenario.errorCategory,
+              durationMs: expect.any(Number)
+            })
+          );
+        });
+
+        it("logs FAILED status transition with payment status", async () => {
+          await expect(orchestrator.execute(RUN_ID)).rejects.toThrow();
+
+          expect(logger.info).toHaveBeenCalledWith(
+            "Report run status transition.",
+            expect.objectContaining({
+              event: "report_run.status_transition",
+              runId: RUN_ID,
+              paymentStatus: "NOT_REQUIRED",
+              statusFrom: "PROCESSING",
+              statusTo: "FAILED"
             })
           );
         });

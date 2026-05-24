@@ -27,6 +27,15 @@ export const ORCHESTRATOR_ERROR_CODES = {
 export type OrchestratorErrorCode =
   (typeof ORCHESTRATOR_ERROR_CODES)[keyof typeof ORCHESTRATOR_ERROR_CODES];
 
+export const ORCHESTRATOR_ERROR_CATEGORIES = {
+  MARKET_DATA_OR_CANONICAL_FAILURE: "MARKET_DATA_OR_CANONICAL_FAILURE",
+  ANALYSIS_FAILURE: "ANALYSIS_FAILURE",
+  NARRATIVE_FAILURE: "NARRATIVE_FAILURE",
+  PDF_FAILURE: "PDF_FAILURE",
+  STORAGE_FAILURE: "STORAGE_FAILURE",
+  ORCHESTRATION_FAILURE: "ORCHESTRATION_FAILURE"
+} as const;
+
 // ---------------------------------------------------------------------------
 // Error classes
 // ---------------------------------------------------------------------------
@@ -56,6 +65,7 @@ export type ReportFailedEvent = {
   runId: string;
   userId: string;
   errorCode: string;
+  errorCategory: string;
   errorMessage: string;
 };
 
@@ -68,6 +78,7 @@ type ReportRunForStatusCheck = {
   userId: string;
   portfolioId: string;
   status: string;
+  paymentStatus: string;
 };
 
 export type FailRunInput = {
@@ -103,7 +114,8 @@ export class PrismaOrchestratorRepository implements OrchestratorRepository {
         id: true,
         userId: true,
         portfolioId: true,
-        status: true
+        status: true,
+        paymentStatus: true
       }
     });
   }
@@ -221,6 +233,7 @@ export type ReportRunOrchestratorDependencies = {
   pdfRenderer?: PdfRenderer;
   artifactStorageService?: ArtifactStorageStage;
   now?: () => Date;
+  nowMs?: () => number;
   logger?: Pick<typeof console, "info" | "error">;
 };
 
@@ -238,6 +251,7 @@ export class ReportRunOrchestrator {
   private readonly pdfRenderer: PdfRenderer;
   private readonly artifactStorageService: ArtifactStorageStage;
   private readonly now: () => Date;
+  private readonly nowMs: () => number;
   private readonly logger: Pick<typeof console, "info" | "error">;
 
   constructor(dependencies: ReportRunOrchestratorDependencies = {}) {
@@ -250,10 +264,13 @@ export class ReportRunOrchestrator {
     this.artifactStorageService =
       dependencies.artifactStorageService ?? new ArtifactStorageService();
     this.now = dependencies.now ?? (() => new Date());
+    this.nowMs = dependencies.nowMs ?? (() => Date.now());
     this.logger = dependencies.logger ?? console;
   }
 
   async execute(reportRunId: string): Promise<OrchestratorResult> {
+    const executionStartedAtMs = this.nowMs();
+
     // 1. Load and guard: only QUEUED runs may proceed
     const run = await this.repository.getReportRunForProcessing(reportRunId);
 
@@ -269,22 +286,33 @@ export class ReportRunOrchestrator {
 
     // 2. Transition to PROCESSING
     await this.repository.transitionToProcessing(reportRunId, this.now());
+    this.logStatusTransition(run, run.status, "PROCESSING");
+    this.logger.info("Report run processing started.", {
+      event: "report_run.processing_started",
+      runId: reportRunId,
+      userId: run.userId,
+      portfolioId: run.portfolioId,
+      paymentStatus: run.paymentStatus
+    });
 
     try {
       // 3. Run pipeline stages sequentially
       await this.runPipelineStage(
+        "canonical_model",
         () => this.canonicalModelService.buildForReportRun(reportRunId),
         ORCHESTRATOR_ERROR_CODES.CANONICAL_FAILURE,
         run
       );
 
       await this.runPipelineStage(
+        "analysis_engine",
         () => this.analysisEngineService.buildForReportRun(reportRunId),
         ORCHESTRATOR_ERROR_CODES.ANALYSIS_FAILURE,
         run
       );
 
       await this.runPipelineStage(
+        "narrative_engine",
         () => this.narrativeEngineService.buildForReportRun(reportRunId),
         ORCHESTRATOR_ERROR_CODES.NARRATIVE_FAILURE,
         run
@@ -300,10 +328,16 @@ export class ReportRunOrchestrator {
         );
       }
 
-      const reportDocument = buildReportDocument(completedRunData, this.now());
+      const reportDocument = await this.runPipelineStage(
+        "report_document_assembly",
+        () => Promise.resolve(buildReportDocument(completedRunData, this.now())),
+        ORCHESTRATOR_ERROR_CODES.ORCHESTRATION_FAILURE,
+        run
+      );
 
       // 5. Render PDF
       const renderResult = await this.runPipelineStage(
+        "pdf_render",
         () => this.pdfRenderer.render(reportDocument),
         ORCHESTRATOR_ERROR_CODES.RENDER_FAILURE,
         run
@@ -311,6 +345,7 @@ export class ReportRunOrchestrator {
 
       // 6. Upload artifact and create metadata
       const storeResult = await this.runPipelineStage(
+        "artifact_storage",
         () =>
           this.artifactStorageService.storeForReportRun({
             reportRunId,
@@ -322,7 +357,13 @@ export class ReportRunOrchestrator {
       );
 
       // 7. Complete run + increment usage (atomic)
-      await this.repository.completeRunAndIncrementUsage(reportRunId, run.userId, this.now());
+      await this.runPipelineStage(
+        "completion",
+        () => this.repository.completeRunAndIncrementUsage(reportRunId, run.userId, this.now()),
+        ORCHESTRATOR_ERROR_CODES.ORCHESTRATION_FAILURE,
+        run
+      );
+      this.logStatusTransition(run, "PROCESSING", "COMPLETED");
 
       // 8. Emit domain event
       const completedEvent: ReportCompletedEvent = {
@@ -333,6 +374,14 @@ export class ReportRunOrchestrator {
         artifactId: storeResult.artifactId
       };
       this.logger.info("Domain event emitted.", completedEvent);
+      this.logger.info("Report run processing completed.", {
+        event: "report_run.processing_completed",
+        runId: reportRunId,
+        userId: run.userId,
+        portfolioId: run.portfolioId,
+        artifactId: storeResult.artifactId,
+        durationMs: this.elapsedMs(executionStartedAtMs)
+      });
 
       return {
         runId: reportRunId,
@@ -356,14 +405,49 @@ export class ReportRunOrchestrator {
   }
 
   private async runPipelineStage<T>(
+    stage: string,
     stageFn: () => Promise<T>,
     errorCode: OrchestratorErrorCode,
     run: ReportRunForStatusCheck
   ): Promise<T> {
+    const stageStartedAtMs = this.nowMs();
+    this.logger.info("Report run stage started.", {
+      event: "report_run.stage_started",
+      runId: run.id,
+      userId: run.userId,
+      portfolioId: run.portfolioId,
+      paymentStatus: run.paymentStatus,
+      stage
+    });
+
     try {
-      return await stageFn();
+      const result = await stageFn();
+      this.logger.info("Report run stage completed.", {
+        event: "report_run.stage_completed",
+        runId: run.id,
+        userId: run.userId,
+        portfolioId: run.portfolioId,
+        paymentStatus: run.paymentStatus,
+        stage,
+        durationMs: this.elapsedMs(stageStartedAtMs)
+      });
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown stage error";
+      const errorCategory = errorCategoryForCode(errorCode);
+
+      this.logger.error("Report run stage failed.", {
+        event: "report_run.stage_failed",
+        runId: run.id,
+        userId: run.userId,
+        portfolioId: run.portfolioId,
+        paymentStatus: run.paymentStatus,
+        stage,
+        durationMs: this.elapsedMs(stageStartedAtMs),
+        errorCode,
+        errorCategory,
+        errorMessage
+      });
 
       await this.failRunSafe(run.id, run, errorCode, errorMessage);
 
@@ -386,12 +470,14 @@ export class ReportRunOrchestrator {
         errorDetails: { message: errorMessage } as Prisma.InputJsonValue,
         failedAt: this.now()
       });
+      this.logStatusTransition(run, "PROCESSING", "FAILED");
 
       const failedEvent: ReportFailedEvent = {
         event: "report.failed",
         runId: reportRunId,
         userId: run.userId,
         errorCode,
+        errorCategory: errorCategoryForCode(errorCode),
         errorMessage
       };
       this.logger.error("Domain event emitted.", failedEvent);
@@ -403,6 +489,26 @@ export class ReportRunOrchestrator {
         failError: failError instanceof Error ? failError.message : "unknown"
       });
     }
+  }
+
+  private logStatusTransition(
+    run: ReportRunForStatusCheck,
+    statusFrom: string,
+    statusTo: string
+  ) {
+    this.logger.info("Report run status transition.", {
+      event: "report_run.status_transition",
+      runId: run.id,
+      userId: run.userId,
+      portfolioId: run.portfolioId,
+      paymentStatus: run.paymentStatus,
+      statusFrom,
+      statusTo
+    });
+  }
+
+  private elapsedMs(startedAtMs: number) {
+    return Math.max(0, Math.round(this.nowMs() - startedAtMs));
   }
 }
 
@@ -417,5 +523,22 @@ class PipelineStageError extends Error {
   constructor(errorCode: OrchestratorErrorCode, message: string, options?: ErrorOptions) {
     super(`[${errorCode}] ${message}`, options);
     this.errorCode = errorCode;
+  }
+}
+
+function errorCategoryForCode(errorCode: string): string {
+  switch (errorCode) {
+    case ORCHESTRATOR_ERROR_CODES.CANONICAL_FAILURE:
+      return ORCHESTRATOR_ERROR_CATEGORIES.MARKET_DATA_OR_CANONICAL_FAILURE;
+    case ORCHESTRATOR_ERROR_CODES.ANALYSIS_FAILURE:
+      return ORCHESTRATOR_ERROR_CATEGORIES.ANALYSIS_FAILURE;
+    case ORCHESTRATOR_ERROR_CODES.NARRATIVE_FAILURE:
+      return ORCHESTRATOR_ERROR_CATEGORIES.NARRATIVE_FAILURE;
+    case ORCHESTRATOR_ERROR_CODES.RENDER_FAILURE:
+      return ORCHESTRATOR_ERROR_CATEGORIES.PDF_FAILURE;
+    case ORCHESTRATOR_ERROR_CODES.STORAGE_FAILURE:
+      return ORCHESTRATOR_ERROR_CATEGORIES.STORAGE_FAILURE;
+    default:
+      return ORCHESTRATOR_ERROR_CATEGORIES.ORCHESTRATION_FAILURE;
   }
 }

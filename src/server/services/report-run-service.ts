@@ -202,6 +202,7 @@ export type ReportRunServiceDependencies = {
   repository?: ReportRunRepository;
   storageSigner?: StorageSigner;
   jobEnqueuer?: JobEnqueuer;
+  logger?: Pick<typeof console, "info" | "error">;
   env?: Pick<
     ServerEnv,
     | "PAYMENT_GATE_ENABLED"
@@ -238,6 +239,7 @@ export class ReportRunService {
   private readonly repository: ReportRunRepository;
   private readonly storageSigner: StorageSigner;
   private readonly jobEnqueuer: JobEnqueuer;
+  private readonly logger: Pick<typeof console, "info" | "error">;
   private readonly env: Pick<
     ServerEnv,
     | "PAYMENT_GATE_ENABLED"
@@ -250,6 +252,7 @@ export class ReportRunService {
     this.repository = dependencies.repository ?? new PrismaReportRunRepository();
     this.storageSigner = dependencies.storageSigner ?? new SupabaseStorageSigner();
     this.jobEnqueuer = dependencies.jobEnqueuer ?? new GraphileJobEnqueuer();
+    this.logger = dependencies.logger ?? console;
     this.env = dependencies.env ?? serverEnv;
   }
 
@@ -269,8 +272,29 @@ export class ReportRunService {
       portfolioId,
       reportingCurrency: input.reportingCurrency
     });
+    this.logger.info("Report run created.", {
+      event: "report_run.created",
+      runId: run.id,
+      userId,
+      portfolioId,
+      status: "QUEUED",
+      paymentStatus: "NOT_REQUIRED",
+      reportingCurrency: input.reportingCurrency
+    });
 
     // 3. Enqueue the worker job; delete the run if enqueue fails
+    const jobKey = `report-run:${run.id}`;
+    const maxAttempts = 1;
+    this.logger.info("Report run enqueue started.", {
+      event: "report_run.enqueue_started",
+      runId: run.id,
+      userId,
+      portfolioId,
+      taskIdentifier: this.env.REPORT_RUN_TASK_IDENTIFIER,
+      jobKey,
+      maxAttempts
+    });
+
     try {
       await this.jobEnqueuer.enqueue(
         this.env.REPORT_RUN_TASK_IDENTIFIER,
@@ -278,14 +302,49 @@ export class ReportRunService {
           reportRunId: run.id
         },
         {
-          jobKey: `report-run:${run.id}`,
-          maxAttempts: 1
+          jobKey,
+          maxAttempts
         }
       );
+      this.logger.info("Report run enqueued.", {
+        event: "report_run.enqueued",
+        runId: run.id,
+        userId,
+        portfolioId,
+        taskIdentifier: this.env.REPORT_RUN_TASK_IDENTIFIER,
+        jobKey,
+        maxAttempts
+      });
     } catch (enqueueError) {
+      const errorMessage =
+        enqueueError instanceof Error ? enqueueError.message : "Unknown enqueue error";
+      this.logger.error("Report run enqueue failed.", {
+        event: "report_run.enqueue_failed",
+        runId: run.id,
+        userId,
+        portfolioId,
+        taskIdentifier: this.env.REPORT_RUN_TASK_IDENTIFIER,
+        jobKey,
+        maxAttempts,
+        errorMessage
+      });
+
       try {
         await this.repository.deleteReportRun(run.id);
+        this.logger.info("Report run enqueue cleanup completed.", {
+          event: "report_run.enqueue_cleanup_completed",
+          runId: run.id,
+          userId,
+          portfolioId
+        });
       } catch {
+        this.logger.error("Report run enqueue cleanup failed.", {
+          event: "report_run.enqueue_cleanup_failed",
+          runId: run.id,
+          userId,
+          portfolioId,
+          originalError: errorMessage
+        });
         // Best-effort cleanup — preserve the original enqueue error
       }
       throw enqueueError;

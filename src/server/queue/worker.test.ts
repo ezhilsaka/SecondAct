@@ -78,13 +78,30 @@ describe("worker", () => {
 
     it("task handler validates reportRunId and calls execute", async () => {
       const env = buildWorkerEnv();
-      const taskList = buildTaskList(env);
+      const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+      const taskList = buildTaskList(env, logger);
       const handler = taskList[env.REPORT_RUN_TASK_IDENTIFIER]!;
       const validId = "22222222-2222-4222-8222-222222222222";
 
       await handler({ reportRunId: validId }, {} as never);
 
       expect(mockExecute).toHaveBeenCalledWith(validId);
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run job received.",
+        expect.objectContaining({
+          event: "report_run.job_received",
+          reportRunId: validId,
+          taskIdentifier: "report.run.generate"
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run job completed.",
+        expect.objectContaining({
+          event: "report_run.job_completed",
+          reportRunId: validId,
+          taskIdentifier: "report.run.generate"
+        })
+      );
     });
 
     it("rejects a non-UUID reportRunId", async () => {
@@ -149,7 +166,7 @@ describe("worker", () => {
 
     it("rethrows real pipeline failures", async () => {
       const env = buildWorkerEnv();
-      const logger = { info: vi.fn(), warn: vi.fn() };
+      const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
       const taskList = buildTaskList(env, logger);
       const handler = taskList[env.REPORT_RUN_TASK_IDENTIFIER]!;
       const validId = "22222222-2222-4222-8222-222222222222";
@@ -160,6 +177,15 @@ describe("worker", () => {
         "render exploded"
       );
       expect(logger.warn).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        "Report run job failed.",
+        expect.objectContaining({
+          event: "report_run.job_failed",
+          reportRunId: validId,
+          taskIdentifier: "report.run.generate",
+          errorMessage: "render exploded"
+        })
+      );
     });
   });
 

@@ -51,6 +51,13 @@ function buildMockStorageSigner(overrides: Partial<StorageSigner> = {}): Storage
   };
 }
 
+function buildMockLogger() {
+  return {
+    info: vi.fn(),
+    error: vi.fn()
+  };
+}
+
 function buildRunRow(overrides: Record<string, unknown> = {}) {
   return {
     id: TEST_RUN_ID,
@@ -77,10 +84,12 @@ describe("ReportRunService", () => {
     it("creates a QUEUED run and enqueues a job", async () => {
       const repository = buildMockRepository();
       const jobEnqueuer = buildMockJobEnqueuer();
+      const logger = buildMockLogger();
 
       const service = new ReportRunService({
         repository,
         jobEnqueuer,
+        logger,
         env: BASE_ENV
       });
 
@@ -110,6 +119,30 @@ describe("ReportRunService", () => {
           maxAttempts: 1
         }
       );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run created.",
+        expect.objectContaining({
+          event: "report_run.created",
+          runId: TEST_RUN_ID,
+          userId: TEST_USER_ID,
+          portfolioId: TEST_PORTFOLIO_ID,
+          status: "QUEUED",
+          paymentStatus: "NOT_REQUIRED",
+          reportingCurrency: "CAD"
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run enqueued.",
+        expect.objectContaining({
+          event: "report_run.enqueued",
+          runId: TEST_RUN_ID,
+          userId: TEST_USER_ID,
+          portfolioId: TEST_PORTFOLIO_ID,
+          taskIdentifier: "report.run.generate",
+          jobKey: `report-run:${TEST_RUN_ID}`,
+          maxAttempts: 1
+        })
+      );
     });
 
     it("throws PortfolioNotFoundError when portfolio is not owned by user", async () => {
@@ -120,6 +153,7 @@ describe("ReportRunService", () => {
       const service = new ReportRunService({
         repository,
         jobEnqueuer: buildMockJobEnqueuer(),
+        logger: buildMockLogger(),
         env: BASE_ENV
       });
 
@@ -138,6 +172,7 @@ describe("ReportRunService", () => {
       const service = new ReportRunService({
         repository: buildMockRepository(),
         jobEnqueuer: buildMockJobEnqueuer(),
+        logger: buildMockLogger(),
         env: BASE_ENV
       });
 
@@ -154,6 +189,7 @@ describe("ReportRunService", () => {
       const service = new ReportRunService({
         repository: buildMockRepository(),
         jobEnqueuer: buildMockJobEnqueuer(),
+        logger: buildMockLogger(),
         env: BASE_ENV
       });
 
@@ -172,10 +208,12 @@ describe("ReportRunService", () => {
       const jobEnqueuer = buildMockJobEnqueuer({
         enqueue: vi.fn().mockRejectedValue(enqueueError)
       });
+      const logger = buildMockLogger();
 
       const service = new ReportRunService({
         repository,
         jobEnqueuer,
+        logger,
         env: BASE_ENV
       });
 
@@ -189,6 +227,25 @@ describe("ReportRunService", () => {
 
       expect(repository.createReportRun).toHaveBeenCalled();
       expect(repository.deleteReportRun).toHaveBeenCalledWith(TEST_RUN_ID);
+      expect(logger.error).toHaveBeenCalledWith(
+        "Report run enqueue failed.",
+        expect.objectContaining({
+          event: "report_run.enqueue_failed",
+          runId: TEST_RUN_ID,
+          userId: TEST_USER_ID,
+          portfolioId: TEST_PORTFOLIO_ID,
+          errorMessage: "connection refused"
+        })
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run enqueue cleanup completed.",
+        expect.objectContaining({
+          event: "report_run.enqueue_cleanup_completed",
+          runId: TEST_RUN_ID,
+          userId: TEST_USER_ID,
+          portfolioId: TEST_PORTFOLIO_ID
+        })
+      );
     });
 
     it("preserves the enqueue error when cleanup delete also fails", async () => {
@@ -198,10 +255,12 @@ describe("ReportRunService", () => {
       const jobEnqueuer = buildMockJobEnqueuer({
         enqueue: vi.fn().mockRejectedValue(new Error("connection refused"))
       });
+      const logger = buildMockLogger();
 
       const service = new ReportRunService({
         repository,
         jobEnqueuer,
+        logger,
         env: BASE_ENV
       });
 
@@ -214,6 +273,14 @@ describe("ReportRunService", () => {
       ).rejects.toThrow("connection refused");
 
       expect(repository.deleteReportRun).toHaveBeenCalledWith(TEST_RUN_ID);
+      expect(logger.error).toHaveBeenCalledWith(
+        "Report run enqueue cleanup failed.",
+        expect.objectContaining({
+          event: "report_run.enqueue_cleanup_failed",
+          runId: TEST_RUN_ID,
+          originalError: "connection refused"
+        })
+      );
     });
   });
 

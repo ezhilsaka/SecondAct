@@ -11,7 +11,7 @@ import {
 } from "@/server/orchestrators/report-run-orchestrator";
 import { uuidSchema } from "@/server/shared/types";
 
-type WorkerLogger = Pick<typeof console, "info" | "warn">;
+type WorkerLogger = Pick<typeof console, "info" | "warn"> & Partial<Pick<typeof console, "error">>;
 
 export function getWorkerBaselineMetadata(env: ServerEnv = serverEnv) {
   return {
@@ -36,21 +36,41 @@ export function buildTaskList(
       const validatedRunId = uuidSchema.parse(reportRunId);
       const orchestrator = new ReportRunOrchestrator();
 
+      logger.info("Report run job received.", {
+        event: "report_run.job_received",
+        reportRunId: validatedRunId,
+        taskIdentifier: env.REPORT_RUN_TASK_IDENTIFIER
+      });
+
       try {
         await orchestrator.execute(validatedRunId);
+        logger.info("Report run job completed.", {
+          event: "report_run.job_completed",
+          reportRunId: validatedRunId,
+          taskIdentifier: env.REPORT_RUN_TASK_IDENTIFIER
+        });
       } catch (error) {
         if (
           error instanceof ReportRunNotQueuedError ||
           error instanceof OrchestratorReportRunNotFoundError
         ) {
           logger.warn("Skipping stale report run job.", {
+            event: "report_run.job_skipped_stale",
             reportRunId: validatedRunId,
+            taskIdentifier: env.REPORT_RUN_TASK_IDENTIFIER,
             errorName: error.name,
             errorMessage: error.message
           });
           return;
         }
 
+        logger.error?.("Report run job failed.", {
+          event: "report_run.job_failed",
+          reportRunId: validatedRunId,
+          taskIdentifier: env.REPORT_RUN_TASK_IDENTIFIER,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorMessage: error instanceof Error ? error.message : "Unknown worker error"
+        });
         throw error;
       }
     }
