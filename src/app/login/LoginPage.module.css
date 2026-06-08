@@ -1,0 +1,148 @@
+.loginRoot {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.72fr);
+  background: #0e1118;
+  color: #fff8ee;
+  font-family: Manrope, "Helvetica Neue", Arial, sans-serif;
+}
+
+.brandPanel,
+.formPanel {
+  min-width: 0;
+}
+
+.brandPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px 64px 60px;
+  background:
+    linear-gradient(155deg, rgba(249, 107, 42, 0.16), rgba(93, 134, 184, 0.08) 42%, transparent 66%),
+    #0e1118;
+}
+
+.brandWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandWord {
+  margin: 0;
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 36px;
+}
+
+.brandMark {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 9px;
+  border: 1px solid #2b3e5a;
+  background: #111a2b;
+}
+
+.brandDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5d86b8;
+}
+
+.brandPillarA {
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: #f96b2a;
+}
+
+.brandPillarB {
+  width: 4px;
+  height: 22px;
+  border-radius: 2px;
+  background: #ffd8b8;
+}
+
+.brandBase {
+  width: 9px;
+  height: 4px;
+  border-radius: 2px;
+  background: #5d86b8;
+}
+
+.brandCopy {
+  max-width: 640px;
+}
+
+.kicker {
+  margin: 0 0 16px;
+  color: #ff9a5d;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+.brandCopy h1 {
+  margin: 0;
+  color: #fff5e7;
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 58px;
+  line-height: 1.04;
+  font-weight: 400;
+}
+
+.brandCopy p:last-child {
+  max-width: 520px;
+  margin: 18px 0 0;
+  color: #c8c2b7;
+  font-size: 18px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.formPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: #090d14;
+}
+
+@media (max-width: 920px) {
+  .loginRoot {
+    grid-template-columns: 1fr;
+  }
+
+  .brandPanel {
+    min-height: 42vh;
+    padding: 32px 28px 40px;
+  }
+
+  .brandCopy h1 {
+    font-size: 44px;
+  }
+
+  .formPanel {
+    padding: 28px;
+  }
+}
+
+@media (max-width: 560px) {
+  .brandCopy h1 {
+    font-size: 36px;
+  }
+
+  .brandCopy p:last-child {
+    font-size: 16px;
+  }
+
+  .formPanel {
+    padding: 20px;
+  }
+}

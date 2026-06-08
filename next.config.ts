@@ -49,33 +49,8 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=()"
   },
-  /**
-   * Content Security Policy — baseline restrictive configuration.
-   *
-   * SECURITY-ENGINEER note (loosen as features are added):
-   *   - Add Supabase storage URL to img-src if profile images are stored there
-   *   - Add font providers (e.g., fonts.gstatic.com) to font-src when custom fonts are loaded
-   *   - Add Stripe/payment domains to frame-src when payment iframe is integrated
-   *   - Add analytics domains (e.g., plausible.io) to script-src/connect-src when analytics is added
-   *   - NEVER add 'unsafe-eval' — it defeats XSS protections; use nonces for Next.js inline scripts if required
-   *
-   * Note: 'unsafe-inline' in style-src is needed for Next.js CSS-in-JS.
-   * This is acceptable; style injection risk is lower than script injection.
-   */
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self'",
-      "connect-src 'self'",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'"
-    ].join("; ")
-  }
+  // Content-Security-Policy is generated per request in middleware so Next.js
+  // can attach a nonce to App Router bootstrap scripts.
 ];
 
 const nextConfig: NextConfig = {

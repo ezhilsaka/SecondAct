@@ -33,7 +33,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.107.0",
     "graphile-worker": "^0.16.6",
     "ky": "^1.14.3",
     "next": "^16.2.1",

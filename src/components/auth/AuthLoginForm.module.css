@@ -1,0 +1,164 @@
+.loginCard {
+  width: min(100%, 440px);
+  border: 1px solid #253247;
+  border-radius: 8px;
+  background: #101722;
+  padding: 28px;
+  color: #fff8ee;
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.28);
+}
+
+.formHeader {
+  margin-bottom: 22px;
+}
+
+.kicker {
+  margin: 0 0 8px;
+  color: #ff9a5d;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+}
+
+.formHeader h2 {
+  margin: 0;
+  color: #fff5e7;
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  line-height: 1.08;
+  font-weight: 400;
+}
+
+.errorMessage,
+.successMessage {
+  margin: 0 0 16px;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.errorMessage {
+  border: 1px solid #814330;
+  background: #241712;
+  color: #ffd8c4;
+}
+
+.successMessage {
+  border: 1px solid #3b6756;
+  background: #112019;
+  color: #c6f1dd;
+}
+
+.googleButton,
+.primaryButton {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 8px;
+  font-family: Manrope, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.googleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #385171;
+  background: #0d1320;
+  color: #f5eadb;
+}
+
+.googleMark {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff8ee;
+  color: #172033;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.divider span {
+  height: 1px;
+  background: #263348;
+}
+
+.divider p {
+  margin: 0;
+  color: #9e968a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form + .form {
+  margin-top: 18px;
+}
+
+.fieldLabel {
+  color: #d8d2c8;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #344967;
+  border-radius: 8px;
+  background: #0b111c;
+  color: #fff8ee;
+  padding: 0 14px;
+  font-family: Manrope, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+}
+
+.input:focus {
+  outline: 2px solid #f96b2a;
+  outline-offset: 2px;
+}
+
+.primaryButton {
+  border: 1px solid transparent;
+  background: #f96b2a;
+  color: #140c07;
+}
+
+.googleButton:disabled,
+.primaryButton:disabled,
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+@media (max-width: 560px) {
+  .loginCard {
+    padding: 22px;
+  }
+
+  .formHeader h2 {
+    font-size: 32px;
+  }
+}

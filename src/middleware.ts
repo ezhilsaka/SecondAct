@@ -14,6 +14,11 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import {
+  buildContentSecurityPolicy,
+  createContentSecurityPolicyNonce
+} from "@/lib/security/content-security-policy";
+
 // ---------------------------------------------------------------------------
 // Route configuration
 // ---------------------------------------------------------------------------
@@ -82,18 +87,49 @@ async function isAuthenticated(_req: NextRequest): Promise<boolean> {
 // Middleware
 // ---------------------------------------------------------------------------
 
+function nextWithContentSecurityPolicy(req: NextRequest, contentSecurityPolicy: string): NextResponse {
+  const requestHeaders = new Headers(req.headers);
+
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders
+    }
+  });
+
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+
+  return response;
+}
+
+function withContentSecurityPolicy(
+  response: NextResponse,
+  contentSecurityPolicy: string
+): NextResponse {
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
+
+  return response;
+}
+
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
+  const nonce = createContentSecurityPolicyNonce();
+  const contentSecurityPolicy = buildContentSecurityPolicy({
+    nonce,
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    isDevelopment: process.env.NODE_ENV !== "production"
+  });
 
   // Allow Next.js internals and static assets without any check
   const isPublicPrefix = PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (isPublicPrefix) {
-    return NextResponse.next();
+    return nextWithContentSecurityPolicy(req, contentSecurityPolicy);
   }
 
   // Allow explicitly public paths
   if (PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.next();
+    return nextWithContentSecurityPolicy(req, contentSecurityPolicy);
   }
 
   // All other routes: require authentication
@@ -101,20 +137,23 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   if (!authenticated) {
     // Redirect to login page for browser requests, 401 for API requests
     if (pathname.startsWith("/api/")) {
-      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
+      return withContentSecurityPolicy(
+        new NextResponse(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        }),
+        contentSecurityPolicy
+      );
     }
 
     // Preserve the original destination so the login page can redirect after auth
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return withContentSecurityPolicy(NextResponse.redirect(loginUrl), contentSecurityPolicy);
   }
 
-  return NextResponse.next();
+  return nextWithContentSecurityPolicy(req, contentSecurityPolicy);
 }
 
 // ---------------------------------------------------------------------------
