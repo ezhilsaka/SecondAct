@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { readSearchParam, sanitizeRelativeRedirect } from "@/lib/auth/redirect";
 import { AuthLoginForm } from "@/components/auth/AuthLoginForm";
+import { ProfileCompletionForm } from "@/components/auth/ProfileCompletionForm";
 import styles from "./LoginPage.module.css";
 
 type LoginPageProps = {
@@ -22,7 +23,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const nextPath = sanitizeRelativeRedirect(readSearchParam(params?.next));
   const errorCode = readSearchParam(params?.error);
-  const initialError = errorCode ? LOGIN_ERROR_MESSAGES[errorCode] ?? LOGIN_ERROR_MESSAGES.auth_callback_failed : null;
+  const step = readSearchParam(params?.step);
+  const isProfileStep = step === "profile";
+  const initialError =
+    errorCode && !isProfileStep
+      ? LOGIN_ERROR_MESSAGES[errorCode] ?? LOGIN_ERROR_MESSAGES.auth_callback_failed
+      : null;
 
   return (
     <main className={styles.loginRoot}>
@@ -44,7 +50,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       </section>
 
       <section className={styles.formPanel}>
-        <AuthLoginForm nextPath={nextPath} initialError={initialError} />
+        {isProfileStep ? (
+          <ProfileCompletionForm nextPath={nextPath} errorCode={errorCode} />
+        ) : (
+          <AuthLoginForm nextPath={nextPath} initialError={initialError} />
+        )}
       </section>
     </main>
   );

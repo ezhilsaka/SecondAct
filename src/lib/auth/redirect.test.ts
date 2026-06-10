@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildAuthCallbackUrl,
   buildLoginErrorUrl,
+  buildLoginProfileCompletionPath,
+  buildLoginProfileCompletionUrl,
   sanitizeRelativeRedirect
 } from "@/lib/auth/redirect";
 
@@ -52,6 +54,25 @@ describe("auth redirect helpers", () => {
 
     expect(url.pathname).toBe("/login");
     expect(url.searchParams.get("error")).toBe("auth_callback_failed");
+    expect(url.searchParams.get("next")).toBe("/app");
+  });
+
+  it("builds a login profile-completion path", () => {
+    expect(buildLoginProfileCompletionPath("/app?from=otp")).toBe(
+      "/login?step=profile&next=%2Fapp%3Ffrom%3Dotp"
+    );
+  });
+
+  it("builds a login profile-completion URL with optional error state", () => {
+    const url = buildLoginProfileCompletionUrl(
+      "http://localhost:3000/auth/callback",
+      "https://example.com",
+      "missing_name"
+    );
+
+    expect(url.pathname).toBe("/login");
+    expect(url.searchParams.get("step")).toBe("profile");
+    expect(url.searchParams.get("error")).toBe("missing_name");
     expect(url.searchParams.get("next")).toBe("/app");
   });
 });

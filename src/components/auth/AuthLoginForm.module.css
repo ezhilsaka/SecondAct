@@ -30,6 +30,26 @@
   font-weight: 400;
 }
 
+.helperText {
+  margin: -10px 0 16px;
+  color: #d8d2c8;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.emailLine {
+  margin: 0 0 16px;
+  border: 1px solid #344967;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #0b111c;
+  color: #d8d2c8;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .errorMessage,
 .successMessage {
   margin: 0 0 16px;

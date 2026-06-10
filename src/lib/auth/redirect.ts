@@ -60,3 +60,27 @@ export function buildLoginErrorUrl(requestUrl: string, nextPath: string): URL {
 
   return loginUrl;
 }
+
+export function buildLoginProfileCompletionPath(
+  nextPath: string,
+  errorCode: string | null = null
+): string {
+  const loginUrl = new URL("/login", LOCAL_REDIRECT_ORIGIN);
+  loginUrl.searchParams.set("step", "profile");
+
+  if (errorCode) {
+    loginUrl.searchParams.set("error", errorCode);
+  }
+
+  loginUrl.searchParams.set("next", sanitizeRelativeRedirect(nextPath));
+
+  return `${loginUrl.pathname}${loginUrl.search}`;
+}
+
+export function buildLoginProfileCompletionUrl(
+  requestUrl: string,
+  nextPath: string,
+  errorCode: string | null = null
+): URL {
+  return new URL(buildLoginProfileCompletionPath(nextPath, errorCode), requestUrl);
+}

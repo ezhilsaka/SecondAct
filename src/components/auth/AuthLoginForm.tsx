@@ -3,7 +3,11 @@
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { buildAuthCallbackUrl, sanitizeRelativeRedirect } from "@/lib/auth/redirect";
+import {
+  buildAuthCallbackUrl,
+  buildLoginProfileCompletionPath,
+  sanitizeRelativeRedirect
+} from "@/lib/auth/redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import styles from "./AuthLoginForm.module.css";
 
@@ -13,8 +17,10 @@ type AuthLoginFormProps = {
 };
 
 type PendingAction = "google" | "email" | "otp" | null;
+type AuthFlow = NonNullable<PendingAction>;
 
 const GENERIC_AUTH_ERROR = "We could not complete sign-in. Please try again.";
+const EMAIL_RATE_LIMIT_ERROR = "Too many code requests. Please wait a bit and try again.";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -26,6 +32,47 @@ function getErrorMessage(error: unknown): string {
   }
 
   return "Unknown auth error";
+}
+
+function getErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const maybeError = error as { code?: unknown };
+
+  return typeof maybeError.code === "string" ? maybeError.code : null;
+}
+
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const maybeError = error as { status?: unknown };
+
+  return typeof maybeError.status === "number" ? maybeError.status : null;
+}
+
+function isRateLimitAuthError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  const code = getErrorCode(error)?.toLowerCase() ?? "";
+
+  return (
+    getErrorStatus(error) === 429 ||
+    message.includes("rate limit") ||
+    message.includes("too many") ||
+    code.includes("rate_limit") ||
+    code.includes("over_email_send_rate_limit")
+  );
+}
+
+export function getUserFacingAuthError(flow: AuthFlow, error: unknown): string {
+  if ((flow === "email" || flow === "otp") && isRateLimitAuthError(error)) {
+    return EMAIL_RATE_LIMIT_ERROR;
+  }
+
+  return GENERIC_AUTH_ERROR;
 }
 
 function reportAuthError(flow: PendingAction, error: unknown) {
@@ -56,13 +103,17 @@ export function AuthLoginForm({ nextPath, initialError }: AuthLoginFormProps) {
     return buildAuthCallbackUrl(window.location.origin, safeNextPath);
   }
 
-  function getSupabaseClient(flow: PendingAction) {
+  function getProfileCompletionPath() {
+    return buildLoginProfileCompletionPath(safeNextPath);
+  }
+
+  function getSupabaseClient(flow: AuthFlow) {
     try {
       supabaseRef.current ??= createSupabaseBrowserClient();
       return supabaseRef.current;
     } catch (authError) {
       reportAuthError(flow, authError);
-      setError(GENERIC_AUTH_ERROR);
+      setError(getUserFacingAuthError(flow, authError));
       return null;
     }
   }
@@ -92,10 +143,10 @@ export function AuthLoginForm({ nextPath, initialError }: AuthLoginFormProps) {
       }
 
       reportAuthError("google", authError);
-      setError(GENERIC_AUTH_ERROR);
+      setError(getUserFacingAuthError("google", authError));
     } catch (authError) {
       reportAuthError("google", authError);
-      setError(GENERIC_AUTH_ERROR);
+      setError(getUserFacingAuthError("google", authError));
     }
 
     setPendingAction(null);
@@ -142,7 +193,7 @@ export function AuthLoginForm({ nextPath, initialError }: AuthLoginFormProps) {
 
     if (authError) {
       reportAuthError("email", authError);
-      setError(GENERIC_AUTH_ERROR);
+      setError(getUserFacingAuthError("email", authError));
       return;
     }
 
@@ -188,12 +239,12 @@ export function AuthLoginForm({ nextPath, initialError }: AuthLoginFormProps) {
 
     if (authError) {
       reportAuthError("otp", authError);
-      setError(GENERIC_AUTH_ERROR);
+      setError(getUserFacingAuthError("otp", authError));
       setPendingAction(null);
       return;
     }
 
-    router.replace(safeNextPath);
+    router.replace(getProfileCompletionPath());
     router.refresh();
   }
 
