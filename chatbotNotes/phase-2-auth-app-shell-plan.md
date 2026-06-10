@@ -1,6 +1,6 @@
 # Phase 2 Plan: Auth and App Shell
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
 
 ## 1) Purpose
 
@@ -23,9 +23,10 @@ Already complete:
 - Supabase Postgres schema exists.
 - `user_profiles` exists as the app-owned user profile table.
 - Portfolio/report tables are already linked to `user_id`.
-- Backend report APIs currently use a temporary `X-User-Id` header.
-- `src/middleware.ts` currently has an auth stub that returns `true`.
-- The project is on Next.js 16.x, where `middleware.ts` is deprecated in favor of `proxy.ts`.
+- Backend report APIs no longer use the temporary `X-User-Id` header in production route logic as of Stage 7.
+- `src/proxy.ts` now contains the session-aware route guard as of Stage 6.
+- The deprecated `src/middleware.ts` auth stub was removed during Stage 6.
+- Stage 6 and light Stage 7 manual smoke verification passed on 2026-06-10; the owned-portfolio positive-path report API check is deferred until portfolio UI/test data is available.
 - Current baseline verification passed before Phase 2 implementation:
   - `npm test`
   - `npm run typecheck`
@@ -41,8 +42,7 @@ Important existing files:
 - `chatbotNotes/supabase-auth-reference.md`
 - `chatbotNotes/phase-1-report-pipeline-build-execution.md`
 - `chatbotNotes/backend-knowledge-base.md`
-- `src/middleware.ts`
-- `src/proxy.ts` once the Next.js 16 auth guard migration is implemented
+- `src/proxy.ts`
 - `src/db/prisma/schema.prisma`
 - `src/app/api/v1/report-runs/*`
 
@@ -117,9 +117,13 @@ Existing dependency:
 
 - `@supabase/supabase-js` is already installed.
 
-Package status as of 2026-05-30:
+Original package status as of 2026-05-30:
 
 - `@supabase/ssr` is not installed yet and must be added in Stage 1.
+
+Current package status as of 2026-06-10:
+
+- `@supabase/ssr` is installed and used by the browser, server, and proxy auth helpers.
 
 ### Next.js Auth Boundary
 
@@ -128,8 +132,8 @@ The project currently uses Next.js 16.x.
 Decision:
 
 - Implement the route-level auth guard using `src/proxy.ts`, the current Next.js file convention.
-- Migrate away from `src/middleware.ts` during Stage 6 unless a compatibility issue is found.
-- If compatibility forces keeping `src/middleware.ts`, document that decision in the Phase 2 execution notes.
+- Stage 6 migrated away from `src/middleware.ts`.
+- `src/proxy.ts` is now the route-level first gate.
 
 Important rule:
 
@@ -791,8 +795,8 @@ Phase 2 is complete when:
 
 1. Read this document.
 2. Read `chatbotNotes/supabase-auth-reference.md`.
-3. Inspect `src/middleware.ts`.
-4. Inspect whether `src/proxy.ts` already exists.
+3. Inspect `src/proxy.ts`.
+4. Confirm `src/middleware.ts` remains removed.
 5. Inspect report API routes under `src/app/api/v1/report-runs`.
 6. Confirm Supabase dashboard manual setup status with the user.
 7. Implement dependencies and Supabase client helpers.

@@ -225,6 +225,20 @@ When auth is implemented later, we should follow these rules:
 4. Add Row Level Security policies for user-owned tables
 5. Use authenticated Supabase user ID as the source for ownership checks
 
+## Phase 2 Implementation Status
+
+As of 2026-06-10, the Phase 2 implementation has completed the core app-side auth foundation:
+
+1. Google login and email OTP login use Supabase Auth.
+2. The app uses Supabase SSR/browser clients for cookie-based sessions.
+3. The Next.js route guard has migrated from deprecated `src/middleware.ts` to `src/proxy.ts`.
+4. The proxy keeps explicit public routes open and protects app/API routes by checking the Supabase session.
+5. `/app` also verifies the authenticated user at the server layout boundary.
+6. `user_profiles` and `user_usage` bootstrap from the authenticated Supabase user.
+7. Existing report API routes now use the authenticated Supabase user ID instead of `X-User-Id`.
+8. `X-User-Id` is no longer the production route-auth mechanism.
+9. Row Level Security policy hardening remains a production/security follow-up unless selected explicitly.
+
 ## Recommended Later Implementation Sequence
 
 When we pick up auth implementation later, the recommended order is:

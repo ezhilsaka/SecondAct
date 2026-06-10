@@ -6,9 +6,18 @@ const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_RUN_ID = "33333333-3333-4333-8333-333333333333";
 const TEST_PORTFOLIO_ID = "22222222-2222-4222-8222-222222222222";
 
-const { mockCreateAndEnqueue } = vi.hoisted(() => ({
-  mockCreateAndEnqueue: vi.fn()
+const { mockCreateAndEnqueue, mockGetAuthenticatedApiUserId } = vi.hoisted(() => ({
+  mockCreateAndEnqueue: vi.fn(),
+  mockGetAuthenticatedApiUserId: vi.fn()
 }));
+
+vi.mock("@/server/auth/api-auth", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/server/auth/api-auth")>();
+  return {
+    ...original,
+    getAuthenticatedApiUserId: mockGetAuthenticatedApiUserId
+  };
+});
 
 vi.mock("@/server/services/report-run-service", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/server/services/report-run-service")>();
@@ -36,52 +45,57 @@ function buildRequest(body: unknown, headers: Record<string, string> = {}) {
 describe("POST /api/v1/report-runs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAuthenticatedApiUserId.mockResolvedValue(TEST_USER_ID);
   });
 
   it("returns 201 with runId and status on success", async () => {
     mockCreateAndEnqueue.mockResolvedValue({ runId: TEST_RUN_ID, status: "QUEUED" });
 
-    const response = await POST(
-      buildRequest(
-        { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" },
-        { "x-user-id": TEST_USER_ID }
-      )
-    );
+    const response = await POST(buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" }));
 
     expect(response.status).toBe(201);
+    expect(mockCreateAndEnqueue).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      portfolioId: TEST_PORTFOLIO_ID,
+      reportingCurrency: "CAD"
+    });
     await expect(response.json()).resolves.toEqual({
       runId: TEST_RUN_ID,
       status: "QUEUED"
     });
   });
 
-  it("returns 401 when X-User-Id header is missing", async () => {
-    const response = await POST(
-      buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" })
-    );
+  it("uses the authenticated session user instead of a spoofable user header", async () => {
+    const spoofedUserId = "44444444-4444-4444-8444-444444444444";
+    mockCreateAndEnqueue.mockResolvedValue({ runId: TEST_RUN_ID, status: "QUEUED" });
 
-    expect(response.status).toBe(401);
-    const json = await response.json();
-    expect(json.error.code).toBe("MISSING_USER_ID");
-  });
-
-  it("returns 401 when X-User-Id is not a valid UUID", async () => {
     const response = await POST(
       buildRequest(
         { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" },
-        { "x-user-id": "not-a-uuid" }
+        { "x-user-id": spoofedUserId }
       )
     );
 
+    expect(response.status).toBe(201);
+    expect(mockCreateAndEnqueue).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      portfolioId: TEST_PORTFOLIO_ID,
+      reportingCurrency: "CAD"
+    });
+  });
+
+  it("returns 401 when the request has no authenticated session", async () => {
+    mockGetAuthenticatedApiUserId.mockResolvedValue(null);
+
+    const response = await POST(buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" }));
+
     expect(response.status).toBe(401);
     const json = await response.json();
-    expect(json.error.code).toBe("INVALID_USER_ID");
+    expect(json.error.code).toBe("UNAUTHORIZED");
   });
 
   it("returns 400 when portfolioId is missing", async () => {
-    const response = await POST(
-      buildRequest({ reportingCurrency: "CAD" }, { "x-user-id": TEST_USER_ID })
-    );
+    const response = await POST(buildRequest({ reportingCurrency: "CAD" }));
 
     expect(response.status).toBe(400);
     const json = await response.json();
@@ -90,10 +104,7 @@ describe("POST /api/v1/report-runs", () => {
 
   it("returns 400 when reportingCurrency is invalid", async () => {
     const response = await POST(
-      buildRequest(
-        { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "EUR" },
-        { "x-user-id": TEST_USER_ID }
-      )
+      buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "EUR" })
     );
 
     expect(response.status).toBe(400);
@@ -105,8 +116,7 @@ describe("POST /api/v1/report-runs", () => {
     const request = new Request("http://localhost/api/v1/report-runs", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-user-id": TEST_USER_ID
+        "Content-Type": "application/json"
       },
       body: "not-json"
     });
@@ -122,10 +132,7 @@ describe("POST /api/v1/report-runs", () => {
     mockCreateAndEnqueue.mockRejectedValue(new PortfolioNotFoundError("Portfolio not found"));
 
     const response = await POST(
-      buildRequest(
-        { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" },
-        { "x-user-id": TEST_USER_ID }
-      )
+      buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" })
     );
 
     expect(response.status).toBe(404);

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 
+import {
+  buildApiUnauthorizedResponse,
+  getAuthenticatedApiUserId
+} from "@/server/auth/api-auth";
 import { uuidSchema } from "@/server/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -7,26 +11,13 @@ import { uuidSchema } from "@/server/shared/types";
 // ---------------------------------------------------------------------------
 
 export async function GET(request: Request, { params }: { params: Promise<{ runId: string }> }) {
-  // 1. Extract and validate X-User-Id header
-  const userIdHeader = request.headers.get("x-user-id");
-  if (!userIdHeader) {
-    return NextResponse.json(
-      { error: { code: "MISSING_USER_ID", message: "X-User-Id header is required." } },
-      { status: 401 }
-    );
+  const userId = await getAuthenticatedApiUserId();
+
+  if (!userId) {
+    return buildApiUnauthorizedResponse();
   }
 
-  let userId: string;
-  try {
-    userId = uuidSchema.parse(userIdHeader);
-  } catch {
-    return NextResponse.json(
-      { error: { code: "INVALID_USER_ID", message: "X-User-Id must be a valid UUID." } },
-      { status: 401 }
-    );
-  }
-
-  // 2. Validate runId param
+  // 1. Validate runId param
   const { runId } = await params;
   let validatedRunId: string;
   try {
@@ -38,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ runI
     );
   }
 
-  // 3. Call service
+  // 2. Call service
   const { ReportRunService, ReportRunNotFoundError, ArtifactNotFoundError, SignedUrlError } =
     await import("@/server/services/report-run-service");
   try {

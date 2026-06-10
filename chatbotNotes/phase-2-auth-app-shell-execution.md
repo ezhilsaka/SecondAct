@@ -1,6 +1,6 @@
 # Phase 2 Auth and App Shell Execution
 
-Last updated: 2026-06-08
+Last updated: 2026-06-10
 
 ## 1) Purpose
 
@@ -41,15 +41,16 @@ Current status:
 - Stage 3 login/callback/logout: complete
 - Stage 4 profile bootstrap: complete
 - Stage 5 protected app shell: complete
-- Stage 6 proxy auth guard: pending
-- Stage 7 report API auth migration: pending
+- Stage 6 proxy auth guard: complete
+- Stage 7 report API auth migration: complete
+- Stage 6/7 manual smoke verification: complete except owned-portfolio positive-path API check, deferred until portfolio UI/test data is available
 - Stage 8 landing CTA wiring: pending
 - Stage 9 verification: pending
-- Stage 10 documentation updates: pending
+- Stage 10 documentation updates: ongoing
 
 Review checkpoint:
 
-- Stop after Stage 5 for user manual testing before Stage 6.
+- Stop after Stage 7 for review before Stage 8 landing CTA wiring.
 
 ## 5) Stage 0: Baseline Audit
 
@@ -688,5 +689,190 @@ Manual test gate before Stage 6:
 
 Stop point:
 
-- Implementation is intentionally stopped after Stage 5.
-- Do not begin Stage 6 proxy/global auth guard work until the manual test gate above is signed off.
+- Implementation was intentionally stopped after Stage 5 until the user completed manual auth/app-shell testing.
+- The user signed off that manual testing looked good before Stage 6 began.
+
+## 11) Stage 6: Proxy Auth Guard
+
+Status: complete on 2026-06-10.
+
+Goal:
+
+- Replace the permissive `src/middleware.ts` auth stub with a real session-aware route guard using the current Next.js 16 proxy convention.
+
+Deep-dive design decisions:
+
+1. Migrate the request guard to `src/proxy.ts` and remove `src/middleware.ts`.
+2. Preserve the per-request CSP nonce behavior from the old middleware so App Router hydration remains intact.
+3. Use a default-deny posture with an explicit public allow-list:
+   - `/`
+   - `/legal`
+   - `/login`
+   - `/profile/setup` as a compatibility redirect into the login profile step
+   - `/auth/callback`
+   - `/auth/logout`
+   - `/api/health`
+   - Next/static/public asset prefixes
+4. Use `getAuthenticatedUserForProxy()` from the Supabase proxy helper for protected requests.
+5. Redirect unauthenticated browser requests to `/login?next=<original path and query>`.
+6. Return JSON `401` with code `UNAUTHORIZED` for unauthenticated API requests.
+7. Keep route handlers as the authoritative server-side authorization gate; proxy is only the first gate.
+
+Files changed:
+
+- `src/proxy.ts`
+- `src/proxy.test.ts`
+- `src/middleware.ts` deleted
+- `next.config.ts`
+
+Execution notes:
+
+- The deprecated Next.js `middleware.ts` file was removed.
+- The new proxy keeps the CSP header on both the forwarded request and outgoing response.
+- Public routes do not call the Supabase session helper.
+- Protected routes call the Supabase proxy helper so refreshed cookies can be written to the continuing response.
+- `/profile/setup` remains public only as a compatibility redirect route; the actual profile-completion UI is still rendered through `/login?step=profile`.
+
+Focused verification:
+
+- `npm test -- --run src/proxy.test.ts src/server/auth/api-auth.test.ts src/app/api/v1/report-runs/route.test.ts src/app/api/v1/report-runs/[runId]/route.test.ts src/app/api/v1/report-runs/[runId]/pdf/route.test.ts src/server/auth/supabase-proxy.test.ts`
+- Result: passed, 31 tests across 6 files.
+- Full verification after Stage 6/7:
+  - `npm run typecheck`: passed
+  - `npm run lint`: passed
+  - `npm test`: passed, 311 tests across 40 files
+  - `npm run build`: passed
+  - build no longer reports the Next.js 16 deprecated `middleware.ts` warning
+
+Coverage highlights:
+
+- Public `/login` is allowed without session.
+- Public `/profile/setup` compatibility route is allowed without session.
+- Public `/images/*` asset prefix is allowed without session.
+- Authenticated `/app` request is allowed.
+- Unauthenticated `/app/account?tab=profile` redirects to `/login?next=/app/account?tab=profile`.
+- Unauthenticated `/api/v1/report-runs` returns JSON `401 UNAUTHORIZED`.
+
+## 12) Stage 7: Report API Auth Migration
+
+Status: complete on 2026-06-10.
+
+Goal:
+
+- Replace the temporary `X-User-Id` report API auth mechanism with the authenticated Supabase session user ID.
+
+Deep-dive design decisions:
+
+1. Keep the existing `ReportRunService` contract: route handlers still pass a `userId` into the service layer.
+2. Change the source of `userId` from a request header to the authenticated Supabase session.
+3. Add a small API auth helper so route handlers share the same `401 UNAUTHORIZED` response shape.
+4. Preserve dynamic imports for `ReportRunService` to avoid widening build-time env/import risk.
+5. Preserve existing ownership behavior: authenticated-but-not-owner remains the service layer's existing not-found behavior.
+6. Do not add a dev-only spoof header replacement in this stage.
+
+Files changed:
+
+- `src/server/auth/api-auth.ts`
+- `src/server/auth/api-auth.test.ts`
+- `src/app/api/v1/report-runs/route.ts`
+- `src/app/api/v1/report-runs/route.test.ts`
+- `src/app/api/v1/report-runs/[runId]/route.ts`
+- `src/app/api/v1/report-runs/[runId]/route.test.ts`
+- `src/app/api/v1/report-runs/[runId]/pdf/route.ts`
+- `src/app/api/v1/report-runs/[runId]/pdf/route.test.ts`
+
+Execution notes:
+
+- `POST /api/v1/report-runs` now calls `getAuthenticatedApiUserId()`.
+- `GET /api/v1/report-runs/:runId` now calls `getAuthenticatedApiUserId()`.
+- `GET /api/v1/report-runs/:runId/pdf` now calls `getAuthenticatedApiUserId()`.
+- Missing or invalid session returns:
+  - status: `401`
+  - code: `UNAUTHORIZED`
+  - message: `Authentication is required.`
+- The route tests now explicitly send a spoofed `x-user-id` header and confirm the service still receives the mocked authenticated session user ID.
+
+Focused verification:
+
+- Same focused test command as Stage 6.
+- Result: passed, 31 tests across 6 files.
+- Full verification after Stage 6/7:
+  - `npm run typecheck`: passed
+  - `npm run lint`: passed
+  - `npm test`: passed, 311 tests across 40 files
+  - `npm run build`: passed
+
+Coverage highlights:
+
+- Successful report-run creation uses the authenticated session user ID.
+- Successful report-run status lookup uses the authenticated session user ID.
+- Successful report PDF signed URL lookup uses the authenticated session user ID.
+- Spoofed `x-user-id` headers are ignored by all migrated report API routes.
+- Unauthenticated API calls return `401 UNAUTHORIZED`.
+- Existing validation and not-found behavior remains covered.
+
+Manual verification checklist for Stage 6 and Stage 7:
+
+1. Start the local app with `npm run dev`.
+2. In a signed-out or incognito browser session:
+   - visit `/login`; it should render normally
+   - visit `/`; it should render normally
+   - visit `/legal`; it should render normally
+   - visit `/app`; it should redirect to `/login?next=%2Fapp`
+   - visit `/app/account?tab=profile`; it should redirect to `/login?next=%2Fapp%2Faccount%3Ftab%3Dprofile`
+3. While still signed out, run this in the browser console:
+   - `await fetch("/api/v1/report-runs").then(async (r) => ({ status: r.status, body: await r.json() }))`
+   - expected: status `401`, body code `UNAUTHORIZED`
+4. Sign in with Google or email OTP.
+5. After sign-in:
+   - `/app` should load the authenticated app shell
+   - refresh `/app`; it should stay authenticated
+   - app-shell logout should sign out and send the next `/app` visit back to `/login?next=%2Fapp`
+6. For a light authenticated API check, run this in the browser console while signed in:
+   - `await fetch("/api/v1/report-runs/not-a-uuid").then(async (r) => ({ status: r.status, body: await r.json() }))`
+   - expected: status `400`, body code `INVALID_RUN_ID`
+   - this proves the request passed auth and reached route validation instead of returning `401`
+7. For the strongest Stage 7 positive-path check, create or locate a dev/test `public.portfolios` row whose `user_id` equals the logged-in Supabase Auth user's UUID.
+8. With that owned `portfolioId`, run this in the browser console while signed in:
+   - `await fetch("/api/v1/report-runs", { method: "POST", headers: { "content-type": "application/json", "x-user-id": "11111111-1111-4111-8111-111111111111" }, body: JSON.stringify({ portfolioId: "<owned-portfolio-id>", reportingCurrency: "CAD" }) }).then(async (r) => ({ status: r.status, body: await r.json() }))`
+   - expected: status `201`, response contains `runId` and status `QUEUED`
+9. In Supabase Table Editor, inspect `public.report_runs` for that `runId`:
+   - `user_id` should be the logged-in Supabase Auth user UUID
+   - `user_id` should not be the spoofed `x-user-id` value
+10. Use the returned `runId` for status and PDF-route checks:
+    - `await fetch("/api/v1/report-runs/<runId>").then(async (r) => ({ status: r.status, body: await r.json() }))`
+    - expected: status `200`, response includes the same `runId`
+    - `await fetch("/api/v1/report-runs/<runId>/pdf").then(async (r) => ({ status: r.status, body: await r.json() }))`
+    - expected before report completion: status `404`, body code `ARTIFACT_NOT_FOUND`
+
+Manual verification result:
+
+- On 2026-06-10, the user manually verified the Stage 6 route guard behavior and the light Stage 7 authenticated API behavior.
+- Verified manually:
+  - signed-out public routes render as expected
+  - signed-out protected `/app` routes redirect to `/login?next=...`
+  - signed-out report API returns `401 UNAUTHORIZED`
+  - signed-in `/app` loads and remains authenticated on refresh
+  - logout clears access to `/app`
+  - signed-in invalid report-run route reaches validation and returns `400 INVALID_RUN_ID`, proving the request passed auth instead of returning `401`
+- Deferred by user decision:
+  - the strongest Stage 7 positive-path `POST /api/v1/report-runs` check with a real owned `portfolioId`
+  - reason: portfolio creation UI is not ready yet and this can be validated naturally in the later portfolio UI phase
+- This deferral is accepted for the current Phase 2 checkpoint because automated tests already cover authenticated session user ID usage, spoofed `x-user-id` header rejection, and report API ownership paths.
+
+Pre-push verification on 2026-06-10:
+
+- `git diff --check`: passed
+- Focused Stage 6/7 tests passed:
+  - `npm test -- --run src/proxy.test.ts src/server/auth/api-auth.test.ts src/app/api/v1/report-runs/route.test.ts src/app/api/v1/report-runs/[runId]/route.test.ts src/app/api/v1/report-runs/[runId]/pdf/route.test.ts src/server/auth/supabase-proxy.test.ts`
+  - result: 31 tests passed across 6 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm test`: passed, 311 tests across 40 files
+- `npm run build`: passed
+- Build no longer reports the deprecated Next.js `middleware.ts` warning.
+
+Stop point:
+
+- Implementation is intentionally stopped after Stage 7.
+- User review/signoff for Stage 6 and Stage 7 is complete with the owned-portfolio positive-path API check deferred as noted above.

@@ -1,6 +1,6 @@
 # Production Readiness Notes
 
-Last updated: 2026-06-08
+Last updated: 2026-06-10
 
 This note captures the main items that must be addressed before moving the report-generation flow from local/dev execution to a production-ready setup.
 
@@ -104,6 +104,26 @@ Important note:
 - This is a production-readiness/security-hardening item, not a Phase 2 manual-test blocker.
 - Browser network tools will still show public Supabase auth requests and public client keys; that is expected.
 - The launch gate is that no privileged server-side secrets are exposed to client bundles, browser network traffic, or browser console logs.
+
+## Cookie and Privacy Readiness Note
+
+Current state:
+
+- Second Act uses Supabase SSR/browser auth clients for login, logout, session refresh, and protected app access.
+- This means the app uses necessary authentication/session cookies.
+- Current repo review did not find analytics, ad pixels, heatmaps, marketing tags, or other intentional tracking-cookie integrations.
+
+Production requirement:
+
+- Document that Second Act uses necessary cookies for authentication and session management.
+- Do not block necessary auth/session cookies behind optional consent, because login and protected app access depend on them.
+- Before launch, add or update privacy/cookie policy copy to explain the necessary auth cookies in plain user-facing language.
+- If future phases add analytics, advertising, heatmaps, marketing pixels, or non-essential preference cookies, add a real cookie consent/preferences system before production use.
+
+Important note:
+
+- A cookie banner/consent manager is not required for the current necessary-auth-cookie posture.
+- This should be revisited if the product adds any non-essential client-side tracking, analytics, or marketing tooling.
 
 ## Internal Notes Repository Hygiene
 

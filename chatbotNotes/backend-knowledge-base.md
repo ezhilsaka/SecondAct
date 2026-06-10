@@ -1,6 +1,6 @@
 # Backend Knowledge Base
 
-Last updated: 2026-06-06
+Last updated: 2026-06-10
 
 ## 1) Purpose
 
@@ -460,7 +460,7 @@ A:
 - If two bootstraps race and one creates `public.user_usage` first, a Prisma `P2002` from `userUsage.upsert()` means the row already exists and should be treated as success.
 - In local Next.js dev, `console.error` from server code can appear as an in-page `Console Error` overlay; production should log server errors without rendering that dev overlay, but the underlying bootstrap failure still needs fixing.
 
-### Q: What does the Phase 2 Step 5 `/app` shell protect, and what is still deferred?
+### Q: What did the Phase 2 Step 5 `/app` shell protect, and what was deferred at that checkpoint?
 
 A:
 
@@ -471,10 +471,29 @@ A:
   - authenticated profile name/email/handle
   - logout form posting to `/auth/logout`
   - navigation placeholders for Dashboard, Portfolios, Reports, and Account
-- Step 5 intentionally does not replace the global middleware/proxy auth guard.
-- Step 5 intentionally does not migrate report APIs away from the existing `X-User-Id` placeholder.
-- Those changes remain Stage 6 and Stage 7 work respectively.
-- Before Stage 6 starts, manually test a live Google and email OTP login into `/app`, verify the profile and usage rows in Supabase, sign out from the app shell, and confirm `/app` redirects back to login afterward.
+- At the Step 5 checkpoint, the global middleware/proxy auth guard and report API auth migration were still deferred.
+- Stage 6 later replaced the permissive middleware stub with `src/proxy.ts`.
+- Stage 7 later migrated report APIs away from `X-User-Id`.
+- The Step 5 manual gate was to test live Google/email OTP login into `/app`, verify profile and usage rows in Supabase, sign out from the app shell, and confirm `/app` required login afterward.
+
+### Q: Why was `src/middleware.ts` removed, why did it exist, and what replaced it?
+
+A:
+
+- `src/middleware.ts` originally existed as the app's request-level hook before pages and API routes.
+- In early Phase 2, it served two purposes:
+  - a placeholder location for the future route-level auth guard
+  - the per-request CSP nonce layer needed after the login page hydration bug
+- The hydration bug happened because a static CSP in `next.config.ts` blocked Next.js App Router bootstrap scripts. Moving CSP generation into the request layer let the app generate a fresh nonce per request and attach that nonce to the request/response.
+- Before Stage 6, the auth behavior in `src/middleware.ts` was still a permissive stub, so it was not yet the real protected-route boundary.
+- Stage 6 removed `src/middleware.ts` because Next.js 16 expects the request interception file to use the `src/proxy.ts` convention instead.
+- `src/proxy.ts` is now the replacement and the real first gate:
+  - it preserves per-request CSP nonce behavior
+  - it allows known public routes
+  - it checks protected routes with `getAuthenticatedUserForProxy()`
+  - it redirects unauthenticated browser requests to `/login?next=...`
+  - it returns JSON `401 UNAUTHORIZED` for unauthenticated API requests
+- Proxy is only the first gate. Protected route handlers and server components must still verify authenticated user state close to data access.
 
 ### Q: Why can a Next.js auth page render but the login buttons do nothing?
 
@@ -829,7 +848,7 @@ A:
 
 ## 15) Working Rule For Future Clarification Questions
 
-When important clarification questions come up in this backend thread, this file should be updated if the answer establishes:
+When important clarification questions come up in this backend thread, this file should be updated in the same working pass if the answer establishes:
 
 - a lasting architectural rule
 - a security rule
@@ -837,7 +856,7 @@ When important clarification questions come up in this backend thread, this file
 - a modeling decision
 - a process/ownership rule worth preserving
 
-That keeps the knowledge base useful instead of turning it into a full transcript.
+That keeps the knowledge base useful instead of turning it into a full transcript. Short-lived status answers can stay in chat, but durable "why did we do this?" answers belong here.
 
 ## 16) Hardening Rules From Post-Step-7 Security Review
 
@@ -1230,20 +1249,22 @@ A:
 
 ## 21. API Route and Service Layer Clarifications (Step 12)
 
-### Q: Why is auth handled via X-User-Id header instead of real Supabase Auth?
+### Q: Why did report APIs originally use `X-User-Id`, and what replaced it in Phase 2 Stage 7?
 
 A:
 
-- Full Supabase Auth integration is deferred from Phase 1 backend pipeline work.
-- The `X-User-Id` header is a deliberate interim mechanism:
+- Full Supabase Auth integration was deferred from Phase 1 backend pipeline work.
+- The `X-User-Id` header was a deliberate interim mechanism:
   - it is validated as a UUID at every route boundary
   - it flows into the service layer for user-scoped queries (portfolio ownership, run ownership)
   - it is easy to swap later for a real auth token extraction without changing the service interface
-- The middleware `isAuthenticated()` stub returns `true` — this is documented and intentional for the dev build phase.
-- When real auth is implemented, the swap involves:
-  1. replacing `isAuthenticated()` in middleware.ts with a real session/token check
-  2. replacing the `X-User-Id` header extraction in route handlers with the authenticated user ID from the session/token
-  3. no changes needed in the service layer — it already receives `userId: string`
+- Phase 2 Stage 7 completed that swap:
+  1. `src/proxy.ts` is the first route-level session gate.
+  2. Report API route handlers call `getAuthenticatedApiUserId()`.
+  3. The authenticated Supabase user ID is passed into `ReportRunService`.
+  4. `X-User-Id` is no longer used by production route logic.
+  5. Tests explicitly prove spoofed `x-user-id` headers are ignored.
+- No service-layer contract change was needed because the service already receives `userId: string`.
 
 ### Q: Why is there a separate service layer (`src/server/services/`) distinct from the orchestrator layer (`src/server/orchestrators/`)?
 

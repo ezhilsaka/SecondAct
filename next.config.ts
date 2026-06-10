@@ -49,7 +49,7 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=()"
   },
-  // Content-Security-Policy is generated per request in middleware so Next.js
+  // Content-Security-Policy is generated per request in proxy.ts so Next.js
   // can attach a nonce to App Router bootstrap scripts.
 ];
 
