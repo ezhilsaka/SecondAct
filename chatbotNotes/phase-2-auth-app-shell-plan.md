@@ -4,7 +4,7 @@ Last updated: 2026-06-10
 
 ## 1) Purpose
 
-This document is the implementation handoff plan for Phase 2.
+This document started as the implementation handoff plan for Phase 2 and now also serves as the closeout checklist for the Phase 2 auth/app-shell foundation.
 
 Phase 1 proved the backend report pipeline:
 
@@ -16,7 +16,7 @@ The goal is not to build the full portfolio entry or report-generation UI yet. T
 
 ## 2) Current Starting Point
 
-Already complete:
+Current implementation state:
 
 - Landing page exists.
 - Phase 1 backend report pipeline is signed off.
@@ -27,7 +27,13 @@ Already complete:
 - `src/proxy.ts` now contains the session-aware route guard as of Stage 6.
 - The deprecated `src/middleware.ts` auth stub was removed during Stage 6.
 - Stage 6 and light Stage 7 manual smoke verification passed on 2026-06-10; the owned-portfolio positive-path report API check is deferred until portfolio UI/test data is available.
-- Current baseline verification passed before Phase 2 implementation:
+- Stage 8 landing CTAs now route unauthenticated users to `/login?next=%2Fapp` and authenticated users to `/app`.
+- Stage 9 verification passed on 2026-06-10:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm test`
+  - `npm run build`
+- Pre-implementation baseline verification also passed before Phase 2 changes began:
   - `npm test`
   - `npm run typecheck`
   - `npm run lint`
@@ -705,9 +711,9 @@ Tasks:
 
 Recommended CTA mapping:
 
-- `Generate One-Time Report` -> `/login?next=/app`
-- `Get One-Time Report` -> `/login?next=/app`
-- `Generate My Report` -> `/login?next=/app`
+- `Generate One-Time Report` -> `/login?next=%2Fapp` when signed out, `/app` when signed in
+- `Get One-Time Report` -> `/login?next=%2Fapp` when signed out, `/app` when signed in
+- `Generate My Report` -> `/login?next=%2Fapp` when signed out, `/app` when signed in
 
 Verification:
 
@@ -758,13 +764,18 @@ Goal:
 
 - Keep head-office context current.
 
-Documents to update:
+Status as of 2026-06-10:
 
+- Complete as the Phase 2 closeout documentation stage.
+
+Documents updated or maintained:
+
+- `chatbotNotes/phase-2-auth-app-shell-execution.md`
 - `chatbotNotes/supabase-auth-reference.md`
-- `chatbotNotes/backend-knowledge-base.md` only if new durable Q&A decisions are made
-- new Phase 2 execution document if the implementation chat wants one
+- `chatbotNotes/backend-knowledge-base.md`
+- `chatbotNotes/production-readiness.md`
 
-Suggested new execution doc:
+Execution-memory document:
 
 - `chatbotNotes/phase-2-auth-app-shell-execution.md`
 
@@ -791,24 +802,50 @@ Phase 2 is complete when:
 15. Token-safe auth/profile observability is implemented for critical server-side paths.
 16. Tests, typecheck, lint, and build pass.
 
-## 9) Suggested Implementation Order For The Next Chat
+### Acceptance Criteria Status As Of 2026-06-10
+
+| # | Status | Evidence / caveat |
+| --- | --- | --- |
+| 1 | Complete | Google login was manually validated during Phase 2 local provider testing. |
+| 2 | Complete | Email OTP was manually validated after Supabase templates were updated to expose `{{ .Token }}`. |
+| 3 | Complete | Auth callback exchanges session code and is covered by focused callback tests plus manual auth-provider flows. |
+| 4 | Complete | Logout route signs out through Supabase, redirects safely, and was manually smoke-tested from the app shell. |
+| 5 | Complete | `/app` is protected at `src/proxy.ts` and the app layout boundary. |
+| 6 | Complete | Authenticated users can load `/app` and see the protected app shell. |
+| 7 | Complete | `user_profiles` bootstrap is implemented, idempotent, and avoids placeholder names for first-time email users. |
+| 8 | Complete | `user_usage` bootstrap is implemented and handles concurrent creation races. |
+| 9 | Complete | Report API route logic no longer uses `X-User-Id` as the production auth mechanism. |
+| 10 | Complete | Report API route logic passes the authenticated Supabase user ID into report services. The full owned-portfolio positive-path manual API check remains deferred until portfolio UI/test data exists. |
+| 11 | Complete | Unauthenticated protected API requests return `401 UNAUTHORIZED`. |
+| 12 | Complete | Landing report CTAs are auth-aware. Automated tests and in-app browser smoke verification passed; user manual Stage 8/9 checklist is available for final human confirmation. |
+| 13 | Complete | Deprecated `src/middleware.ts` was removed and replaced by `src/proxy.ts`; build no longer reports the middleware deprecation warning. |
+| 14 | Complete | No Phase 2 Prisma schema migration was added. |
+| 15 | Complete | Critical server auth/profile paths use structured operational errors without logging tokens, OTP codes, session cookies, or Supabase secrets. |
+| 16 | Complete | `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and `git diff --check` passed on 2026-06-10. |
+
+Phase 2 engineering closeout is complete with two explicit caveats:
+
+1. Final user/manual signoff for Stage 8/9 landing CTA behavior is still a human checkpoint if the user wants to run it before pushing.
+2. The strong owned-portfolio positive-path report API smoke check is deferred until portfolio UI or reliable owned portfolio test data exists in a later phase.
+
+Neither caveat requires more Phase 2 code before moving on.
+
+## 9) Final Handoff For The Next Phase
+
+Before starting future portfolio/report UI work:
 
 1. Read this document.
-2. Read `chatbotNotes/supabase-auth-reference.md`.
-3. Inspect `src/proxy.ts`.
-4. Confirm `src/middleware.ts` remains removed.
-5. Inspect report API routes under `src/app/api/v1/report-runs`.
-6. Confirm Supabase dashboard manual setup status with the user.
-7. Implement dependencies and Supabase client helpers.
-8. Implement login/callback/logout.
-9. Implement profile bootstrap.
-10. Implement protected app shell.
-11. Replace middleware stub with real Next.js proxy guard.
-12. Replace `X-User-Id` report API auth.
-13. Connect landing CTAs.
-14. Run automated verification.
-15. Guide the user through manual Google/OTP validation.
-16. Update Phase 2 execution notes.
+2. Read `chatbotNotes/phase-2-auth-app-shell-execution.md`.
+3. Read `chatbotNotes/supabase-auth-reference.md`.
+4. Confirm `src/proxy.ts` remains the request-level route guard.
+5. Confirm `src/middleware.ts` remains removed.
+6. Keep protected route-handler checks even though proxy protection exists.
+7. Preserve authenticated Supabase user ID as the ownership source for report and portfolio APIs.
+8. Use the landing report CTA behavior as the public-to-app entry rule:
+   - signed out -> `/login?next=%2Fapp`
+   - signed in -> `/app`
+9. Do not reintroduce `X-User-Id` as a production auth path.
+10. Carry production-readiness items forward separately from local Phase 2 completion.
 
 ## 10) Migration And Rollback Guidance
 

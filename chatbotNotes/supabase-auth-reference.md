@@ -1,16 +1,16 @@
 # Supabase Auth Reference
 
-Last updated: 2026-03-28
+Last updated: 2026-06-10
 
 ## Purpose
 
-This note captures the current authentication decision for Second Act so we do not lose context while building the Phase 1 backend pipeline.
+This note captures the authentication decision for Second Act and the current Phase 2 implementation posture.
 
-Phase 1 is focused on:
+The note was originally created while Phase 1 was focused on:
 
 `Portfolio -> Canonical Model -> Analysis Engine -> Narrative Engine -> PDF Generator`
 
-Because of that, full authentication implementation is **not** part of current Step 2 execution. However, the database schema should remain **auth-ready** so later auth work can connect cleanly without a redesign.
+At that time, the schema needed to stay auth-ready while full auth was deferred. As of Phase 2 closeout, the core app-side Supabase Auth foundation is implemented: login, callback, logout, protected app shell, profile bootstrap, proxy guard, authenticated report API ownership, and landing CTAs into the auth/app flow.
 
 ## Decision Summary
 
@@ -147,20 +147,20 @@ The product still supports both intended entry paths:
 
 Moving to Supabase Auth does **not** remove either path. It simply means Supabase handles identity and session mechanics for them.
 
-## Phase 1 Scope Boundary
+## Historical Phase 1 Scope Boundary
 
-### What is in scope now
+### What was in scope then
 
-For the current backend pipeline phase:
+For the Phase 1 backend pipeline phase:
 
 1. Make the schema auth-ready
 2. Add `user_profiles`
 3. Ensure all portfolio/report tables are linked by `user_id`
 4. Seed test data for a backend-only test user
 
-### What is deferred until later
+### What was deferred from Phase 1
 
-Later auth work should implement:
+The following auth work was deferred from Phase 1. Phase 2 has now implemented items 1-5:
 
 1. Google login UI and callback handling
 2. Email OTP UI and verification flow
@@ -168,6 +168,8 @@ Later auth work should implement:
 4. Protected routes / auth middleware
 5. Automatic profile creation after first login
 6. Row Level Security (RLS) policies
+
+RLS policy hardening remains a production/security follow-up unless selected explicitly before launch.
 
 ## Relationship To Current Data Model
 
@@ -215,9 +217,9 @@ So:
 2. Email OTP can be tested during development
 3. Production email OTP should plan for custom SMTP setup
 
-## Security Notes For Later
+## Current Security Rules
 
-When auth is implemented later, we should follow these rules:
+Now that Phase 2 auth is implemented, these rules should remain true:
 
 1. Never expose service role keys to the client
 2. Use the anon/public key only in browser-safe contexts
@@ -237,30 +239,38 @@ As of 2026-06-10, the Phase 2 implementation has completed the core app-side aut
 6. `user_profiles` and `user_usage` bootstrap from the authenticated Supabase user.
 7. Existing report API routes now use the authenticated Supabase user ID instead of `X-User-Id`.
 8. `X-User-Id` is no longer the production route-auth mechanism.
-9. Row Level Security policy hardening remains a production/security follow-up unless selected explicitly.
+9. Landing page report-start CTAs route unauthenticated users to `/login?next=%2Fapp` and authenticated users to `/app`.
+10. Email OTP first-time profile completion happens inside the login visual shell after OTP verification, avoiding pre-auth email enumeration.
+11. Row Level Security policy hardening remains a production/security follow-up unless selected explicitly.
 
-## Recommended Later Implementation Sequence
+## Phase 2 Implementation Sequence Completed
 
-When we pick up auth implementation later, the recommended order is:
+The Phase 2 auth/app-shell work was completed in this order:
 
 1. Enable Google provider in Supabase Auth
 2. Enable email OTP flow and configure templates
 3. Add client-side Supabase auth integration in Next.js
 4. Add login/signup UI
 5. Add profile bootstrap logic for `user_profiles`
-6. Add route protection / middleware
-7. Add RLS policies
-8. Test Google login, OTP login, logout, and session persistence
+6. Add protected app shell
+7. Replace deprecated middleware with `src/proxy.ts`
+8. Migrate report API ownership from `X-User-Id` to authenticated Supabase user ID
+9. Wire landing page report CTAs into the auth/app flow
+10. Test Google login, OTP login, logout, session persistence, route protection, report API auth, and build gates
 
-## Notes To Preserve For Phase 1
+RLS policy hardening remains outside the Phase 2 implementation scope unless pulled forward as a dedicated security hardening task.
 
-These items should remain true while building the backend pipeline now:
+## Current Rules To Preserve After Phase 2
 
-1. Full auth implementation is deferred
-2. Schema must remain auth-ready
-3. `user_profiles` is the app-owned profile table
-4. Supabase Auth is the future identity provider
-5. Backend test users can be seeded for pipeline development before auth UI exists
+These items should remain true as future product phases add portfolio and report UI:
+
+1. Supabase Auth remains the identity provider.
+2. `auth.users.id` remains aligned to `public.user_profiles.id`.
+3. `user_profiles` remains the app-owned profile table.
+4. User-owned portfolio/report data must be scoped by the authenticated Supabase user ID.
+5. Server-side route handlers must keep their own auth checks even though `src/proxy.ts` is the first request-level gate.
+6. Browser code may use only public/publishable Supabase keys; service-role or secret keys stay server-only.
+7. Production email OTP should use custom SMTP rather than relying on Supabase built-in development email delivery.
 
 ## References
 

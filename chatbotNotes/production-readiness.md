@@ -79,7 +79,8 @@ Production requirement:
 Important note:
 
 - This is a production-readiness/provider configuration item, not a Phase 2 code blocker.
-- Until the production app shell is implemented, Google OAuth smoke tests should use safe local redirects such as `/login?next=/` or `/login?next=/legal` instead of the default `/app` redirect.
+- After Phase 2 app-shell implementation, normal local auth smoke tests can use `/login?next=/app` or landing CTAs that resolve to `/login?next=%2Fapp`.
+- If isolating provider configuration only, safe public redirects such as `/login?next=/` or `/login?next=/legal` can still be used.
 
 ## Supabase API Key Readiness Note
 

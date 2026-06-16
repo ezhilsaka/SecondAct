@@ -144,9 +144,15 @@
 .headerCta,
 .primaryCta,
 .secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid transparent;
   border-radius: 999px;
   font-family: Manrope, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -238,6 +244,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  scroll-margin-top: 24px;
 }
 
 .heroVisualTitle {

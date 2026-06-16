@@ -44,13 +44,15 @@ Current status:
 - Stage 6 proxy auth guard: complete
 - Stage 7 report API auth migration: complete
 - Stage 6/7 manual smoke verification: complete except owned-portfolio positive-path API check, deferred until portfolio UI/test data is available
-- Stage 8 landing CTA wiring: pending
-- Stage 9 verification: pending
-- Stage 10 documentation updates: ongoing
+- Stage 8 landing CTA wiring: complete
+- Stage 9 verification: complete
+- Stage 10 documentation updates and Phase 2 closeout audit: complete
 
 Review checkpoint:
 
-- Stop after Stage 7 for review before Stage 8 landing CTA wiring.
+- Phase 2 engineering closeout is complete.
+- Remaining human checkpoint: user can run the Stage 8/9 manual landing CTA smoke checklist before pushing if desired.
+- Deferred non-blocker: strong owned-portfolio positive-path report API smoke check waits for portfolio UI/test data in a later phase.
 
 ## 5) Stage 0: Baseline Audit
 
@@ -872,7 +874,181 @@ Pre-push verification on 2026-06-10:
 - `npm run build`: passed
 - Build no longer reports the deprecated Next.js `middleware.ts` warning.
 
-Stop point:
+Stage 7 checkpoint outcome:
 
-- Implementation is intentionally stopped after Stage 7.
-- User review/signoff for Stage 6 and Stage 7 is complete with the owned-portfolio positive-path API check deferred as noted above.
+- Stage 6/7 user review and signoff completed with the owned-portfolio positive-path API check deferred as noted above.
+- Implementation later continued into Stage 8 landing CTA wiring, Stage 9 verification, and Stage 10 documentation closeout.
+
+## 13) Stage 8: Auth-Aware Navigation From Landing Page
+
+Status: complete on 2026-06-10.
+
+Goal:
+
+- Connect the public landing page CTAs to the auth/app flow.
+
+Deep-dive design decisions:
+
+1. Keep `SecondActLanding` presentational and pass the report CTA destination in as a prop.
+2. Let the server marketing page check authenticated session state with `getAuthenticatedUser()`.
+3. Route unauthenticated report CTAs to `/login?next=%2Fapp`.
+4. Route authenticated report CTAs directly to `/app`.
+5. Mark the marketing home page as dynamic because it reads session/cookie-backed auth state.
+6. Keep the sample PDF action separate from auth/app entry. Since a real sample PDF is not ready, link it to the existing report preview section as a safe placeholder.
+
+Files changed:
+
+- `src/app/(marketing)/page.tsx`
+- `src/app/(marketing)/page.test.tsx`
+- `src/components/landing/SecondActLanding.tsx`
+- `src/components/landing/SecondActLanding.test.tsx`
+- `src/components/landing/SecondActLanding.module.css`
+
+Execution notes:
+
+- Header `Get One-Time Report`, hero `Generate One-Time Report`, and final `Generate My Report` are now anchors instead of inert buttons.
+- Unauthenticated destination: `/login?next=%2Fapp`.
+- Authenticated destination: `/app`.
+- `View Sample PDF` now links to `#sample-report-preview`.
+- Existing footer placeholder links remain out of scope for Stage 8 because they are not report-start CTAs.
+
+Focused verification:
+
+- `npm test -- --run src/app/(marketing)/page.test.tsx src/components/landing/SecondActLanding.test.tsx`
+- Result: passed, 4 tests across 2 files.
+
+Coverage highlights:
+
+- Server page test proves unauthenticated landing CTAs render with `/login?next=%2Fapp`.
+- Server page test proves authenticated landing CTAs render with `/app`.
+- Component test proves all three report CTAs use the provided destination.
+- Component test proves the sample PDF CTA stays separate as an in-page preview placeholder.
+
+Browser verification:
+
+- Local dev server was already listening on port `3000`.
+- In-app browser was signed out through `/auth/logout`.
+- `http://127.0.0.1:3000/` rendered the landing page.
+- Rendered report CTA state:
+  - `Get One-Time Report` -> `/login?next=%2Fapp`
+  - `Generate One-Time Report` -> `/login?next=%2Fapp`
+  - `Generate My Report` -> `/login?next=%2Fapp`
+  - report CTA button count: `0`
+  - `View Sample PDF` -> `#sample-report-preview`
+- Clicking `Generate One-Time Report` landed on `http://127.0.0.1:3000/login?next=%2Fapp`.
+- Login page showed the email input and `Continue with Google`.
+- Browser console warnings/errors: none.
+
+Manual smoke checklist for Stage 8 and Stage 9:
+
+1. Start local dev server with `npm run dev`.
+2. Use an incognito browser session or visit `/auth/logout` first to force a signed-out state.
+3. Visit `/`.
+4. Confirm the landing page renders normally.
+5. Confirm the three report-start CTAs are visually present:
+   - header `Get One-Time Report`
+   - hero `Generate One-Time Report`
+   - final section `Generate My Report`
+6. Click one report-start CTA while signed out.
+7. Expected result:
+   - browser lands on `/login?next=%2Fapp`
+   - login page shows `Continue with Google`
+   - login page shows the email-code form
+8. Return to `/`.
+9. Click `View Sample PDF`.
+10. Expected result:
+    - browser stays on the landing page
+    - URL hash becomes `#sample-report-preview`
+    - report preview section is shown
+11. Sign in with Google or email OTP.
+12. After successful sign-in, visit `/` again.
+13. Click a report-start CTA while signed in.
+14. Expected result:
+    - browser goes to `/app`
+    - authenticated app shell loads
+15. Open browser dev tools console during the above checks.
+16. Expected result:
+    - no runtime console errors
+    - no CSP/hydration errors
+17. Run Stage 9 command gates if doing full manual signoff:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm test`
+    - `npm run build`
+
+## 14) Stage 9: Test Coverage And Verification
+
+Status: complete on 2026-06-10.
+
+Goal:
+
+- Protect auth and app-shell behavior before moving to portfolio UI/future phases.
+
+Verification completed:
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm test`: passed, 315 tests across 42 files
+- `npm run build`: passed
+- `git diff --check`: passed after implementation and documentation updates
+
+Build notes:
+
+- `/` is now dynamic because it reads authenticated session state for auth-aware landing CTAs.
+- The deprecated Next.js `middleware.ts` warning remains resolved.
+
+Stage 10 continuation point:
+
+- Stage 10 documentation updates were completed after Stage 9 verification.
+- Future phase work should not begin until this execution note and `phase-2-auth-app-shell-plan.md` are treated as the Phase 2 handoff source of truth.
+
+## 15) Stage 10: Documentation Updates And Phase 2 Closeout
+
+Status: complete on 2026-06-10.
+
+Goal:
+
+- Close the Phase 2 auth/app-shell work with durable documentation and an explicit acceptance-criteria audit.
+
+Files updated:
+
+- `chatbotNotes/phase-2-auth-app-shell-plan.md`
+- `chatbotNotes/phase-2-auth-app-shell-execution.md`
+- `chatbotNotes/supabase-auth-reference.md`
+- `chatbotNotes/backend-knowledge-base.md`
+- `chatbotNotes/production-readiness.md`
+
+Closeout decisions:
+
+1. `phase-2-auth-app-shell-plan.md` now serves as both the original plan and closeout checklist.
+2. The acceptance criteria are marked with implementation evidence and explicit caveats.
+3. `supabase-auth-reference.md` now describes Phase 2 auth as implemented, while preserving the historical Phase 1 scope boundary.
+4. `backend-knowledge-base.md` now preserves the durable landing CTA routing rule.
+5. `production-readiness.md` now reflects that `/app` exists for local smoke tests, while keeping OAuth branding/custom auth domain as production-only work.
+
+Phase 2 closeout result:
+
+- Engineering implementation: complete.
+- Automated verification: complete.
+- Browser smoke verification for signed-out landing CTAs: complete.
+- Manual Google/email auth provider validation: complete from earlier Phase 2 stages.
+- User-run Stage 8/9 manual landing CTA confirmation: optional final human checkpoint before push.
+- Owned-portfolio positive-path report API manual check: deferred until a later portfolio UI/test-data phase.
+
+Closeout verification rerun on 2026-06-10:
+
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm test`: passed, 315 tests across 42 files
+- `npm run build`: passed
+- `git diff --check`: passed
+
+Do not treat the remaining production readiness items as Phase 2 code blockers:
+
+- Google OAuth production branding/custom auth domain
+- custom SMTP for production OTP email
+- production RLS hardening
+- production worker/runtime hosting
+- production market-data/model-provider choices
+- cookie/privacy policy launch review
+- removing `chatbotNotes` from Git before production launch if the team decides these notes should not ship in the repository

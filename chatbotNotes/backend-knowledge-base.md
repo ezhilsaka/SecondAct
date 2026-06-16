@@ -369,8 +369,9 @@ Suggested local/dev HTML body for `Confirm sign up` and `Magic link or OTP`:
 Manual retest:
 
 - Use a fresh email address or delete the previous test Auth user to test first-time behavior.
-- Start from `/login?next=/` until `/app` is implemented.
-- Confirm the first-time email contains a visible code and that entering it redirects to `/`.
+- For provider-only isolation, start from a public redirect such as `/login?next=/` or `/login?next=/legal`.
+- For full Phase 2 app-shell smoke testing, start from `/login?next=/app` or use the landing page report CTAs.
+- Confirm the first-time email contains a visible code and that entering it redirects to the requested safe path.
 - Repeat with the same email to confirm the returning-user email also contains a visible code.
 
 ### Q: Why did an existing email user see `We could not complete sign-in` during repeated OTP testing?
@@ -409,7 +410,7 @@ A:
 - However, Stage 3 is not fully provider-signed-off until at least one live Google OAuth flow and one live email OTP flow are tested against the configured Supabase project.
 - This manual provider test is recommended before Stage 4 profile bootstrap because Stage 4 depends on real Supabase authenticated users existing.
 - If the user wants to keep implementation moving, Stage 4 can still be developed using mocked/authenticated helper tests, but final Phase 2 signoff must include the real Google and email OTP flows.
-- Because `/app` is not implemented until a later stage, manual Stage 3 auth smoke tests should use a known existing safe redirect such as:
+- Historical Stage 3 provider-only auth smoke tests, before `/app` existed, used a known public safe redirect such as:
   - `/login?next=/`
   - `/login?next=/legal`
 - The minimum manual smoke test is:
@@ -420,8 +421,7 @@ A:
   - visiting `/auth/logout` after a live login redirects to `/` and clears the Supabase browser session
 - The logout route's automated test proves that the route calls Supabase `signOut()` and redirects home.
 - It does not replace the live browser check, because the live check confirms real Supabase cookies/session state in the configured project.
-- Before `/app` is implemented and protected, logout can be smoke-tested by visiting `/auth/logout` directly after a successful `/login?next=/legal` login.
-- After `/app` and the proxy guard exist, repeat logout from the app shell and confirm `/app` requires login again.
+- Current Phase 2 end-to-end auth smoke tests should use `/login?next=/app` or the landing page report CTAs, then confirm `/app` loads and logout makes `/app` require login again.
 
 ### Q: How does Phase 2 profile bootstrap connect Supabase Auth to Second Act app data?
 
@@ -475,6 +475,21 @@ A:
 - Stage 6 later replaced the permissive middleware stub with `src/proxy.ts`.
 - Stage 7 later migrated report APIs away from `X-User-Id`.
 - The Step 5 manual gate was to test live Google/email OTP login into `/app`, verify profile and usage rows in Supabase, sign out from the app shell, and confirm `/app` required login afterward.
+
+### Q: How should landing-page report CTAs route after Phase 2?
+
+A:
+
+- The public landing page remains the first screen for unauthenticated visitors.
+- The report-start CTAs should not be inert buttons.
+- The three report-start CTAs should route unauthenticated users to `/login?next=%2Fapp`:
+  - header `Get One-Time Report`
+  - hero `Generate One-Time Report`
+  - final section `Generate My Report`
+- The same CTAs should route authenticated users directly to `/app`.
+- The marketing page intentionally reads session state server-side and is dynamic because the CTA href depends on the current Supabase session.
+- `View Sample PDF` is not an auth/app entry CTA. Until a real sample PDF artifact exists, it can safely link to the landing page preview section, `#sample-report-preview`.
+- Footer placeholder links are not part of this Phase 2 report-start CTA rule unless they become real app-entry actions later.
 
 ### Q: Why was `src/middleware.ts` removed, why did it exist, and what replaced it?
 

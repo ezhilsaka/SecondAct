@@ -7,6 +7,13 @@ import {
 } from "@/features/marketing/constants/landing-content";
 import styles from "./SecondActLanding.module.css";
 
+const SAMPLE_REPORT_PREVIEW_ID = "sample-report-preview";
+const SAMPLE_REPORT_PREVIEW_HREF = `#${SAMPLE_REPORT_PREVIEW_ID}`;
+
+export type SecondActLandingProps = {
+  reportCtaHref: string;
+};
+
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <span className={compact ? styles.brandMarkCompact : styles.brandMark} aria-hidden="true">
@@ -45,7 +52,7 @@ function HeroReportPreview() {
   );
 }
 
-export default function SecondActLanding() {
+export default function SecondActLanding({ reportCtaHref }: SecondActLandingProps) {
   return (
     <main className={styles.landingRoot}>
       <header className={styles.header}>
@@ -62,9 +69,9 @@ export default function SecondActLanding() {
           ))}
         </nav>
 
-        <button type="button" className={styles.headerCta}>
+        <a className={styles.headerCta} href={reportCtaHref}>
           Get One-Time Report
-        </button>
+        </a>
       </header>
 
       <section className={styles.heroSection}>
@@ -76,12 +83,12 @@ export default function SecondActLanding() {
           </p>
 
           <div className={styles.ctaRow}>
-            <button type="button" className={styles.primaryCta}>
+            <a className={styles.primaryCta} href={reportCtaHref}>
               Generate One-Time Report
-            </button>
-            <button type="button" className={styles.secondaryCta}>
+            </a>
+            <a className={styles.secondaryCta} href={SAMPLE_REPORT_PREVIEW_HREF}>
               View Sample PDF
-            </button>
+            </a>
           </div>
 
           <p className={styles.trustLine}>
@@ -89,7 +96,11 @@ export default function SecondActLanding() {
           </p>
         </div>
 
-        <aside className={styles.heroVisual} aria-label="Quarterly report preview">
+        <aside
+          id={SAMPLE_REPORT_PREVIEW_ID}
+          className={styles.heroVisual}
+          aria-label="Quarterly report preview"
+        >
           <p className={styles.heroVisualTitle}>Quarterly Report Preview</p>
           <HeroReportPreview />
         </aside>
@@ -159,9 +170,9 @@ export default function SecondActLanding() {
         <p className={styles.finalSub}>
           Join thousands of smart DIY investors who have stopped guessing and started knowing.
         </p>
-        <button type="button" className={styles.primaryCta}>
+        <a className={styles.primaryCta} href={reportCtaHref}>
           Generate My Report
-        </button>
+        </a>
       </section>
 
       <footer className={styles.footer}>
