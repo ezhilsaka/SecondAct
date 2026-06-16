@@ -1,6 +1,6 @@
 # Phase 3 Plan: Portfolio Management MVP
 
-Last updated: 2026-06-10
+Last updated: 2026-06-16
 
 ## 1) Purpose
 
@@ -97,10 +97,11 @@ By the end of Phase 3, a signed-in user should be able to:
 6. Add holdings to the portfolio.
 7. Edit holding details.
 8. Remove holdings.
-9. Edit basic portfolio details.
-10. Archive a portfolio instead of hard-deleting it.
-11. See whether a portfolio has enough data for the future report-generation step.
-12. Confirm that ownership is enforced: users can only see and modify their own portfolios.
+9. Use API-backed ticker search/autocomplete while adding holdings, with manual entry still available.
+10. Edit basic portfolio details.
+11. Archive a portfolio instead of hard-deleting it.
+12. See whether a portfolio has enough data for the future report-generation step.
+13. Confirm that ownership is enforced: users can only see and modify their own portfolios.
 
 ## 5) Scope
 
@@ -114,6 +115,7 @@ By the end of Phase 3, a signed-in user should be able to:
 - Add holding flow.
 - Edit holding flow.
 - Remove holding flow.
+- API-backed ticker search/autocomplete for holding entry.
 - Portfolio readiness/completeness indicator.
 - Server-side portfolio service layer.
 - Portfolio API routes.
@@ -129,7 +131,7 @@ By the end of Phase 3, a signed-in user should be able to:
 - Broker import.
 - CSV import.
 - Real-time market quote preview in the portfolio UI.
-- Automatic ticker lookup/autocomplete.
+- Making symbol lookup mandatory before a holding can be saved.
 - Asset classes beyond equity.
 - Currencies beyond `USD` and `CAD`.
 - Payment/checkout.
@@ -229,11 +231,29 @@ Follow the Phase 1/2 pattern:
 Recommended service:
 
 - `src/server/services/portfolio-service.ts`
+- `src/server/services/security-search-service.ts`
 
 Recommended repository interface:
 
 - `PortfolioRepository`
 - `PrismaPortfolioRepository`
+
+Recommended provider interface:
+
+- `SecuritySearchProvider`
+- `YFinanceSecuritySearchProvider` or adapter-backed local implementation for development
+- future `AlphaVantageSecuritySearchProvider` or adapter implementation for production
+
+Security search design:
+
+- Browser/client code should call the Second Act API, not Yahoo Finance or Alpha Vantage directly.
+- API route handlers should keep provider secrets server-side.
+- The provider response should be normalized into a Second Act shape before it reaches the UI.
+- Search should be advisory: it helps users pick a ticker and security name, but manual entry remains available.
+- Search should not fetch or display live prices in Phase 3.
+- Search results should not be used as the source of report readiness. Readiness remains based on saved holdings.
+- Search failures should degrade gracefully to manual entry.
+- Provider-specific symbol formats must be handled carefully. Yahoo-style symbols such as `SHOP.TO` may differ from Alpha Vantage symbols such as `SHOP.TRT`; production provider replacement must include symbol-format verification before launch.
 
 Recommended route handlers:
 
@@ -245,6 +265,36 @@ Recommended route handlers:
 - `POST /api/v1/portfolios/:portfolioId/holdings`
 - `PATCH /api/v1/portfolios/:portfolioId/holdings/:holdingId`
 - `DELETE /api/v1/portfolios/:portfolioId/holdings/:holdingId`
+- `GET /api/v1/securities/search?query=<text>`
+
+Recommended security search response shape:
+
+```json
+{
+  "results": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "exchange": "NASDAQ",
+      "region": "United States",
+      "currency": "USD",
+      "matchScore": "0.93",
+      "provider": "yfinance"
+    }
+  ]
+}
+```
+
+Response rules:
+
+- `symbol` is required and should be the provider-accepted symbol that the report pipeline can later use.
+- `name`, `exchange`, `region`, `currency`, and `matchScore` are optional because provider responses can vary.
+- `currency` should be used to prefill `securityCurrency` only when it is confidently `USD` or `CAD`.
+- Unsupported currencies should either be omitted from the dropdown or shown as unavailable, not silently converted.
+- Limit returned results, for example top 8-10 matches.
+- Do not expose raw provider payloads to the client.
+- Do not expose provider API keys or internal adapter secrets to the client.
+- Add server-side timeout and generic user-facing error behavior.
 
 Recommended UI routes:
 
@@ -305,6 +355,33 @@ Duplicate ticker behavior:
 - Message example: `This ticker is already in the portfolio. Edit the existing holding instead.`
 - Do not silently aggregate in the UI unless the user explicitly chooses a merge/update action.
 
+### Ticker Search / Autocomplete Validation
+
+Recommended search request rules:
+
+- `query`: required, trimmed, 2-40 characters
+- `query` allowed characters: letters, numbers, spaces, dot, hyphen, ampersand
+- normalize repeated whitespace before sending to the provider
+- debounce client requests so typing does not call the API on every keystroke
+- do not call the search endpoint until the query has at least 2 characters
+
+Recommended search result rules:
+
+- normalize provider symbols to uppercase before returning them to the UI
+- return only equity-like results for Phase 3 where the provider exposes type/category metadata
+- prefer results with `USD` or `CAD` currency
+- do not save a holding automatically when a result is selected
+- selecting a result should prefill `ticker`, `securityName`, and `securityCurrency` when available
+- users must still confirm quantity and average cost before saving
+- if the search endpoint fails or returns no results, show a small fallback message and keep manual ticker entry available
+
+Security and privacy rules:
+
+- the browser must never call Yahoo Finance, yfinance, or Alpha Vantage directly
+- the browser must never receive provider API keys or internal adapter secrets
+- provider errors should be logged server-side and mapped to generic UI copy
+- search should be authenticated because it is part of the protected portfolio workspace
+
 ## 10) Manual Outside-Code Work Required
 
 No new Supabase dashboard configuration is expected for Phase 3.
@@ -323,6 +400,12 @@ Manual tasks for the user/tester:
    - use the newly created owned `portfolioId`
    - confirm the created `report_runs.user_id` equals the authenticated user ID
    - confirm spoofed `x-user-id` headers are ignored if included
+6. Validate ticker search/autocomplete in the holding form:
+   - type a common symbol or company name such as `AAPL` or `Apple`
+   - confirm matching symbols appear in a dropdown
+   - select one result and confirm it prefills ticker/name/currency where available
+   - confirm manual ticker entry still works if search is skipped or returns no result
+   - confirm no price or market value preview is shown in Phase 3
 
 Optional cleanup:
 
@@ -336,6 +419,7 @@ Manual work not required:
 - no new storage bucket setup
 - no new queue schema setup
 - no new production worker setup
+- no Alpha Vantage production provider setup unless the user explicitly pulls provider migration into this phase
 
 ## 11) Implementation Stages
 
@@ -357,7 +441,7 @@ Tasks:
   - signed out -> `/login?next=%2Fapp`
   - signed in -> `/app`
 - Confirm whether the user wants to run the optional human landing CTA smoke checklist before moving deeper into portfolio UI.
-- Confirm the owned-portfolio report API positive-path check is still deferred until Stage 8 of this phase.
+- Confirm the owned-portfolio report API positive-path check is still deferred until Stage 9 of this phase.
 
 Verification:
 
@@ -507,7 +591,57 @@ Tests:
 - successful create redirects
 - successful edit redirects
 
-## Stage 5: Portfolio Detail And Holdings UI
+## Stage 5: Security Search Provider, API, And Autocomplete Contract
+
+Goal:
+
+- Add provider-abstracted ticker search so holding entry can offer a dropdown of matching securities without exposing provider details or secrets to the browser.
+
+Tasks:
+
+- Add a normalized security-search contract for results.
+- Add a server-side `SecuritySearchProvider` interface.
+- Add a local/dev provider backed by the existing market-data adapter direction.
+  - Preferred local path: extend the Python adapter with a `/market-data/search` endpoint backed by yfinance `Search` or `Lookup`.
+  - Acceptable first implementation if adapter work is deferred: a server-side provider wrapper that can be swapped later, but it must not leak yfinance/Yahoo response shapes to the UI.
+- Keep the provider boundary compatible with a future Alpha Vantage `SYMBOL_SEARCH` implementation.
+- Add `GET /api/v1/securities/search?query=<text>` as an authenticated API route.
+- Use `getAuthenticatedApiUserId()` so unauthenticated requests return `401 UNAUTHORIZED`.
+- Validate and normalize the search query before calling the provider.
+- Return a limited list of normalized matches.
+- Map provider failures to generic API errors.
+- Do not call quote endpoints or fetch market prices in this stage.
+- Do not persist search results to the database in Phase 3.
+- Add clear tests for query validation, auth behavior, provider normalization, and provider failure handling.
+
+Recommended normalized result fields:
+
+- `symbol`
+- `name`
+- `exchange`
+- `region`
+- `currency`
+- `matchScore`
+- `provider`
+
+Provider-specific notes:
+
+- yfinance can support local development through `Search` / `Lookup` over Yahoo Finance results.
+- Alpha Vantage production support should use `SYMBOL_SEARCH`.
+- The code should assume provider symbol formats can differ.
+- Store the selected provider-accepted symbol exactly as the chosen result returns it after app normalization.
+- If the user manually types a symbol instead of selecting a result, save the manually entered symbol after the normal holding validation rules pass.
+
+Tests:
+
+- unauthenticated search requests return `401`
+- invalid or too-short query returns `400`
+- successful search returns normalized results only
+- provider errors do not leak raw provider payloads
+- results are limited and sorted by provider ranking or match score where available
+- unsupported currencies are omitted or marked unavailable
+
+## Stage 6: Portfolio Detail And Holdings UI
 
 Goal:
 
@@ -519,10 +653,16 @@ Tasks:
 - Show portfolio summary.
 - Show readiness/completeness status.
 - Show holdings table.
-- Add holding form.
+- Add holding form with ticker search/autocomplete.
 - Edit holding flow.
 - Remove holding flow.
 - Keep delete/remove confirmations simple but explicit.
+- Preserve manual ticker entry if autocomplete is skipped, empty, or unavailable.
+- Selecting a ticker search result should prefill:
+  - Ticker
+  - Name
+  - Currency, when confidently `USD` or `CAD`
+- Do not show quote, price, market value, or ticker validation claims.
 
 Recommended holdings table columns:
 
@@ -545,11 +685,13 @@ Tests:
 - detail page renders portfolio data
 - holding list renders
 - add holding validation works
+- ticker search selection prefills holding fields
+- manual fallback works when no search result is selected
 - edit holding validation works
 - remove holding confirmation works
 - duplicate ticker error is user-friendly
 
-## Stage 6: Readiness And Next-Step Guidance
+## Stage 7: Readiness And Next-Step Guidance
 
 Goal:
 
@@ -576,7 +718,7 @@ Tests:
 - one or more holdings -> ready
 - placeholder generate-report action does not accidentally enqueue reports
 
-## Stage 7: Dashboard Integration
+## Stage 8: Dashboard Integration
 
 Goal:
 
@@ -596,7 +738,7 @@ Tests:
 - dashboard create link works
 - no-portfolio empty state is clear
 
-## Stage 8: Deferred Phase 2 Positive-Path Report API Check
+## Stage 9: Deferred Phase 2 Positive-Path Report API Check
 
 Goal:
 
@@ -618,7 +760,7 @@ Important:
 - This does not require running the worker unless the user wants a full report-generation test.
 - If the worker is not running, the run can remain `QUEUED`; the API ownership/auth check is still valid.
 
-## Stage 9: Verification And Quality Gate
+## Stage 10: Verification And Quality Gate
 
 Goal:
 
@@ -638,6 +780,7 @@ Manual validation:
 - create portfolio
 - edit portfolio
 - add holding
+- use ticker autocomplete and manual ticker fallback
 - edit holding
 - reject duplicate holding
 - remove holding
@@ -645,9 +788,9 @@ Manual validation:
 - confirm archived portfolio disappears from list
 - confirm DB rows have correct `user_id`
 - confirm signed-out users cannot access portfolio pages or APIs
-- complete Stage 8 report API positive-path check
+- complete Stage 9 report API positive-path check
 
-## Stage 10: Documentation Updates
+## Stage 11: Documentation Updates
 
 Goal:
 
@@ -673,15 +816,18 @@ Phase 3 is complete when:
 6. Authenticated user can add holdings.
 7. Authenticated user can edit holdings.
 8. Authenticated user can remove holdings.
-9. Duplicate ticker entries are handled safely and clearly.
-10. Decimal values preserve precision through API/service/UI boundaries.
-11. Users cannot view or mutate another user's portfolios or holdings.
-12. Unauthenticated portfolio API requests return `401`.
-13. Portfolio UI shows clear empty, ready, and not-ready states.
-14. App shell `Portfolios` navigation is live.
-15. Dashboard CTA routes to portfolio creation/list.
-16. Deferred Phase 2 owned-portfolio report API positive-path check is completed.
-17. Tests, typecheck, lint, and build pass.
+9. Holding entry includes API-backed ticker search/autocomplete.
+10. Manual ticker entry still works when autocomplete is skipped or unavailable.
+11. Ticker search is provider-abstracted and does not expose provider secrets or raw provider payloads.
+12. Duplicate ticker entries are handled safely and clearly.
+13. Decimal values preserve precision through API/service/UI boundaries.
+14. Users cannot view or mutate another user's portfolios or holdings.
+15. Unauthenticated portfolio and security-search API requests return `401`.
+16. Portfolio UI shows clear empty, ready, and not-ready states.
+17. App shell `Portfolios` navigation is live.
+18. Dashboard CTA routes to portfolio creation/list.
+19. Deferred Phase 2 owned-portfolio report API positive-path check is completed.
+20. Tests, typecheck, lint, and build pass.
 
 ## 13) Suggested Implementation Order For The Next Chat
 
@@ -694,13 +840,14 @@ Phase 3 is complete when:
 7. Build portfolio API routes and tests.
 8. Build portfolio list UI.
 9. Build create/edit portfolio UI.
-10. Build portfolio detail and holdings UI.
-11. Add readiness states.
-12. Integrate dashboard/app shell navigation.
-13. Run automated verification.
-14. Guide the user through manual validation.
-15. Close deferred Phase 2 owned-portfolio report API positive-path check.
-16. Update Phase 3 execution notes.
+10. Build security search provider/API and tests.
+11. Build portfolio detail and holdings UI with ticker autocomplete plus manual fallback.
+12. Add readiness states.
+13. Integrate dashboard/app shell navigation.
+14. Run automated verification.
+15. Guide the user through manual validation.
+16. Close deferred Phase 2 owned-portfolio report API positive-path check.
+17. Update Phase 3 execution notes.
 
 ## 14) Risks And Watchpoints
 
@@ -763,17 +910,32 @@ Mitigation:
 - Keep actual report generation UI for the next phase.
 - Phase 3 may run a manual/API positive-path report-run check, but not build the full report UX.
 
-### Ticker Validation vs Ticker Lookup
+### Ticker Search vs Market Validation
 
 Risk:
 
-- Users may expect the app to verify ticker symbols immediately.
+- Users may expect autocomplete to guarantee that a holding can be priced or included in a report.
 
 Mitigation:
 
-- Phase 3 validates syntax only.
+- Phase 3 search is an entry aid, not a market-data guarantee.
 - Market validation happens during report generation via the existing market-data pipeline.
-- Future phase can add ticker lookup/autocomplete if needed.
+- Keep manual ticker entry available.
+- Do not show prices, quote freshness, or market values in Phase 3.
+- Preserve provider-specific symbol-format caveats in implementation notes and tests.
+
+### Provider Symbol Format Drift
+
+Risk:
+
+- Yahoo/yfinance and Alpha Vantage may use different symbols for the same listed security.
+
+Mitigation:
+
+- Store the symbol selected or entered by the user in the current provider-accepted format.
+- Keep symbol search behind a provider abstraction so production can swap to Alpha Vantage without rewriting the holdings UI.
+- Before production provider migration, verify common US and Canadian examples such as `AAPL`, `SHOP`, `SHOP.TO`, and the Alpha Vantage Toronto format.
+- Do not silently rewrite saved tickers without a deliberate migration or user-visible confirmation flow.
 
 ### Phase 2 Carryover
 
@@ -785,7 +947,7 @@ Risk:
 Mitigation:
 
 - Stage 0 must explicitly confirm the finalized Phase 2 state.
-- Stage 8 closes the deferred owned-portfolio report API positive-path check.
+- Stage 9 closes the deferred owned-portfolio report API positive-path check.
 - If the user wants the optional landing CTA browser smoke checklist repeated, run it before deeper Phase 3 implementation.
 
 ## 15) Next Phase Preview

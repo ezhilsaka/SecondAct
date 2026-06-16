@@ -1,6 +1,6 @@
 # Backend Knowledge Base
 
-Last updated: 2026-06-10
+Last updated: 2026-06-16
 
 ## 1) Purpose
 
@@ -17,6 +17,8 @@ If the original backend conversation is lost, this file should help explain **wh
 
 - [phase-1-report-pipeline-plan-v1.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/phase-1-report-pipeline-plan-v1.md)
 - [phase-1-report-pipeline-build-execution.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/phase-1-report-pipeline-build-execution.md)
+- [phase-3-portfolio-management-mvp-plan.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/phase-3-portfolio-management-mvp-plan.md)
+- [phase-3-portfolio-management-mvp-execution.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/phase-3-portfolio-management-mvp-execution.md)
 - [supabase-auth-reference.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/supabase-auth-reference.md)
 - [testing-framework-reference.md](/Users/ezhilpandiyansk/Documents/Ezhil/Projects/SecondAct/chatbotNotes/testing-framework-reference.md)
 
@@ -228,8 +230,22 @@ This keeps the portfolio model simpler and aligns with the current report-first 
 
 A:
 
-- They should be aggregated in code before save.
+- For import/seed-style ingestion, duplicate raw ticker rows should be aggregated in code before save.
+- For the Phase 3 manual portfolio UI/API, duplicate ticker adds should be rejected with a clear message that sends the user to edit the existing holding instead.
 - The DB still enforces uniqueness on `(portfolio_id, ticker)` as the integrity backstop.
+
+### Q: Why is Phase 3 adding ticker search/autocomplete but not quote preview?
+
+A:
+
+- The ticker search/autocomplete feature is an entry aid, not a market-data validation or valuation feature.
+- The browser should call a Second Act authenticated API route, not Yahoo Finance, yfinance, or Alpha Vantage directly.
+- Provider details and provider secrets must stay server-side.
+- Search results should be normalized behind a `SecuritySearchProvider`-style boundary so local development can use Yahoo/yfinance while production can later use Alpha Vantage `SYMBOL_SEARCH`.
+- The UI should preserve manual ticker entry if autocomplete is skipped, empty, unavailable, or temporarily failing.
+- Selecting a search result may prefill ticker, security name, and currency when the provider result is confident.
+- Phase 3 should not show live quote, price, market value, or ticker-validity claims in the holding form.
+- Provider symbol formats can drift between Yahoo and Alpha Vantage, especially for non-US listings, so production provider migration needs explicit symbol-format verification before launch.
 
 ## 7) Auth Clarifications
 
