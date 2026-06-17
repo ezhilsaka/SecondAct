@@ -41,9 +41,9 @@ export function AppShell({ profile, children }: AppShellProps) {
           <a href="/app" className={styles.navItem}>
             Dashboard
           </a>
-          <span className={styles.navItemDisabled} aria-disabled="true">
+          <a href="/app/portfolios" className={styles.navItem}>
             Portfolios
-          </span>
+          </a>
           <span className={styles.navItemDisabled} aria-disabled="true">
             Reports
           </span>

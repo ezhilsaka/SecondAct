@@ -13,6 +13,12 @@ class RequestLimitExceededError(MarketDataAdapterError):
     error_code = "REQUEST_LIMIT_EXCEEDED"
 
 
+class InvalidSearchQueryError(MarketDataAdapterError):
+    """Raised when a search query does not satisfy adapter rules."""
+
+    error_code = "INVALID_SEARCH_QUERY"
+
+
 class ProviderError(MarketDataAdapterError):
     """Raised when the upstream provider fails in a non-timeout way."""
 

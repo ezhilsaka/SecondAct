@@ -3,6 +3,7 @@
  */
 export const CONTRACT_SCHEMA_VERSIONS = {
   marketData: "market-data.v1",
+  securitySearch: "security-search.v1",
   canonicalModel: "canonical-model.v1",
   analysis: "analysis.v1",
   narrative: "narrative.v1",

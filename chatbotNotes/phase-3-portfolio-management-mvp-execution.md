@@ -30,20 +30,23 @@ Current status:
 - Stage 0 baseline and Phase 2 carryover check: complete
 - Stage 1 portfolio service and contracts: complete
 - Stage 2 portfolio API routes: complete
-- Stage 3 portfolio list page: not started
-- Stage 4 create/edit portfolio UI: not started
-- Stage 5 security search provider/API/autocomplete contract: not started
+- Stage 3 portfolio list page: complete
+- Stage 4 create/edit portfolio UI: complete
+- Stage 5 security search provider/API/autocomplete contract: complete
 - Stage 6 portfolio detail and holdings UI: not started
 - Stage 7 readiness and next-step guidance: not started
 - Stage 8 dashboard integration: not started
 - Stage 9 deferred Phase 2 positive-path report API check: deferred until a real owned portfolio exists through Phase 3
-- Stage 10 verification and quality gate: in progress for completed stages only
-- Stage 11 documentation updates: in progress
+- Stage 10 verification and quality gate: passed for completed stages through Stage 4
+- Stage 11 documentation updates: updated through Stage 4
 
 Review checkpoint:
 
-- Stop point requested by the user: complete implementation through Stage 2 only, then report back.
+- Prior stop point requested by the user: complete implementation through Stage 2 only, then report back.
+- Prior stop point requested by the user: complete implementation through Stage 4 only, then report back before Stage 5.
+- Current stop point requested by the user: complete Stage 5 only, then report back before Stage 6.
 - No UX clarifying question blocked Stages 0-2 because these stages are backend/service/API work.
+- No UX clarifying question blocked Stages 3-4. The only scope/UX wrinkle was that the Stage 4 plan originally said create should redirect to portfolio detail, while portfolio detail is Stage 6. To preserve the user's "only Stage 3 and 4" boundary, create/edit success currently redirects to the portfolio list; Stage 6 should switch create success to the detail page when the detail page exists.
 - UX/product decision already captured in the Phase 3 plan and backend knowledge base:
   - API-backed ticker search/autocomplete for holding entry
   - provider-abstracted
@@ -219,19 +222,264 @@ Verification:
 
 - `npm test -- --run src/app/api/v1/portfolios/route.test.ts`: passed, 14 tests
 
-## 7) Current Remaining Work
+## 7) Stage 3: Portfolio List Page
+
+Status: complete on 2026-06-16.
+
+Goal:
+
+- Give authenticated users a real `Portfolios` destination.
+
+Implemented:
+
+- Enabled the `Portfolios` navigation item in `AppShell`.
+- Updated the `/app` dashboard next action from a disabled button to a real `/app/portfolios/new` link.
+- Added `/app/portfolios`.
+- Added portfolio list data loading through `PortfolioService.listPortfolios(user.id)`.
+- Added empty state when no active portfolios exist.
+- Added populated portfolio rows with:
+  - name
+  - description or manual fallback copy
+  - base currency
+  - holding count
+  - readiness badge
+  - updated date
+  - edit action
+- Kept archived portfolio hiding delegated to the service/repository boundary built in Stage 1.
+
+Files changed:
+
+- `src/components/app/AppShell.tsx`
+- `src/components/app/AppShell.test.tsx`
+- `src/app/app/page.tsx`
+- `src/app/app/page.module.css`
+- `src/app/app/page.test.tsx`
+- `src/app/app/portfolios/page.tsx`
+- `src/app/app/portfolios/page.module.css`
+- `src/app/app/portfolios/page.test.tsx`
+
+Focused tests:
+
+- App shell navigation includes `/app/portfolios`.
+- Dashboard primary portfolio action links to `/app/portfolios/new`.
+- Empty portfolio list state renders.
+- Populated portfolio list renders key fields and edit link.
+- Portfolio list page loads portfolios for the authenticated user.
+
+Verification:
+
+- `npm test -- --run src/components/app/AppShell.test.tsx src/app/app/page.test.tsx src/app/app/portfolios/page.test.tsx src/components/portfolio/PortfolioForm.test.tsx src/app/app/portfolios/actions.test.ts`: passed, 11 tests across 5 files
+- `npm run typecheck`: passed
+
+## 8) Stage 4: Create And Edit Portfolio UI
+
+Status: complete on 2026-06-16.
+
+Goal:
+
+- Let users create and update portfolio metadata.
+
+Implemented:
+
+- Added `/app/portfolios/new`.
+- Added `/app/portfolios/[portfolioId]/edit`.
+- Added shared `PortfolioForm` component.
+- Added server actions:
+  - `createPortfolioFromForm`
+  - `updatePortfolioFromForm`
+- Added form fields:
+  - Portfolio name
+  - Base currency
+  - Description
+- Added server-side form validation before service mutation:
+  - missing name
+  - name longer than 80 characters
+  - invalid currency
+  - description longer than 500 characters
+- Added user-facing validation and save error messages.
+- Kept the authenticated user ID server-owned through `requireAuthenticatedUser()`.
+- Kept portfolio ownership checks inside `PortfolioService`.
+- Redirect behavior for this Stage 3-4 stop point:
+  - successful create -> `/app/portfolios?status=portfolio_created`
+  - successful edit -> `/app/portfolios?status=portfolio_updated`
+  - missing/not-owned/archived edit target -> `/app/portfolios?error=portfolio_not_found`
+- Rationale:
+  - portfolio detail is Stage 6, so redirecting to the list preserves the Stage 3-4 scope boundary.
+  - Stage 6 should update create success to redirect to the portfolio detail page when that page exists.
+
+Files changed:
+
+- `src/app/app/portfolios/actions.ts`
+- `src/app/app/portfolios/actions.test.ts`
+- `src/app/app/portfolios/form-page.module.css`
+- `src/app/app/portfolios/new/page.tsx`
+- `src/app/app/portfolios/[portfolioId]/edit/page.tsx`
+- `src/components/portfolio/PortfolioForm.tsx`
+- `src/components/portfolio/PortfolioForm.module.css`
+- `src/components/portfolio/PortfolioForm.test.tsx`
+
+Focused tests:
+
+- Form renders create labels and actions.
+- Form renders edit defaults, hidden portfolio ID, and validation messages.
+- Create action redirects missing-name submissions back to the form.
+- Create action calls the service with the authenticated user and redirects to the list.
+- Edit action redirects invalid-currency submissions back to the edit form.
+- Edit action calls the service with the authenticated user and redirects to the list.
+
+Verification:
+
+- `npm test -- --run src/components/app/AppShell.test.tsx src/app/app/page.test.tsx src/app/app/portfolios/page.test.tsx src/components/portfolio/PortfolioForm.test.tsx src/app/app/portfolios/actions.test.ts`: passed, 11 tests across 5 files
+- `npm run typecheck`: passed
+
+## 9) Stage 5: Security Search Provider, API, And Autocomplete Contract
+
+Status: complete on 2026-06-16.
+
+Goal:
+
+- Add provider-abstracted ticker search so holding entry can offer a dropdown of matching securities without exposing provider details or secrets to the browser.
+
+Implemented in the Next app:
+
+- Added normalized security-search contracts:
+  - `securitySearchQuerySchema`
+  - `securitySearchResultSchema`
+  - `securitySearchResponseSchema`
+  - `securitySearchAdapterResponseSchema`
+- Added `SecuritySearchProvider` interface.
+- Added adapter-backed provider:
+  - `SecuritySearchAdapterProvider`
+  - calls internal adapter `GET /market-data/search?query=<text>`
+  - sends `X-Internal-Secret`
+  - validates adapter response contract before returning public results
+  - maps adapter auth, timeout, transport, and contract failures to typed errors
+- Added `SecuritySearchService`.
+  - validates and normalizes query
+  - limits results to 8 by default
+  - maps provider failures to a generic unavailable error
+- Added authenticated API route:
+  - `GET /api/v1/securities/search?query=<text>`
+- Route behavior:
+  - uses `getAuthenticatedApiUserId()`
+  - returns `401 UNAUTHORIZED` when signed out
+  - returns `400 VALIDATION_ERROR` for invalid or too-short queries
+  - returns normalized `{ results }` only
+  - returns generic `502 SECURITY_SEARCH_UNAVAILABLE` for provider failures
+  - does not leak raw adapter/provider payloads
+  - does not fetch quotes, prices, market values, or persist search results
+
+Implemented in the Python market-data adapter:
+
+- Added `GET /market-data/search?query=<text>`.
+- Reuses internal `X-Internal-Secret` protection.
+- Added adapter search models:
+  - `SecuritySearchResult`
+  - `SecuritySearchResponse`
+- Added `SecuritySearchProvider` interface.
+- Extended `YFinanceProvider` with `search_securities()`.
+- Uses local `yfinance.Search` behind an injectable search factory.
+- Normalizes provider results to:
+  - symbol
+  - name
+  - exchange
+  - region
+  - currency
+  - match score
+  - provider
+- Filters out non-equity-like quote types where the provider exposes type metadata.
+- Omits unsupported currency results rather than silently converting them.
+- Deduplicates repeated symbols.
+- Does not expose quote price fields in search results.
+- Added `SearchService` for query validation, normalization, limiting, and response assembly.
+
+Files changed:
+
+- `src/server/shared/constants.ts`
+- `src/server/contracts/index.ts`
+- `src/server/contracts/security-search.ts`
+- `src/server/contracts/security-search.test.ts`
+- `src/server/providers/security-search-provider.ts`
+- `src/server/providers/security-search-adapter-provider.ts`
+- `src/server/providers/security-search-adapter-provider.test.ts`
+- `src/server/services/security-search-service.ts`
+- `src/server/services/security-search-service.test.ts`
+- `src/app/api/v1/securities/search/route.ts`
+- `src/app/api/v1/securities/search/route.test.ts`
+- `services/market-data-adapter/app/config.py`
+- `services/market-data-adapter/app/errors.py`
+- `services/market-data-adapter/app/main.py`
+- `services/market-data-adapter/app/models.py`
+- `services/market-data-adapter/app/providers/base.py`
+- `services/market-data-adapter/app/providers/yfinance_client.py`
+- `services/market-data-adapter/app/services/search_service.py`
+- `services/market-data-adapter/tests/test_search_service.py`
+- `services/market-data-adapter/tests/test_yfinance_provider.py`
+- `services/market-data-adapter/tests/test_main.py`
+- `services/market-data-adapter/README.md`
+
+Focused tests:
+
+- Contract query normalization and validation.
+- Public search response validation.
+- Internal adapter response validation.
+- Adapter-backed provider authenticated request behavior.
+- Adapter provider auth, timeout, transport, and contract failure mapping.
+- Service query normalization and result limiting.
+- Service generic provider failure mapping.
+- Public API unauthenticated behavior.
+- Public API invalid query behavior.
+- Public API successful normalized result behavior.
+- Public API provider-failure privacy.
+- Python adapter search query validation.
+- Python adapter search result limiting.
+- Python yfinance search result normalization.
+- Python yfinance equity-like filtering, unsupported currency omission, symbol dedupe, and result limiting.
+- Python adapter endpoint auth, invalid query, timeout, and provider failure behavior.
+
+Verification:
+
+- `npm test -- --run src/server/contracts/security-search.test.ts src/server/providers/security-search-adapter-provider.test.ts src/server/services/security-search-service.test.ts src/app/api/v1/securities/search/route.test.ts`: passed, 18 tests across 4 files
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests/test_search_service.py services/market-data-adapter/tests/test_yfinance_provider.py services/market-data-adapter/tests/test_main.py`: passed, 22 tests
+- `npm run typecheck`: passed
+
+## 10) Verification For Stage 5 Stop Point
+
+Status: passed on 2026-06-16.
+
+Commands:
+
+- `npm test`: passed, 370 tests across 52 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed, 24 tests
+- `npm run build`: passed
+- `git diff --check`: passed
+
+Build notes:
+
+- Prisma Client generated successfully from `src/db/prisma/schema.prisma`.
+- Next.js production build completed successfully.
+- New dynamic API route appeared in the build output:
+  - `/api/v1/securities/search`
+
+Scope check:
+
+- Stage 6 portfolio detail/holdings UI has not been started.
+
+## 11) Current Remaining Work
 
 Next stage when the user resumes:
 
-- Stage 3: Portfolio list page.
+- Stage 6: Portfolio detail and holdings UI.
 
 Important later carryovers:
 
-- Stage 5 must implement the provider-abstracted security search API before the holdings UI depends on autocomplete.
 - Stage 6 should build holdings UI with ticker autocomplete plus manual fallback.
+- Stage 6 should switch successful create redirects from the portfolio list to portfolio detail after `/app/portfolios/[portfolioId]` exists.
 - Stage 9 should close the deferred Phase 2 report API positive-path check after a real owned portfolio and holding exist.
 
-## 8) Verification For Stage 0-2 Stop Point
+## 12) Verification For Stage 0-2 Stop Point
 
 Status: passed on 2026-06-16.
 
@@ -251,3 +499,36 @@ Build notes:
   - `/api/v1/portfolios/[portfolioId]`
   - `/api/v1/portfolios/[portfolioId]/holdings`
   - `/api/v1/portfolios/[portfolioId]/holdings/[holdingId]`
+
+## 13) Verification For Stage 3-4 Stop Point
+
+Status: passed on 2026-06-16.
+
+Commands:
+
+- `npm test`: passed, 352 tests across 48 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run build`: passed
+- `git diff --check`: passed
+
+Browser smoke:
+
+- Existing local dev server was already running on `http://localhost:3000`.
+- `/app/portfolios` redirected signed-out browser session to `/login?next=%2Fapp%2Fportfolios`.
+- `/app/portfolios/new` redirected signed-out browser session to `/login?next=%2Fapp%2Fportfolios%2Fnew`.
+- Browser console showed one unrelated missing `favicon.ico` 404.
+
+Build notes:
+
+- Prisma Client generated successfully from `src/db/prisma/schema.prisma`.
+- Next.js production build completed successfully.
+- New dynamic app routes appeared in the build output:
+  - `/app/portfolios`
+  - `/app/portfolios/[portfolioId]/edit`
+  - `/app/portfolios/new`
+
+Scope check:
+
+- Stage 5 security search provider/API/autocomplete work has not been started.
+- Stage 6 portfolio detail/holdings UI has not been started.

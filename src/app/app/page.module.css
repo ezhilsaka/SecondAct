@@ -82,16 +82,25 @@
   max-width: 640px;
 }
 
-.disabledButton {
+.primaryLink {
   min-width: 168px;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 18px;
-  border: 1px solid rgba(170, 207, 128, 0.22);
+  border: 1px solid rgba(170, 207, 128, 0.42);
   border-radius: 6px;
-  background: rgba(170, 207, 128, 0.12);
-  color: rgba(255, 248, 238, 0.54);
-  font: inherit;
+  background: #aacf80;
+  color: #0a0f16;
+  text-decoration: none;
   font-weight: 600;
+}
+
+.primaryLink:hover,
+.primaryLink:focus-visible {
+  background: #c2e79a;
+  outline: none;
 }
 
 @media (max-width: 760px) {
@@ -108,7 +117,7 @@
     flex-direction: column;
   }
 
-  .disabledButton {
+  .primaryLink {
     width: 100%;
   }
 }

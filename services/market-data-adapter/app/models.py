@@ -110,6 +110,31 @@ class MarketDataResponse(BaseModel):
     securities: list[MarketSecuritySnapshot]
 
 
+class SecuritySearchResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: str
+    name: Optional[str] = None
+    exchange: Optional[str] = None
+    region: Optional[str] = None
+    currency: Optional[SupportedCurrency] = None
+    match_score: Optional[str] = Field(alias="matchScore", default=None, pattern=DECIMAL_PATTERN)
+    provider: str
+
+
+class SecuritySearchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(alias="schemaVersion")
+    provider: str
+    requested_at: str = Field(alias="requestedAt")
+    results: list[SecuritySearchResult]
+
+
+def current_timestamp_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def to_decimal_string(value: Any, places: str = "0.00000001") -> Optional[str]:
     if value is None or value == "":
         return None

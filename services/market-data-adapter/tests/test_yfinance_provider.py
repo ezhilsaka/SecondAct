@@ -11,6 +11,56 @@ class FakeTicker:
         self.fast_info = fast_info
 
 
+class FakeSearch:
+    def __init__(
+        self,
+        query: str,
+        max_results: int = 8,
+        **kwargs,
+    ) -> None:
+        self.query = query
+        self.max_results = max_results
+        self.quotes = [
+            {
+                "symbol": "aapl",
+                "shortname": "Apple Inc.",
+                "exchDisp": "NASDAQ",
+                "region": "United States",
+                "currency": "USD",
+                "quoteType": "EQUITY",
+                "score": 0.95,
+                "regularMarketPrice": 214.12,
+            },
+            {
+                "symbol": "SHOP.TO",
+                "shortname": "Shopify Inc.",
+                "exchDisp": "TSX",
+                "region": "Canada",
+                "currency": "CAD",
+                "quoteType": "EQUITY",
+                "score": 0.91,
+            },
+            {
+                "symbol": "BTC-USD",
+                "shortname": "Bitcoin USD",
+                "quoteType": "CRYPTOCURRENCY",
+                "currency": "USD",
+            },
+            {
+                "symbol": "ASML.AS",
+                "shortname": "ASML Holding",
+                "quoteType": "EQUITY",
+                "currency": "EUR",
+            },
+            {
+                "symbol": "AAPL",
+                "shortname": "Apple Duplicate",
+                "quoteType": "EQUITY",
+                "currency": "USD",
+            },
+        ]
+
+
 def build_fake_factory() -> dict[str, FakeTicker]:
     mapping = {
         "AAPL": FakeTicker(
@@ -102,3 +152,32 @@ def test_yfinance_provider_does_not_fake_same_currency_fx_for_unsupported_curren
     assert response[0].fx_rate_to_reporting_currency is None
     assert "unsupported_security_currency" in response[0].data_quality_flags
     assert "fx_rate_unavailable" in response[0].data_quality_flags
+
+
+def test_yfinance_provider_returns_normalized_security_search_results() -> None:
+    provider = YFinanceProvider(
+        settings=ServiceSettings(request_timeout_seconds=0.1),
+        search_factory=FakeSearch,
+    )
+
+    results = provider.search_securities(query="Apple", max_results=8)
+
+    assert [result.symbol for result in results] == ["AAPL", "SHOP.TO"]
+    assert results[0].name == "Apple Inc."
+    assert results[0].exchange == "NASDAQ"
+    assert results[0].region == "United States"
+    assert results[0].currency == "USD"
+    assert results[0].match_score == "0.9500"
+    assert results[0].provider == "yfinance"
+    assert not hasattr(results[0], "regularMarketPrice")
+
+
+def test_yfinance_provider_limits_security_search_results() -> None:
+    provider = YFinanceProvider(
+        settings=ServiceSettings(request_timeout_seconds=0.1),
+        search_factory=FakeSearch,
+    )
+
+    results = provider.search_securities(query="Apple", max_results=1)
+
+    assert [result.symbol for result in results] == ["AAPL"]

@@ -7,8 +7,15 @@ import yfinance as yf
 
 from app.config import ServiceSettings
 from app.errors import ProviderError, ProviderTimeoutError
-from app.models import MarketDataRequest, MarketSecuritySnapshot, SupportedCurrency, to_decimal_string, to_iso_timestamp
-from app.providers.base import QuoteProvider
+from app.models import (
+    MarketDataRequest,
+    MarketSecuritySnapshot,
+    SecuritySearchResult,
+    SupportedCurrency,
+    to_decimal_string,
+    to_iso_timestamp,
+)
+from app.providers.base import QuoteProvider, SecuritySearchProvider
 
 SUPPORTED_CURRENCIES = {currency.value for currency in SupportedCurrency}
 FX_PAIR_MAP: dict[tuple[SupportedCurrency, SupportedCurrency], str] = {
@@ -18,7 +25,7 @@ FX_PAIR_MAP: dict[tuple[SupportedCurrency, SupportedCurrency], str] = {
 DEFAULT_FAILURE_FLAGS = ["quote_not_found", "metadata_missing"]
 
 
-class YFinanceProvider(QuoteProvider):
+class YFinanceProvider(QuoteProvider, SecuritySearchProvider):
     """Yahoo Finance-backed provider that returns provider-neutral snapshots."""
 
     provider_name = "yfinance"
@@ -27,9 +34,11 @@ class YFinanceProvider(QuoteProvider):
         self,
         settings: ServiceSettings,
         ticker_factory: Callable[[str], Any] = yf.Ticker,
+        search_factory: Callable[..., Any] = yf.Search,
     ) -> None:
         self._settings = settings
         self._ticker_factory = ticker_factory
+        self._search_factory = search_factory
 
     def fetch_securities(
         self, request: MarketDataRequest
@@ -38,6 +47,27 @@ class YFinanceProvider(QuoteProvider):
             self._fetch_single_security(ticker=ticker, reporting_currency=request.reporting_currency)
             for ticker in request.tickers
         ]
+
+    def search_securities(self, query: str, max_results: int) -> list[SecuritySearchResult]:
+        payload = self._run_search_with_timeout(
+            lambda: self._load_search_payload(query=query, max_results=max_results)
+        )
+        results: list[SecuritySearchResult] = []
+        seen_symbols: set[str] = set()
+
+        for quote in payload:
+            result = self._map_search_quote(quote)
+
+            if result is None or result.symbol in seen_symbols:
+                continue
+
+            seen_symbols.add(result.symbol)
+            results.append(result)
+
+            if len(results) >= max_results:
+                break
+
+        return results
 
     def _fetch_single_security(
         self, ticker: str, reporting_currency: SupportedCurrency
@@ -157,6 +187,23 @@ class YFinanceProvider(QuoteProvider):
         except Exception as exc:  # pragma: no cover - defensive guard
             raise ProviderError(f"Failed to load Yahoo Finance payload for {ticker}.") from exc
 
+    def _load_search_payload(self, query: str, max_results: int) -> list[Dict[str, Any]]:
+        try:
+            search_client = self._search_factory(
+                query,
+                max_results=max_results,
+                news_count=0,
+                lists_count=0,
+                include_cb=False,
+                include_nav_links=False,
+                include_research=False,
+                timeout=self._settings.request_timeout_seconds,
+            )
+            quotes = getattr(search_client, "quotes", []) or []
+            return [dict(quote) for quote in quotes if isinstance(quote, dict)]
+        except Exception as exc:  # pragma: no cover - defensive guard
+            raise ProviderError(f"Failed to load Yahoo Finance search payload for {query}.") from exc
+
     def _run_with_timeout(self, operation: Callable[[], Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(operation)
@@ -168,6 +215,18 @@ class YFinanceProvider(QuoteProvider):
                 raise
             except Exception as exc:
                 raise ProviderError("Unexpected upstream provider failure.") from exc
+
+    def _run_search_with_timeout(self, operation: Callable[[], list[Dict[str, Any]]]) -> list[Dict[str, Any]]:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(operation)
+            try:
+                return future.result(timeout=self._settings.request_timeout_seconds)
+            except FutureTimeoutError as exc:
+                raise ProviderTimeoutError("Upstream provider search timed out.") from exc
+            except ProviderError:
+                raise
+            except Exception as exc:
+                raise ProviderError("Unexpected upstream provider search failure.") from exc
 
     def _resolve_currency(
         self,
@@ -184,6 +243,52 @@ class YFinanceProvider(QuoteProvider):
             return SupportedCurrency.CAD, True
         data_quality_flags.append("unsupported_security_currency")
         return reporting_currency, False
+
+    def _map_search_quote(self, quote: Dict[str, Any]) -> Optional[SecuritySearchResult]:
+        raw_symbol = quote.get("symbol")
+
+        if not isinstance(raw_symbol, str) or not raw_symbol.strip():
+            return None
+
+        quote_type = str(quote.get("quoteType") or quote.get("typeDisp") or "").upper()
+        if quote_type and quote_type not in {"EQUITY", "ETF"}:
+            return None
+
+        currency = self._resolve_search_currency(quote.get("currency"))
+
+        if quote.get("currency") and currency is None:
+            return None
+
+        return SecuritySearchResult(
+            symbol=raw_symbol.strip().upper(),
+            name=self._first_text_value(
+                quote,
+                ["shortname", "longname", "shortName", "longName", "displayName", "name"],
+            ),
+            exchange=self._first_text_value(quote, ["exchDisp", "exchange", "fullExchangeName"]),
+            region=self._first_text_value(quote, ["region", "market", "country"]),
+            currency=currency,
+            matchScore=to_decimal_string(quote.get("score") or quote.get("matchScore"), "0.0001"),
+            provider=self.provider_name,
+        )
+
+    @staticmethod
+    def _resolve_search_currency(raw_currency: Any) -> Optional[SupportedCurrency]:
+        normalized_currency = str(raw_currency).upper() if raw_currency else ""
+
+        if normalized_currency in SUPPORTED_CURRENCIES:
+            return SupportedCurrency(normalized_currency)
+
+        return None
+
+    @staticmethod
+    def _first_text_value(quote: Dict[str, Any], fields: list[str]) -> Optional[str]:
+        for field in fields:
+            value = quote.get(field)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+        return None
 
     @staticmethod
     def _has_metadata(info: Dict[str, Any]) -> bool:

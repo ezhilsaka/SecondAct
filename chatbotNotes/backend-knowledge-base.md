@@ -247,6 +247,30 @@ A:
 - Phase 3 should not show live quote, price, market value, or ticker-validity claims in the holding form.
 - Provider symbol formats can drift between Yahoo and Alpha Vantage, especially for non-US listings, so production provider migration needs explicit symbol-format verification before launch.
 
+### Q: How is Stage 5 security search implemented?
+
+A:
+
+- The browser calls `GET /api/v1/securities/search?query=<text>`.
+- That route is authenticated with `getAuthenticatedApiUserId()`.
+- The Next app uses `SecuritySearchService` and a `SecuritySearchProvider` interface.
+- The current provider is `SecuritySearchAdapterProvider`, which calls the internal Python adapter endpoint `GET /market-data/search?query=<text>` with `X-Internal-Secret`.
+- The Python adapter implements the preferred local development path with `yfinance.Search`.
+- The public API returns only normalized `{ results }` data, not adapter metadata or raw provider payloads.
+- Result fields are limited to symbol, name, exchange, region, currency, match score, and provider.
+- Search failures are intentionally generic in the browser API: users should be able to continue with manual ticker entry.
+- Search does not fetch quotes, show prices, compute market values, or persist provider results.
+
+### Q: Why do Stage 4 portfolio create/edit actions redirect back to the list?
+
+A:
+
+- The Phase 3 plan says successful create should eventually redirect to portfolio detail.
+- Portfolio detail and holdings management are Stage 6, not Stage 4.
+- During the Stage 3-4 stop point, successful create/edit redirects to `/app/portfolios` so the UI remains complete without pulling the Stage 6 detail page forward.
+- Stage 6 should switch successful create to `/app/portfolios/[portfolioId]` after the detail route exists.
+- Edit can continue returning to the list or move to the detail page depending on the final Stage 6 navigation pattern.
+
 ## 7) Auth Clarifications
 
 ### Q: What does “Supabase Auth” mean here?

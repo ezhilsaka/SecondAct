@@ -16,10 +16,19 @@ function applyValidNarrativeEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
 describe("narrativeEnv module", () => {
   afterEach(() => {
     process.env = { ...originalEnv };
+    vi.doUnmock("@next/env");
     vi.resetModules();
   });
 
-  it("parses the process environment during module import", async () => {
+  it("can be imported without validating the runtime environment", async () => {
+    vi.doMock("@next/env", () => ({ loadEnvConfig: vi.fn() }));
+    process.env = { NODE_ENV: "test" };
+    delete process.env.NARRATIVE_PROVIDER_BASE_URL;
+
+    await expect(import("@/server/config/narrative-env")).resolves.toHaveProperty("narrativeEnv");
+  });
+
+  it("parses the process environment when accessed", async () => {
     applyValidNarrativeEnv({
       NARRATIVE_PROVIDER: undefined
     });

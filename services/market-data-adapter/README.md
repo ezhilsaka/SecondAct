@@ -11,6 +11,7 @@ For the current build phase it uses `yfinance`, but the service is structured so
 
 - `GET /health`
 - `POST /market-data/quotes`
+- `GET /market-data/search?query=<text>`
 
 ## Local setup
 
@@ -40,11 +41,18 @@ pytest
 
 ## Authenticated local quote request
 
-`/market-data/quotes` is protected with an internal shared secret. Send the same value you used in `MARKET_DATA_ADAPTER_INTERNAL_API_SECRET` as the `X-Internal-Secret` header:
+`/market-data/quotes` and `/market-data/search` are protected with an internal shared secret. Send the same value you used in `MARKET_DATA_ADAPTER_INTERNAL_API_SECRET` as the `X-Internal-Secret` header:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/market-data/quotes \
   -H "Content-Type: application/json" \
   -H "X-Internal-Secret: replace-with-long-random-secret" \
   -d '{"tickers":["AAPL","SHOP.TO"],"reportingCurrency":"USD"}'
+```
+
+## Authenticated local symbol search request
+
+```bash
+curl "http://127.0.0.1:8000/market-data/search?query=Apple" \
+  -H "X-Internal-Secret: replace-with-long-random-secret"
 ```

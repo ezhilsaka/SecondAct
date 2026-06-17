@@ -10,14 +10,16 @@ from fastapi.responses import JSONResponse
 
 from app.config import ServiceSettings, get_settings
 from app.errors import (
+    InvalidSearchQueryError,
     ProviderError,
     ProviderTimeoutError,
     RequestLimitExceededError,
 )
 from app.models import ErrorDetail, ErrorPayload, ErrorResponse, HealthResponse, MarketDataRequest
-from app.providers.base import QuoteProvider
+from app.providers.base import QuoteProvider, SecuritySearchProvider
 from app.providers.yfinance_client import YFinanceProvider
 from app.services.quote_service import QuoteService
+from app.services.search_service import SearchService
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +50,28 @@ def build_provider(settings: ServiceSettings) -> QuoteProvider:
 
 
 def create_app(
-    settings: Optional[ServiceSettings] = None, provider: Optional[QuoteProvider] = None
+    settings: Optional[ServiceSettings] = None,
+    provider: Optional[QuoteProvider] = None,
+    search_provider: Optional[SecuritySearchProvider] = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_provider = provider or build_provider(resolved_settings)
+    resolved_search_provider = search_provider
+
+    if resolved_search_provider is None and isinstance(resolved_provider, SecuritySearchProvider):
+        resolved_search_provider = resolved_provider
+
     quote_service = QuoteService(provider=resolved_provider, settings=resolved_settings)
+    search_service = (
+        SearchService(provider=resolved_search_provider, settings=resolved_settings)
+        if resolved_search_provider
+        else None
+    )
 
     app = FastAPI(title="SecondAct Market Data Adapter", version="0.1.0")
     app.state.settings = resolved_settings
     app.state.quote_service = quote_service
+    app.state.search_service = search_service
 
     @app.exception_handler(RequestValidationError)
     async def handle_request_validation_error(
@@ -84,6 +99,15 @@ def create_app(
         )
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=response.model_dump())
 
+    @app.exception_handler(InvalidSearchQueryError)
+    async def handle_invalid_search_query(
+        request: Request, exc: InvalidSearchQueryError
+    ) -> JSONResponse:
+        response = ErrorResponse(
+            error=ErrorPayload(code=exc.error_code, message=str(exc), details=[])
+        )
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=response.model_dump())
+
     @app.exception_handler(ProviderTimeoutError)
     async def handle_provider_timeout(
         request: Request, exc: ProviderTimeoutError
@@ -92,7 +116,7 @@ def create_app(
         response = ErrorResponse(
             error=ErrorPayload(
                 code=exc.error_code,
-                message="Market data provider timed out while fetching quotes.",
+                message="Market data provider timed out.",
                 details=[],
             )
         )
@@ -104,7 +128,7 @@ def create_app(
         response = ErrorResponse(
             error=ErrorPayload(
                 code=exc.error_code,
-                message="Market data provider failed while fetching quotes.",
+                message="Market data provider failed.",
                 details=[],
             )
         )
@@ -135,6 +159,16 @@ def create_app(
     @app.post("/market-data/quotes", dependencies=[Depends(verify_internal_secret)])
     def quotes(payload: MarketDataRequest):
         return quote_service.get_quotes(payload)
+
+    @app.get("/market-data/search", dependencies=[Depends(verify_internal_secret)])
+    def search(query: str):
+        if app.state.search_service is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Market data adapter search is not configured.",
+            )
+
+        return app.state.search_service.search(query)
 
     return app
 

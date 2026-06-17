@@ -23,6 +23,7 @@ describe("AppShell", () => {
     expect(html).toContain("user@example.com - @ada-lovelace");
     expect(html).toContain("Dashboard");
     expect(html).toContain("Portfolios");
+    expect(html).toContain("href=\"/app/portfolios\"");
     expect(html).toContain("Reports");
     expect(html).toContain("Account");
     expect(html).toContain("action=\"/auth/logout\"");

@@ -1,0 +1,155 @@
+.form {
+  width: min(100%, 720px);
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+  padding: 24px;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.fieldLabel,
+.currencyField legend {
+  color: #d8d2c8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.textInput,
+.textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 8px;
+  background: #0b111c;
+  color: #fff8ee;
+  font: inherit;
+  font-size: 16px;
+}
+
+.textInput {
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.textarea {
+  min-height: 132px;
+  resize: vertical;
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+
+.textInput:focus,
+.textarea:focus {
+  outline: 2px solid #aacf80;
+  outline-offset: 2px;
+}
+
+.currencyField {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.currencyField legend {
+  width: 100%;
+  margin-bottom: 2px;
+}
+
+.currencyField label {
+  min-width: 112px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(10, 15, 22, 0.6);
+  color: #fff8ee;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.currencyField input {
+  width: 16px;
+  height: 16px;
+  accent-color: #aacf80;
+}
+
+.errorMessage {
+  margin: 0;
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  border-radius: 8px;
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.primaryButton,
+.secondaryLink {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.primaryButton {
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  background: #aacf80;
+  color: #0a0f16;
+  cursor: pointer;
+}
+
+.secondaryLink {
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  color: #fff8ee;
+  text-decoration: none;
+}
+
+.primaryButton:hover,
+.primaryButton:focus-visible {
+  background: #c2e79a;
+  outline: none;
+}
+
+.secondaryLink:hover,
+.secondaryLink:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  outline: none;
+}
+
+@media (max-width: 560px) {
+  .form {
+    padding: 20px;
+  }
+
+  .currencyField label,
+  .primaryButton,
+  .secondaryLink {
+    width: 100%;
+  }
+
+  .formActions {
+    flex-direction: column-reverse;
+  }
+}

@@ -28,10 +28,19 @@ function applyValidEnv(overrides: Partial<NodeJS.ProcessEnv> = {}) {
 describe("serverEnv module", () => {
   afterEach(() => {
     process.env = { ...originalEnv };
+    vi.doUnmock("@next/env");
     vi.resetModules();
   });
 
-  it("parses the process environment during module import", async () => {
+  it("can be imported without validating the runtime environment", async () => {
+    vi.doMock("@next/env", () => ({ loadEnvConfig: vi.fn() }));
+    process.env = { NODE_ENV: "test" };
+    delete process.env.DATABASE_URL;
+
+    await expect(import("@/server/config/env")).resolves.toHaveProperty("serverEnv");
+  });
+
+  it("parses the process environment when accessed", async () => {
     applyValidEnv({
       DIRECT_URL: "   ",
       GRAPHILE_WORKER_SCHEMA: undefined

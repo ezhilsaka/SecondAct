@@ -5,11 +5,11 @@ from fastapi.testclient import TestClient
 from app.config import ServiceSettings
 from app.errors import ProviderError, ProviderTimeoutError
 from app.main import create_app
-from app.models import MarketDataRequest, MarketSecuritySnapshot, SupportedCurrency
-from app.providers.base import QuoteProvider
+from app.models import MarketDataRequest, MarketSecuritySnapshot, SecuritySearchResult, SupportedCurrency
+from app.providers.base import QuoteProvider, SecuritySearchProvider
 
 
-class FakeProvider(QuoteProvider):
+class FakeProvider(QuoteProvider, SecuritySearchProvider):
     provider_name = "fake-provider"
 
     def __init__(self, mode: str = "success") -> None:
@@ -36,6 +36,33 @@ class FakeProvider(QuoteProvider):
             )
             for ticker in request.tickers
         ]
+
+    def search_securities(self, query: str, max_results: int) -> list[SecuritySearchResult]:
+        if self.mode == "timeout":
+            raise ProviderTimeoutError("Timed out")
+        if self.mode == "error":
+            raise ProviderError("Provider failed")
+
+        return [
+            SecuritySearchResult(
+                symbol="AAPL",
+                name="Apple Inc.",
+                exchange="NASDAQ",
+                region="United States",
+                currency=SupportedCurrency.USD,
+                matchScore="0.9500",
+                provider=self.provider_name,
+            ),
+            SecuritySearchResult(
+                symbol="SHOP.TO",
+                name="Shopify Inc.",
+                exchange="TSX",
+                region="Canada",
+                currency=SupportedCurrency.CAD,
+                matchScore="0.9100",
+                provider=self.provider_name,
+            ),
+        ][:max_results]
 
 
 def build_test_client(provider: QuoteProvider, max_tickers: int = 50) -> TestClient:
@@ -188,3 +215,76 @@ def test_quotes_endpoint_fails_closed_when_internal_secret_is_not_configured() -
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Market data adapter internal authentication is not configured."
+
+
+def test_search_endpoint_returns_normalized_payload() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.get(
+        "/market-data/search",
+        params={"query": " Apple  "},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["schemaVersion"] == "security-search.v1"
+    assert body["provider"] == "fake-provider"
+    assert [result["symbol"] for result in body["results"]] == ["AAPL", "SHOP.TO"]
+    assert body["results"][0] == {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "exchange": "NASDAQ",
+        "region": "United States",
+        "currency": "USD",
+        "matchScore": "0.9500",
+        "provider": "fake-provider",
+    }
+
+
+def test_search_endpoint_returns_400_for_invalid_query() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.get(
+        "/market-data/search",
+        params={"query": "A"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_SEARCH_QUERY"
+
+
+def test_search_endpoint_returns_504_when_provider_times_out() -> None:
+    client = build_test_client(FakeProvider(mode="timeout"))
+
+    response = client.get(
+        "/market-data/search",
+        params={"query": "Apple"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    assert response.status_code == 504
+    assert response.json()["error"]["code"] == "MARKET_DATA_PROVIDER_TIMEOUT"
+
+
+def test_search_endpoint_returns_502_for_provider_failure() -> None:
+    client = build_test_client(FakeProvider(mode="error"))
+
+    response = client.get(
+        "/market-data/search",
+        params={"query": "Apple"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "MARKET_DATA_PROVIDER_ERROR"
+
+
+def test_search_endpoint_requires_internal_secret() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.get("/market-data/search", params={"query": "Apple"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Unauthorized"

@@ -16,6 +16,7 @@ class ServiceSettings:
     port: int = 8000
     request_timeout_seconds: float = 10.0
     max_tickers_per_request: int = 50
+    max_search_results: int = 8
     max_retries: int = 1
 
 
@@ -31,5 +32,6 @@ def get_settings() -> ServiceSettings:
             os.getenv("MARKET_DATA_ADAPTER_REQUEST_TIMEOUT_SECONDS", "10")
         ),
         max_tickers_per_request=int(os.getenv("MARKET_DATA_ADAPTER_MAX_TICKERS", "50")),
+        max_search_results=int(os.getenv("MARKET_DATA_ADAPTER_MAX_SEARCH_RESULTS", "8")),
         max_retries=int(os.getenv("MARKET_DATA_ADAPTER_MAX_RETRIES", "1")),
     )

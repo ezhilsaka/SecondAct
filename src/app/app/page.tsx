@@ -14,9 +14,9 @@ export default function AppDashboardPage() {
       <section className={styles.statusGrid} aria-label="Workspace status">
         <article className={styles.statusCard}>
           <p className={styles.cardLabel}>Product status</p>
-          <h2>Portfolio setup coming next</h2>
+          <h2>Portfolio setup is ready</h2>
           <p>
-            The shell, session, and profile foundation are in place for the next product step.
+            Start with a manual portfolio, then add holdings once the detail workspace is ready.
           </p>
         </article>
 
@@ -35,13 +35,13 @@ export default function AppDashboardPage() {
           <p className={styles.cardLabel}>Next action</p>
           <h2 id="next-action-heading">Create Portfolio</h2>
           <p>
-            Portfolio creation will connect this shell to the report-generation flow in the next
-            product phase.
+            Name the portfolio and choose a base currency. Holdings management comes after this
+            metadata step.
           </p>
         </div>
-        <button className={styles.disabledButton} type="button" disabled>
+        <a className={styles.primaryLink} href="/app/portfolios/new">
           Create Portfolio
-        </button>
+        </a>
       </section>
     </div>
   );

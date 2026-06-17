@@ -16,15 +16,17 @@ const prismaRuntimeEnvSchema = z.object({
   DIRECT_URL: optionalEnvString
 });
 
-const parsedRuntimeEnv = prismaRuntimeEnvSchema.safeParse(process.env);
-
-if (!parsedRuntimeEnv.success) {
-  const messages = parsedRuntimeEnv.error.issues.map((issue) => `- ${issue.message}`).join("\n");
-
-  throw new Error(`Invalid Prisma runtime environment:\n${messages}`);
-}
-
 /**
  * Minimal database runtime env so Prisma client setup does not depend on unrelated server env.
  */
-export const prismaRuntimeEnv = parsedRuntimeEnv.data;
+export function getPrismaRuntimeEnv() {
+  const parsedRuntimeEnv = prismaRuntimeEnvSchema.safeParse(process.env);
+
+  if (!parsedRuntimeEnv.success) {
+    const messages = parsedRuntimeEnv.error.issues.map((issue) => `- ${issue.message}`).join("\n");
+
+    throw new Error(`Invalid Prisma runtime environment:\n${messages}`);
+  }
+
+  return parsedRuntimeEnv.data;
+}
