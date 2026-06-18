@@ -36,6 +36,7 @@ describe("PortfolioForm", () => {
           description: "Retirement income account"
         }}
         errorMessage="Enter a portfolio name."
+        cancelHref="/app/portfolios/22222222-2222-4222-8222-222222222222"
         portfolioId="22222222-2222-4222-8222-222222222222"
       />
     );
@@ -46,5 +47,6 @@ describe("PortfolioForm", () => {
     expect(html).toContain("value=\"Income\"");
     expect(html).toContain("Retirement income account");
     expect(html).toContain("Save Portfolio");
+    expect(html).toContain("href=\"/app/portfolios/22222222-2222-4222-8222-222222222222\"");
   });
 });

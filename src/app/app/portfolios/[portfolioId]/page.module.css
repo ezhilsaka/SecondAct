@@ -1,0 +1,336 @@
+.detailPage {
+  display: grid;
+  gap: 22px;
+}
+
+.pageHeader,
+.readinessPanel,
+.emptyHoldings {
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.pageHeader > div:first-child {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.kicker,
+.cardLabel {
+  margin: 0;
+  color: #aacf80;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pageHeader h1,
+.readinessPanel h2,
+.sectionHeader h2,
+.emptyHoldings h2 {
+  margin: 0;
+  color: #fff8ee;
+}
+
+.pageHeader h1 {
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 0.96;
+}
+
+.pageHeader p,
+.readinessPanel p,
+.emptyHoldings p {
+  margin: 0;
+  color: rgba(255, 248, 238, 0.68);
+  line-height: 1.6;
+}
+
+.headerActions,
+.rowActions {
+  display: flex;
+  gap: 10px;
+}
+
+.headerActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.headerActions a,
+.rowActions summary,
+.removeForm button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 15, 22, 0.6);
+  color: #fff8ee;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.headerActions a:hover,
+.headerActions a:focus-visible,
+.rowActions summary:hover,
+.rowActions summary:focus-visible,
+.removeForm button:hover,
+.removeForm button:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  outline: none;
+}
+
+.noticeMessage,
+.errorMessage {
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.noticeMessage {
+  border: 1px solid rgba(170, 207, 128, 0.34);
+  background: rgba(170, 207, 128, 0.12);
+  color: #dff8bf;
+}
+
+.errorMessage {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summaryGrid > div,
+.addHoldingPanel,
+.holdingsPanel {
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+}
+
+.summaryGrid > div {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.summaryGrid p:last-child {
+  margin: 0;
+  color: #fff8ee;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.readyBadge,
+.needsHoldingsBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.readyBadge {
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  background: rgba(170, 207, 128, 0.14);
+  color: #dff8bf;
+}
+
+.needsHoldingsBadge {
+  border: 1px solid rgba(242, 179, 109, 0.38);
+  background: rgba(242, 179, 109, 0.12);
+  color: #ffd7a5;
+}
+
+.readinessPanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+}
+
+.readinessPanel > div {
+  display: grid;
+  gap: 10px;
+}
+
+.readinessPanel button {
+  min-height: 42px;
+  border: 1px solid rgba(255, 248, 238, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 248, 238, 0.08);
+  color: rgba(255, 248, 238, 0.58);
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.addHoldingPanel,
+.holdingsPanel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionHeader > div {
+  display: grid;
+  gap: 8px;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.holdingsTable {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.holdingsTable th,
+.holdingsTable td {
+  border-bottom: 1px solid rgba(255, 248, 238, 0.1);
+  padding: 14px 12px;
+  color: rgba(255, 248, 238, 0.76);
+  text-align: left;
+  vertical-align: top;
+}
+
+.holdingsTable th {
+  color: rgba(255, 248, 238, 0.52);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.tickerCell {
+  color: #fff8ee;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-weight: 700;
+}
+
+.rowActions {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.rowActions details {
+  width: min(560px, 78vw);
+}
+
+.rowActions details[open] {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(255, 248, 238, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 15, 22, 0.72);
+  padding: 10px;
+}
+
+.rowActions summary {
+  width: fit-content;
+  list-style: none;
+}
+
+.rowActions summary::-webkit-details-marker {
+  display: none;
+}
+
+.removeForm {
+  display: grid;
+  gap: 12px;
+}
+
+.removeForm label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: rgba(255, 248, 238, 0.72);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.removeForm input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #aacf80;
+}
+
+.removeForm button {
+  width: fit-content;
+  border-color: rgba(242, 130, 92, 0.44);
+  color: #ffd8c4;
+}
+
+.emptyHoldings {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+
+@media (max-width: 940px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pageHeader,
+  .readinessPanel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 620px) {
+  .pageHeader h1 {
+    font-size: 38px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .headerActions a,
+  .readinessPanel button {
+    width: 100%;
+  }
+}

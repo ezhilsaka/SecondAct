@@ -268,8 +268,23 @@ A:
 - The Phase 3 plan says successful create should eventually redirect to portfolio detail.
 - Portfolio detail and holdings management are Stage 6, not Stage 4.
 - During the Stage 3-4 stop point, successful create/edit redirects to `/app/portfolios` so the UI remains complete without pulling the Stage 6 detail page forward.
-- Stage 6 should switch successful create to `/app/portfolios/[portfolioId]` after the detail route exists.
-- Edit can continue returning to the list or move to the detail page depending on the final Stage 6 navigation pattern.
+- Stage 6 switched successful create and edit redirects to `/app/portfolios/[portfolioId]` after the detail route was added.
+- The list remains the fallback for not-found or archived portfolio targets.
+
+### Q: How does Phase 3 Stage 6/7 handle holdings without pulling report generation forward?
+
+A:
+
+- `/app/portfolios/[portfolioId]` is the portfolio detail and holdings workspace.
+- Holding add/edit/remove uses server actions backed by `PortfolioService`, so authenticated ownership checks remain server-side.
+- The holding form uses API-backed ticker search as an entry aid only; manual ticker entry remains available.
+- Selecting a search result may prefill ticker, name, and USD/CAD currency, but does not save the holding until the user submits quantity and average cost.
+- Remove holding uses an explicit confirmation checkbox before the server action runs.
+- Readiness is displayed from saved holdings:
+  - no holdings -> `Needs holdings`
+  - one or more holdings -> `Ready for report`
+- The Stage 7 report action is intentionally disabled with `Report generation comes next`.
+- Stage 7 does not call `POST /api/v1/report-runs`, enqueue jobs, poll status, or expose PDF download UI.
 
 ## 7) Auth Clarifications
 

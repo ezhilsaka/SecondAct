@@ -71,6 +71,7 @@ describe("PortfolioListView", () => {
     expect(html).toContain("2 holdings");
     expect(html).toContain("Ready for report");
     expect(html).toContain("Jan 2, 2026");
+    expect(html).toContain(`href="/app/portfolios/${TEST_PORTFOLIO_ID}"`);
     expect(html).toContain(`href="/app/portfolios/${TEST_PORTFOLIO_ID}/edit"`);
   });
 });

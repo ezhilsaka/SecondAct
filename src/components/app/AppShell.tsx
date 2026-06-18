@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import styles from "./AppShell.module.css";
@@ -38,18 +39,18 @@ export function AppShell({ profile, children }: AppShellProps) {
         </div>
 
         <nav className={styles.navList} aria-label="Primary">
-          <a href="/app" className={styles.navItem}>
+          <Link href="/app" className={styles.navItem}>
             Dashboard
-          </a>
-          <a href="/app/portfolios" className={styles.navItem}>
+          </Link>
+          <Link href="/app/portfolios" className={styles.navItem}>
             Portfolios
-          </a>
+          </Link>
           <span className={styles.navItemDisabled} aria-disabled="true">
             Reports
           </span>
-          <a href="/app/account" className={styles.navItem}>
+          <Link href="/app/account" className={styles.navItem}>
             Account
-          </a>
+          </Link>
         </nav>
       </aside>
 

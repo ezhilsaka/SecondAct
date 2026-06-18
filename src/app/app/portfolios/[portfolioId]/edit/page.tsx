@@ -82,8 +82,8 @@ export default async function EditPortfolioPage({
         <p className={styles.kicker}>Edit portfolio</p>
         <h1>{portfolio.name}</h1>
         <p>
-          Update the portfolio name, base currency, or description. Holdings are managed in a later
-          workspace step.
+          Update the portfolio name, base currency, or description. Holdings are managed from the
+          portfolio detail page.
         </p>
       </header>
 
@@ -92,6 +92,7 @@ export default async function EditPortfolioPage({
         action={updatePortfolioFromForm}
         defaultValues={buildDefaultValues(portfolio, query)}
         errorMessage={errorMessage ?? null}
+        cancelHref={`/app/portfolios/${portfolio.id}`}
         portfolioId={portfolio.id}
       />
     </div>

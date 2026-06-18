@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./PortfolioForm.module.css";
 
 export type PortfolioFormValues = {
@@ -11,6 +13,7 @@ type PortfolioFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultValues: PortfolioFormValues;
   errorMessage: string | null;
+  cancelHref?: string;
   portfolioId?: string;
 };
 
@@ -28,6 +31,7 @@ export function PortfolioForm({
   action,
   defaultValues,
   errorMessage,
+  cancelHref = "/app/portfolios",
   portfolioId
 }: PortfolioFormProps) {
   const isEdit = mode === "edit";
@@ -94,9 +98,9 @@ export function PortfolioForm({
       </div>
 
       <div className={styles.formActions}>
-        <a className={styles.secondaryLink} href="/app/portfolios">
+        <Link className={styles.secondaryLink} href={cancelHref}>
           Cancel
-        </a>
+        </Link>
         <button className={styles.primaryButton} type="submit">
           {isEdit ? "Save Portfolio" : "Create Portfolio"}
         </button>

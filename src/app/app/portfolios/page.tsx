@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
 import { PortfolioService, type PortfolioSummaryResult } from "@/server/services/portfolio-service";
@@ -66,9 +67,9 @@ export function PortfolioListView({ portfolios, notice, error }: PortfolioListVi
             the next steps.
           </p>
         </div>
-        <a className={styles.primaryAction} href="/app/portfolios/new">
+        <Link className={styles.primaryAction} href="/app/portfolios/new">
           Create Portfolio
-        </a>
+        </Link>
       </header>
 
       {notice ? (
@@ -123,12 +124,17 @@ export function PortfolioListView({ portfolios, notice, error }: PortfolioListVi
                 </div>
               </dl>
 
-              <a
-                className={styles.secondaryAction}
-                href={`/app/portfolios/${portfolio.id}/edit`}
-              >
-                Edit
-              </a>
+              <div className={styles.rowActions}>
+                <Link className={styles.secondaryAction} href={`/app/portfolios/${portfolio.id}`}>
+                  View
+                </Link>
+                <Link
+                  className={styles.secondaryAction}
+                  href={`/app/portfolios/${portfolio.id}/edit`}
+                >
+                  Edit
+                </Link>
+              </div>
             </article>
           ))}
         </section>
@@ -141,9 +147,9 @@ export function PortfolioListView({ portfolios, notice, error }: PortfolioListVi
               Start with a name and base currency. You will add holdings after the portfolio exists.
             </p>
           </div>
-          <a className={styles.primaryAction} href="/app/portfolios/new">
+          <Link className={styles.primaryAction} href="/app/portfolios/new">
             Create Portfolio
-          </a>
+          </Link>
         </section>
       )}
     </div>

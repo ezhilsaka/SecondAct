@@ -169,6 +169,12 @@
   font-weight: 600;
 }
 
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .readyBadge,
 .needsHoldingsBadge {
   display: inline-flex;
@@ -219,6 +225,11 @@
 
   .portfolioFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rowActions {
+    flex-direction: column;
+    justify-content: flex-start;
   }
 
   .secondaryAction {

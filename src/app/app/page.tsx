@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./page.module.css";
 
 export default function AppDashboardPage() {
@@ -39,9 +41,9 @@ export default function AppDashboardPage() {
             metadata step.
           </p>
         </div>
-        <a className={styles.primaryLink} href="/app/portfolios/new">
+        <Link className={styles.primaryLink} href="/app/portfolios/new">
           Create Portfolio
-        </a>
+        </Link>
       </section>
     </div>
   );
