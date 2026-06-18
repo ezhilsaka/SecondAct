@@ -37,8 +37,8 @@ Current status:
 - Stage 7 readiness and next-step guidance: complete
 - Stage 8 dashboard integration: complete
 - Stage 9 deferred Phase 2 positive-path report API check: complete through automated API/service ownership smoke
-- Stage 10 full Phase 3 verification and quality gate: not started
-- Stage 11 documentation updates: updated through Stage 9
+- Stage 10 full Phase 3 verification and quality gate: complete
+- Stage 11 documentation updates: complete
 
 Review checkpoint:
 
@@ -46,7 +46,8 @@ Review checkpoint:
 - Prior stop point requested by the user: complete implementation through Stage 4 only, then report back before Stage 5.
 - Prior stop point requested by the user: complete Stage 5 only, then report back before Stage 6.
 - Prior stop point requested by the user: complete Stage 6 and Stage 7 only, then stop before Stage 8.
-- Current stop point requested by the user: complete Stage 8 and Stage 9 only, then stop before Stage 10.
+- Prior stop point requested by the user: complete Stage 8 and Stage 9 only, then stop before Stage 10.
+- Current stop point requested by the user: complete Stage 10 and Stage 11 only, then stop before Step 12 / any report-generation UI.
 - No UX clarifying question blocked Stages 0-2 because these stages are backend/service/API work.
 - No UX clarifying question blocked Stages 3-4. The only scope/UX wrinkle was that the Stage 4 plan originally said create should redirect to portfolio detail, while portfolio detail is Stage 6. To preserve the user's "only Stage 3 and 4" boundary, create/edit success temporarily redirected to the portfolio list. Stage 6 has now switched successful create and edit back to the portfolio detail page.
 - UX/product decision already captured in the Phase 3 plan and backend knowledge base:
@@ -73,7 +74,7 @@ Findings:
 - Landing CTA behavior remains aligned with Phase 2:
   - signed out -> `/login?next=%2Fapp`
   - signed in -> `/app`
-- The Phase 2 owned-portfolio report API positive-path check remains deferred until Phase 3 creates an owned portfolio.
+- At the Stage 0 checkpoint, the Phase 2 owned-portfolio report API positive-path check remained deferred until Phase 3 created an owned portfolio.
 
 Verification:
 
@@ -735,23 +736,85 @@ Build notes:
 
 Scope check:
 
-- Stage 10 full Phase 3 verification and quality gate has not been started.
+- At the Stage 8-9 stop point, Stage 10 full Phase 3 verification and quality gate had not been started.
 - No report-generation UI was added.
 - Dashboard report card remains informational: `Report generation comes next`.
 - Stage 9 was closed through automated API/service ownership smoke, not by adding UI.
 
-## 17) Current Remaining Work
+## 17) Stage 10: Verification And Quality Gate
+
+Status: complete on 2026-06-18.
+
+Goal:
+
+- Verify the full Phase 3 portfolio management surface before final signoff.
+
+Automated quality gate:
+
+- `npm test`: passed, 392 tests across 56 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed, 24 tests
+- `npm run build`: passed
+- `git diff --check`: passed before documentation edits
+
+Acceptance audit:
+
+- Portfolio list/create/edit/archive flows are covered by `PortfolioService`, portfolio API route, page, and server-action tests.
+- Active portfolio lists are user-scoped and archived portfolios are excluded.
+- Portfolio detail loads through the authenticated user and shows holdings/readiness states.
+- Holding add/edit/remove flows are covered through service, API, server-action, and page tests.
+- Duplicate ticker handling is covered at the service/action/API boundary.
+- Decimal values remain strings at the service/API boundary and precision limits are tested.
+- Ownership boundaries are covered by service and API tests; spoofed `x-user-id` and body `userId` inputs are ignored where applicable.
+- Ticker search is API-backed, provider-abstracted, advisory, and preserves manual ticker entry.
+- The signed-out app shell redirects `/app` to `/login?next=%2Fapp`.
+- Signed-out portfolio, ticker-search, and report-run APIs return the shared `401 UNAUTHORIZED` envelope.
+- The Stage 9 report API positive-path smoke is covered by route/service tests and returns `201`, `runId`, and `QUEUED` for an authenticated owned-portfolio request.
+- Dashboard integration is covered by tests for the empty state, populated state, adaptive action, and authenticated portfolio loading.
+
+Browser/API smoke:
+
+- Existing local dev server was reachable in Playwright at `http://localhost:3000`.
+- `/app` redirected the signed-out browser session to `/login?next=%2Fapp`.
+- Browser-context `fetch` checks returned `401 UNAUTHORIZED` for:
+  - `GET /api/v1/portfolios`
+  - `GET /api/v1/securities/search?query=aa`
+  - `POST /api/v1/report-runs`
+- Shell `curl` could not reach localhost in this desktop sandbox, so the runtime smoke used Playwright's browser context against the running dev server.
+
+Manual checklist note:
+
+- A live signed-in human browser walkthrough was not run in Codex because there was no authenticated Supabase browser session available.
+- The signed-in CRUD checklist is covered by automated service/API/server-action/component/page tests, and the signed-out route/API boundary was smoke-tested in the browser.
+
+Scope check:
+
+- Step 12 was not started.
+- No report-generation UI was added.
+- The dashboard and portfolio detail report action remain informational: `Report generation comes next`.
+- Phase 3 still stops at portfolio management, holdings management, readiness states, ticker search, and the positive-path report API ownership smoke.
+
+## 18) Stage 11: Documentation Updates
+
+Status: complete on 2026-06-18.
+
+Updated:
+
+- `chatbotNotes/phase-3-portfolio-management-mvp-execution.md`
+  - records Stage 10 verification evidence
+  - records Stage 11 closeout
+  - preserves the explicit stop before Step 12
+- `chatbotNotes/backend-knowledge-base.md`
+  - records the durable Stage 10/11 closeout rule and scope boundary
+- `chatbotNotes/phase-2-auth-app-shell-execution.md`
+  - reflects that the previously deferred owned-portfolio positive-path report API check was closed during Phase 3 Stage 9
 
 Next stage when the user resumes:
 
-- Stage 10: full Phase 3 verification and quality gate.
+- Step 12 / any report-generation UI work remains not started and should be planned as a separate scope decision.
 
-Important later carryovers:
-
-- Stage 10 should run the full Phase 3 quality gate and manual validation checklist.
-- Stage 11 should update final documentation after Stage 10 passes.
-
-## 18) Verification For Stage 0-2 Stop Point
+## 19) Verification For Stage 0-2 Stop Point
 
 Status: passed on 2026-06-16.
 
@@ -772,7 +835,7 @@ Build notes:
   - `/api/v1/portfolios/[portfolioId]/holdings`
   - `/api/v1/portfolios/[portfolioId]/holdings/[holdingId]`
 
-## 19) Verification For Stage 3-4 Stop Point
+## 20) Verification For Stage 3-4 Stop Point
 
 Status: passed on 2026-06-16.
 

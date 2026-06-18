@@ -43,7 +43,7 @@ Current status:
 - Stage 5 protected app shell: complete
 - Stage 6 proxy auth guard: complete
 - Stage 7 report API auth migration: complete
-- Stage 6/7 manual smoke verification: complete except owned-portfolio positive-path API check, deferred until portfolio UI/test data is available
+- Stage 6/7 manual smoke verification: complete; owned-portfolio positive-path API check was deferred at Phase 2 closeout and later closed during Phase 3 Stage 9
 - Stage 8 landing CTA wiring: complete
 - Stage 9 verification: complete
 - Stage 10 documentation updates and Phase 2 closeout audit: complete
@@ -52,7 +52,7 @@ Review checkpoint:
 
 - Phase 2 engineering closeout is complete.
 - Remaining human checkpoint: user can run the Stage 8/9 manual landing CTA smoke checklist before pushing if desired.
-- Deferred non-blocker: strong owned-portfolio positive-path report API smoke check waits for portfolio UI/test data in a later phase.
+- Previously deferred non-blocker: strong owned-portfolio positive-path report API smoke check waited for portfolio UI/test data and was closed during Phase 3 Stage 9.
 
 ## 5) Stage 0: Baseline Audit
 
@@ -876,7 +876,7 @@ Pre-push verification on 2026-06-10:
 
 Stage 7 checkpoint outcome:
 
-- Stage 6/7 user review and signoff completed with the owned-portfolio positive-path API check deferred as noted above.
+- Stage 6/7 user review and signoff completed with the owned-portfolio positive-path API check deferred at that checkpoint; Phase 3 Stage 9 later closed it.
 - Implementation later continued into Stage 8 landing CTA wiring, Stage 9 verification, and Stage 10 documentation closeout.
 
 ## 13) Stage 8: Auth-Aware Navigation From Landing Page
@@ -1033,7 +1033,12 @@ Phase 2 closeout result:
 - Browser smoke verification for signed-out landing CTAs: complete.
 - Manual Google/email auth provider validation: complete from earlier Phase 2 stages.
 - User-run Stage 8/9 manual landing CTA confirmation: optional final human checkpoint before push.
-- Owned-portfolio positive-path report API manual check: deferred until a later portfolio UI/test-data phase.
+- Owned-portfolio positive-path report API check: deferred at Phase 2 closeout, then closed during Phase 3 Stage 9 through automated route/service ownership smoke.
+- Phase 3 Stage 9 closure details:
+  - `POST /api/v1/report-runs` returns `201` with `runId` and `QUEUED` for an authenticated owned-portfolio request.
+  - Spoofed `x-user-id` headers and body `userId` values are ignored.
+  - The route passes the authenticated session user ID to `ReportRunService`.
+  - `ReportRunService` verifies portfolio ownership before creating a run.
 
 Closeout verification rerun on 2026-06-10:
 

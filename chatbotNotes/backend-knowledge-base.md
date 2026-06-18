@@ -286,7 +286,7 @@ A:
 - The Stage 7 report action is intentionally disabled with `Report generation comes next`.
 - Stage 7 does not call `POST /api/v1/report-runs`, enqueue jobs, poll status, or expose PDF download UI.
 
-### Q: What changed in Phase 3 Stage 8/9, and what stayed out of scope?
+### Q: What changed in Phase 3 Stage 8-11, and what stayed out of scope?
 
 A:
 
@@ -304,6 +304,17 @@ A:
   - the authenticated session user ID is passed to `ReportRunService`
   - `ReportRunService` verifies portfolio ownership before creating a run
 - The worker does not need to run for this auth/ownership check because `QUEUED` is the expected API result.
+- Stage 10 completed the full Phase 3 quality gate:
+  - `npm test`
+  - `npm run typecheck`
+  - `npm run lint`
+  - market-data adapter pytest suite
+  - `npm run build`
+- The signed-out app/API boundary was smoke-tested in Playwright:
+  - `/app` redirects to `/login?next=%2Fapp`
+  - portfolio, ticker-search, and report-run APIs return the shared `401 UNAUTHORIZED` envelope
+- Stage 11 documentation closeout updated the Phase 3 execution log and marked the Phase 2 deferred owned-portfolio report API check as closed.
+- Step 12/report-generation UI remains not started and should be treated as a separate scope decision.
 
 ## 7) Auth Clarifications
 
