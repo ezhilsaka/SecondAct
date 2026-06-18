@@ -35,17 +35,18 @@ Current status:
 - Stage 5 security search provider/API/autocomplete contract: complete
 - Stage 6 portfolio detail and holdings UI: complete
 - Stage 7 readiness and next-step guidance: complete
-- Stage 8 dashboard integration: not started
-- Stage 9 deferred Phase 2 positive-path report API check: deferred until a real owned portfolio exists through Phase 3
-- Stage 10 verification and quality gate: passed for completed stages through Stage 7
-- Stage 11 documentation updates: updated through Stage 7
+- Stage 8 dashboard integration: complete
+- Stage 9 deferred Phase 2 positive-path report API check: complete through automated API/service ownership smoke
+- Stage 10 full Phase 3 verification and quality gate: not started
+- Stage 11 documentation updates: updated through Stage 9
 
 Review checkpoint:
 
 - Prior stop point requested by the user: complete implementation through Stage 2 only, then report back.
 - Prior stop point requested by the user: complete implementation through Stage 4 only, then report back before Stage 5.
 - Prior stop point requested by the user: complete Stage 5 only, then report back before Stage 6.
-- Current stop point requested by the user: complete Stage 6 and Stage 7 only, then stop before Stage 8.
+- Prior stop point requested by the user: complete Stage 6 and Stage 7 only, then stop before Stage 8.
+- Current stop point requested by the user: complete Stage 8 and Stage 9 only, then stop before Stage 10.
 - No UX clarifying question blocked Stages 0-2 because these stages are backend/service/API work.
 - No UX clarifying question blocked Stages 3-4. The only scope/UX wrinkle was that the Stage 4 plan originally said create should redirect to portfolio detail, while portfolio detail is Stage 6. To preserve the user's "only Stage 3 and 4" boundary, create/edit success temporarily redirected to the portfolio list. Stage 6 has now switched successful create and edit back to the portfolio detail page.
 - UX/product decision already captured in the Phase 3 plan and backend knowledge base:
@@ -622,18 +623,135 @@ Scope check:
 - No report-generation UI was wired.
 - The disabled `Report generation comes next` action does not call `report-runs`.
 
-## 14) Current Remaining Work
+## 14) Stage 8: Dashboard Integration
+
+Status: complete on 2026-06-18.
+
+Goal:
+
+- Make `/app` reflect the new portfolio capability.
+
+Implemented:
+
+- Converted `/app` dashboard into a data-backed Server Component.
+- Loads the authenticated user with `requireAuthenticatedUser()`.
+- Loads the user's active portfolios with `PortfolioService.listPortfolios(user.id)`.
+- Updated dashboard status cards:
+  - product status now says portfolio management is live
+  - report pipeline stays `Report generation comes next`
+- Added portfolio overview:
+  - total portfolio count
+  - latest portfolio when one exists
+  - no-portfolio empty state when none exist
+- Latest portfolio display includes:
+  - name
+  - description or manual fallback copy
+  - holding count
+  - readiness label
+  - updated date
+  - link to portfolio detail
+- Dashboard primary action now adapts:
+  - no portfolios -> `/app/portfolios/new` with `Create Portfolio`
+  - one or more portfolios -> `/app/portfolios` with `View Portfolios`
+- Kept report generation as backend-ready / coming next.
+- Did not add report generation controls or polling UI.
+
+Files changed:
+
+- `src/app/app/page.tsx`
+- `src/app/app/page.module.css`
+- `src/app/app/page.test.tsx`
+
+Focused tests:
+
+- dashboard empty state renders portfolio count and create link
+- dashboard populated state renders portfolio count, latest portfolio, and portfolio list link
+- dashboard page loads portfolios for the authenticated user
+
+## 15) Stage 9: Deferred Phase 2 Positive-Path Report API Check
+
+Status: complete on 2026-06-18 through automated API/service ownership smoke.
+
+Goal:
+
+- Close the Phase 2 deferred owned-portfolio API verification after Phase 3 introduced real portfolio creation and holdings management.
+
+Implemented / verified:
+
+- Strengthened the `POST /api/v1/report-runs` route test to explicitly cover the deferred smoke:
+  - authenticated request
+  - owned portfolio ID
+  - spoofed `x-user-id` header included
+  - spoofed `userId` body field included
+  - response is `201`
+  - response includes `runId` and `QUEUED`
+  - route passes the authenticated session user ID to `ReportRunService`
+  - spoofed header/body values are ignored
+- Existing `ReportRunService` tests verify the service:
+  - checks portfolio ownership before creating a report run
+  - creates report runs with the provided authenticated `userId`
+  - returns `QUEUED`
+  - enqueues the background job
+  - does not create a run when ownership fails
+
+Notes:
+
+- This closes the deferred Phase 2 positive-path check as an automated boundary test rather than a human browser/API run.
+- No report-generation UI was built.
+- The worker does not need to run for this check; a queued run is sufficient for the auth/ownership verification.
+
+Files changed:
+
+- `src/app/api/v1/report-runs/route.test.ts`
+
+Focused tests:
+
+- `npm test -- --run src/app/api/v1/report-runs/route.test.ts src/server/services/report-run-service.test.ts`: passed, 21 tests across 2 files
+
+## 16) Verification For Stage 8-9 Stop Point
+
+Status: passed on 2026-06-18.
+
+Commands:
+
+- `npm test -- --run src/app/app/page.test.tsx`: passed, 3 tests
+- `npm test -- --run src/app/api/v1/report-runs/route.test.ts src/server/services/report-run-service.test.ts`: passed, 21 tests across 2 files
+- `npm test`: passed, 392 tests across 56 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed, 24 tests
+- `npm run build`: passed
+
+Browser smoke:
+
+- Existing local dev server was already running on `http://localhost:3000`.
+- `/app` redirected the signed-out browser session to `/login?next=%2Fapp`.
+
+Build notes:
+
+- Prisma Client generated successfully from `src/db/prisma/schema.prisma`.
+- Next.js production build completed successfully.
+- `/app` remains a dynamic app route.
+
+Scope check:
+
+- Stage 10 full Phase 3 verification and quality gate has not been started.
+- No report-generation UI was added.
+- Dashboard report card remains informational: `Report generation comes next`.
+- Stage 9 was closed through automated API/service ownership smoke, not by adding UI.
+
+## 17) Current Remaining Work
 
 Next stage when the user resumes:
 
-- Stage 8: Dashboard integration.
+- Stage 10: full Phase 3 verification and quality gate.
 
 Important later carryovers:
 
-- Stage 8 should update the dashboard/app shell surface only; report generation still belongs later.
-- Stage 9 should close the deferred Phase 2 report API positive-path check after a real owned portfolio and holding exist.
+- Stage 10 should run the full Phase 3 quality gate and manual validation checklist.
+- Stage 11 should update final documentation after Stage 10 passes.
 
-## 15) Verification For Stage 0-2 Stop Point
+## 18) Verification For Stage 0-2 Stop Point
 
 Status: passed on 2026-06-16.
 
@@ -654,7 +772,7 @@ Build notes:
   - `/api/v1/portfolios/[portfolioId]/holdings`
   - `/api/v1/portfolios/[portfolioId]/holdings/[holdingId]`
 
-## 16) Verification For Stage 3-4 Stop Point
+## 19) Verification For Stage 3-4 Stop Point
 
 Status: passed on 2026-06-16.
 

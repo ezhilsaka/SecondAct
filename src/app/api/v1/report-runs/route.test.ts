@@ -65,13 +65,13 @@ describe("POST /api/v1/report-runs", () => {
     });
   });
 
-  it("uses the authenticated session user instead of a spoofable user header", async () => {
+  it("passes the deferred positive-path smoke with authenticated user ownership", async () => {
     const spoofedUserId = "44444444-4444-4444-8444-444444444444";
     mockCreateAndEnqueue.mockResolvedValue({ runId: TEST_RUN_ID, status: "QUEUED" });
 
     const response = await POST(
       buildRequest(
-        { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" },
+        { portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD", userId: spoofedUserId },
         { "x-user-id": spoofedUserId }
       )
     );
@@ -81,6 +81,10 @@ describe("POST /api/v1/report-runs", () => {
       userId: TEST_USER_ID,
       portfolioId: TEST_PORTFOLIO_ID,
       reportingCurrency: "CAD"
+    });
+    await expect(response.json()).resolves.toEqual({
+      runId: TEST_RUN_ID,
+      status: "QUEUED"
     });
   });
 

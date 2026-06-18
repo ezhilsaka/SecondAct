@@ -286,6 +286,25 @@ A:
 - The Stage 7 report action is intentionally disabled with `Report generation comes next`.
 - Stage 7 does not call `POST /api/v1/report-runs`, enqueue jobs, poll status, or expose PDF download UI.
 
+### Q: What changed in Phase 3 Stage 8/9, and what stayed out of scope?
+
+A:
+
+- Stage 8 made `/app` data-backed with `PortfolioService.listPortfolios(user.id)`.
+- The dashboard now shows:
+  - active portfolio count
+  - latest active portfolio when one exists
+  - no-portfolio empty state when none exist
+  - adaptive next action (`Create Portfolio` or `View Portfolios`)
+- The report pipeline dashboard card remains `Report generation comes next`.
+- Stage 8 did not add report-run creation, polling, PDF download, report history, or report failure UI.
+- Stage 9 closed the deferred Phase 2 positive-path report API check through automated route/service tests:
+  - `POST /api/v1/report-runs` returns `201` with `runId` and `QUEUED`
+  - spoofed `x-user-id` and body `userId` values are ignored
+  - the authenticated session user ID is passed to `ReportRunService`
+  - `ReportRunService` verifies portfolio ownership before creating a run
+- The worker does not need to run for this auth/ownership check because `QUEUED` is the expected API result.
+
 ## 7) Auth Clarifications
 
 ### Q: What does “Supabase Auth” mean here?

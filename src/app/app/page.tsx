@@ -1,50 +1,133 @@
 import Link from "next/link";
 
+import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { PortfolioService, type PortfolioSummaryResult } from "@/server/services/portfolio-service";
+
 import styles from "./page.module.css";
 
-export default function AppDashboardPage() {
+type AppDashboardViewProps = {
+  portfolios: PortfolioSummaryResult[];
+};
+
+function formatPortfolioCount(count: number): string {
+  return `${count} ${count === 1 ? "portfolio" : "portfolios"}`;
+}
+
+function formatHoldingCount(count: number): string {
+  return `${count} ${count === 1 ? "holding" : "holdings"}`;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+export function AppDashboardView({ portfolios }: AppDashboardViewProps) {
+  const portfolioCount = portfolios.length;
+  const latestPortfolio = portfolios[0] ?? null;
+
   return (
     <div className={styles.dashboard}>
       <header className={styles.pageHeader}>
         <p className={styles.kicker}>Workspace</p>
         <h1>Portfolio command center</h1>
         <p>
-          Your authenticated Second Act workspace is ready for the portfolio setup flow.
+          Track manual portfolios here, then move into report generation when that workflow opens.
         </p>
       </header>
 
       <section className={styles.statusGrid} aria-label="Workspace status">
         <article className={styles.statusCard}>
           <p className={styles.cardLabel}>Product status</p>
-          <h2>Portfolio setup is ready</h2>
+          <h2>Portfolio management is live</h2>
           <p>
-            Start with a manual portfolio, then add holdings once the detail workspace is ready.
+            Create portfolios, add holdings, and review readiness from the protected workspace.
           </p>
         </article>
 
         <article className={styles.statusCard}>
           <p className={styles.cardLabel}>Report pipeline</p>
-          <h2>Backend ready</h2>
+          <h2>Report generation comes next</h2>
           <p>
-            Canonical model, analysis, narrative, and PDF generation remain ready behind the
-            authenticated workspace.
+            Canonical model, analysis, narrative, and PDF generation remain backend-ready while the
+            report UI stays out of this phase.
           </p>
         </article>
+      </section>
+
+      <section className={styles.portfolioOverview} aria-label="Portfolio overview">
+        <article className={styles.metricPanel}>
+          <p className={styles.cardLabel}>Portfolios</p>
+          <p className={styles.metricValue}>{portfolioCount}</p>
+          <p>{formatPortfolioCount(portfolioCount)} in this workspace</p>
+        </article>
+
+        {latestPortfolio ? (
+          <article className={styles.latestPanel}>
+            <div>
+              <p className={styles.cardLabel}>Latest portfolio</p>
+              <h2>{latestPortfolio.name}</h2>
+              <p>{latestPortfolio.description ?? "Manual portfolio"}</p>
+            </div>
+            <dl className={styles.latestFacts}>
+              <div>
+                <dt>Holdings</dt>
+                <dd>{formatHoldingCount(latestPortfolio.holdingCount)}</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd>{latestPortfolio.readiness.label}</dd>
+              </div>
+              <div>
+                <dt>Updated</dt>
+                <dd>{formatDate(latestPortfolio.updatedAt)}</dd>
+              </div>
+            </dl>
+            <Link className={styles.secondaryLink} href={`/app/portfolios/${latestPortfolio.id}`}>
+              Open Portfolio
+            </Link>
+          </article>
+        ) : (
+          <article className={styles.emptyPanel}>
+            <p className={styles.cardLabel}>No portfolios yet</p>
+            <h2>Create your first portfolio</h2>
+            <p>
+              Start with a portfolio name and base currency. Holdings can be added from the detail
+              page after the portfolio exists.
+            </p>
+          </article>
+        )}
       </section>
 
       <section className={styles.nextPanel} aria-labelledby="next-action-heading">
         <div>
           <p className={styles.cardLabel}>Next action</p>
-          <h2 id="next-action-heading">Create Portfolio</h2>
+          <h2 id="next-action-heading">
+            {portfolioCount > 0 ? "Review Portfolios" : "Create Portfolio"}
+          </h2>
           <p>
-            Name the portfolio and choose a base currency. Holdings management comes after this
-            metadata step.
+            {portfolioCount > 0
+              ? "Open the portfolio list to review readiness, add holdings, or manage portfolio details."
+              : "Name the portfolio and choose a base currency, then add holdings from the detail page."}
           </p>
         </div>
-        <Link className={styles.primaryLink} href="/app/portfolios/new">
-          Create Portfolio
+        <Link
+          className={styles.primaryLink}
+          href={portfolioCount > 0 ? "/app/portfolios" : "/app/portfolios/new"}
+        >
+          {portfolioCount > 0 ? "View Portfolios" : "Create Portfolio"}
         </Link>
       </section>
     </div>
   );
+}
+
+export default async function AppDashboardPage() {
+  const user = await requireAuthenticatedUser();
+  const { portfolios } = await new PortfolioService().listPortfolios(user.id);
+
+  return <AppDashboardView portfolios={portfolios} />;
 }
