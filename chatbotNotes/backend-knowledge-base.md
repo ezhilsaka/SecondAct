@@ -314,7 +314,11 @@ A:
   - `/app` redirects to `/login?next=%2Fapp`
   - portfolio, ticker-search, and report-run APIs return the shared `401 UNAUTHORIZED` envelope
 - Stage 11 documentation closeout updated the Phase 3 execution log and marked the Phase 2 deferred owned-portfolio report API check as closed.
-- Step 12/report-generation UI remains not started and should be treated as a separate scope decision.
+- Step 12 acceptance-criteria review is complete:
+  - all 20 Phase 3 acceptance criteria were audited against current implementation and verification evidence
+  - `npm test`, `npm run typecheck`, `npm run lint`, market-data adapter pytest, and `npm run build` passed during the final audit
+  - no required Phase 3 implementation work remains
+- Report-generation UI remains a separate later-phase scope decision.
 
 ## 7) Auth Clarifications
 

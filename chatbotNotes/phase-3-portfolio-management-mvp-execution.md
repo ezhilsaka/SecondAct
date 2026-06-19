@@ -39,6 +39,7 @@ Current status:
 - Stage 9 deferred Phase 2 positive-path report API check: complete through automated API/service ownership smoke
 - Stage 10 full Phase 3 verification and quality gate: complete
 - Stage 11 documentation updates: complete
+- Step 12 acceptance-criteria review: complete
 
 Review checkpoint:
 
@@ -47,7 +48,8 @@ Review checkpoint:
 - Prior stop point requested by the user: complete Stage 5 only, then report back before Stage 6.
 - Prior stop point requested by the user: complete Stage 6 and Stage 7 only, then stop before Stage 8.
 - Prior stop point requested by the user: complete Stage 8 and Stage 9 only, then stop before Stage 10.
-- Current stop point requested by the user: complete Stage 10 and Stage 11 only, then stop before Step 12 / any report-generation UI.
+- Prior stop point requested by the user: complete Stage 10 and Stage 11 only, then stop before Step 12 acceptance-criteria review. Full report-generation UI remains separately out of scope for Phase 3 unless the user explicitly expands scope.
+- Current stop point requested by the user: go through all remaining steps of Phase 3 and confirm whether any work remains.
 - No UX clarifying question blocked Stages 0-2 because these stages are backend/service/API work.
 - No UX clarifying question blocked Stages 3-4. The only scope/UX wrinkle was that the Stage 4 plan originally said create should redirect to portfolio detail, while portfolio detail is Stage 6. To preserve the user's "only Stage 3 and 4" boundary, create/edit success temporarily redirected to the portfolio list. Stage 6 has now switched successful create and edit back to the portfolio detail page.
 - UX/product decision already captured in the Phase 3 plan and backend knowledge base:
@@ -790,7 +792,7 @@ Manual checklist note:
 
 Scope check:
 
-- Step 12 was not started.
+- At the Stage 10-11 stop point, Step 12 acceptance-criteria review was not started.
 - No report-generation UI was added.
 - The dashboard and portfolio detail report action remain informational: `Report generation comes next`.
 - Phase 3 still stops at portfolio management, holdings management, readiness states, ticker search, and the positive-path report API ownership smoke.
@@ -804,17 +806,86 @@ Updated:
 - `chatbotNotes/phase-3-portfolio-management-mvp-execution.md`
   - records Stage 10 verification evidence
   - records Stage 11 closeout
-  - preserves the explicit stop before Step 12
+  - preserves the explicit stop before Step 12 acceptance-criteria review
 - `chatbotNotes/backend-knowledge-base.md`
   - records the durable Stage 10/11 closeout rule and scope boundary
 - `chatbotNotes/phase-2-auth-app-shell-execution.md`
   - reflects that the previously deferred owned-portfolio positive-path report API check was closed during Phase 3 Stage 9
 
-Next stage when the user resumes:
+Next stage after the Stage 11 stop point:
 
-- Step 12 / any report-generation UI work remains not started and should be planned as a separate scope decision.
+- Step 12 acceptance-criteria review was the next remaining Phase 3 item after Stage 11 and is now completed in Section 19 below.
+- Any report-generation UI remained a separate later-phase scope decision.
 
-## 19) Verification For Stage 0-2 Stop Point
+## 19) Step 12: Acceptance Criteria Review
+
+Status: complete on 2026-06-18.
+
+Goal:
+
+- Review all Phase 3 acceptance criteria and confirm whether required work remains.
+
+Result:
+
+- All 20 Phase 3 acceptance criteria are satisfied by the current implementation and current verification evidence.
+- No required Phase 3 implementation work remains.
+- Full report-generation UI remains out of Phase 3 scope and was not started.
+- Optional human UX smoke can still be run by a signed-in user, but the signed-in portfolio workflows are covered by service/API/server-action/component/page tests.
+
+Acceptance criteria evidence:
+
+1. Authenticated user can list portfolios.
+   - Covered by `PortfolioService.listPortfolios`, `GET /api/v1/portfolios`, `/app/portfolios`, and `/app` dashboard tests.
+2. Authenticated user can create a manual portfolio.
+   - Covered by `PortfolioService.createPortfolio`, portfolio API create, server action create, and create form tests.
+3. Authenticated user can edit portfolio metadata.
+   - Covered by `PortfolioService.updatePortfolio`, portfolio API update, and server action edit tests.
+4. Authenticated user can archive a portfolio.
+   - Covered by `PortfolioService.archivePortfolio` and API archive/list-after-archive tests.
+5. Authenticated user can view portfolio detail.
+   - Covered by `PortfolioService.getPortfolioDetail`, portfolio detail API, and detail page tests.
+6. Authenticated user can add holdings.
+   - Covered by `PortfolioService.addHolding`, holdings API create, and server action add tests.
+7. Authenticated user can edit holdings.
+   - Covered by `PortfolioService.updateHolding`, holdings API update, and server action edit tests.
+8. Authenticated user can remove holdings.
+   - Covered by `PortfolioService.removeHolding`, holdings API delete, and server action remove tests.
+9. Holding entry includes API-backed ticker search/autocomplete.
+   - Covered by `GET /api/v1/securities/search`, `SecuritySearchService`, `SecuritySearchAdapterProvider`, market-data adapter search tests, and `HoldingForm` search result application tests.
+10. Manual ticker entry still works when autocomplete is skipped or unavailable.
+    - Covered by `HoldingForm` manual ticker tests, holding server action add tests, and search-unavailable fallback copy.
+11. Ticker search is provider-abstracted and does not expose provider secrets or raw provider payloads.
+    - Covered by `SecuritySearchProvider`, `SecuritySearchAdapterProvider`, internal secret tests, normalized contract tests, and generic provider-failure API responses.
+12. Duplicate ticker entries are handled safely and clearly.
+    - Covered by service duplicate checks, API `409 DUPLICATE_HOLDING_TICKER` tests, and server-action friendly error mapping.
+13. Decimal values preserve precision through API/service/UI boundaries.
+    - Covered by decimal string schemas, service formatting with `Prisma.Decimal`, and service tests for decimal strings and estimated cost basis.
+14. Users cannot view or mutate another user's portfolios or holdings.
+    - Covered by user-scoped repository lookups, active-portfolio assertions, not-owned API tests, and holding ownership tests.
+15. Unauthenticated portfolio and security-search API requests return `401`.
+    - Covered by portfolio API tests, security-search API tests, and signed-out browser/API smoke from Stage 10.
+16. Portfolio UI shows clear empty, ready, and not-ready states.
+    - Covered by portfolio list, dashboard, readiness service, and portfolio detail tests.
+17. App shell `Portfolios` navigation is live.
+    - Covered by `AppShell` source and test for the `/app/portfolios` navigation link.
+18. Dashboard CTA routes to portfolio creation/list.
+    - Covered by dashboard tests for empty and populated states.
+19. Deferred Phase 2 owned-portfolio report API positive-path check is completed.
+    - Covered by `POST /api/v1/report-runs` route smoke test and `ReportRunService` ownership tests.
+20. Tests, typecheck, lint, and build pass.
+    - Current Step 12 rerun passed:
+      - `npm test`: 392 tests across 56 files
+      - `npm run typecheck`
+      - `npm run lint`
+      - `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: 24 tests
+      - `npm run build`
+
+Pending work:
+
+- None for Phase 3 acceptance.
+- The only caveat is that Codex could not perform a live signed-in browser walkthrough without an authenticated Supabase session. This is not treated as required implementation work because the signed-in flows are covered by automated tests, and the signed-out route/API boundary was smoke-tested in the browser during Stage 10.
+
+## 20) Verification For Stage 0-2 Stop Point
 
 Status: passed on 2026-06-16.
 
@@ -835,7 +906,7 @@ Build notes:
   - `/api/v1/portfolios/[portfolioId]/holdings`
   - `/api/v1/portfolios/[portfolioId]/holdings/[holdingId]`
 
-## 20) Verification For Stage 3-4 Stop Point
+## 21) Verification For Stage 3-4 Stop Point
 
 Status: passed on 2026-06-16.
 
