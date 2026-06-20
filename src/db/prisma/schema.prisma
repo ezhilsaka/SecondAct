@@ -76,6 +76,7 @@ model Portfolio {
 
   @@index([userId, createdAt], map: "portfolios_user_id_created_at_idx")
   @@index([userId, archivedAt], map: "portfolios_user_id_archived_at_idx")
+  @@index([userId, archivedAt, updatedAt(sort: Desc)], map: "portfolios_user_id_archived_at_updated_at_desc_idx")
   @@map("portfolios")
 }
 
