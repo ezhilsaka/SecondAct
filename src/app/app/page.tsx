@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import { PortfolioService, type PortfolioSummaryResult } from "@/server/services/portfolio-service";
 
 import styles from "./page.module.css";
@@ -126,7 +126,7 @@ export function AppDashboardView({ portfolios }: AppDashboardViewProps) {
 }
 
 export default async function AppDashboardPage() {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedAppUser();
   const { portfolios } = await new PortfolioService().listPortfolios(user.id);
 
   return <AppDashboardView portfolios={portfolios} />;

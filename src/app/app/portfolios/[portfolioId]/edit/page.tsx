@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { readSearchParam } from "@/lib/auth/redirect";
 import { PortfolioForm, PORTFOLIO_FORM_ERROR_MESSAGES } from "@/components/portfolio/PortfolioForm";
-import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import {
   PortfolioArchivedError,
   PortfolioNotFoundError,
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 async function loadEditablePortfolio(portfolioId: string): Promise<PortfolioDetailResult> {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedAppUser();
 
   try {
     return await new PortfolioService().getPortfolioDetail({

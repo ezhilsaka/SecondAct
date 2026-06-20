@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_PORTFOLIO_ID = "22222222-2222-4222-8222-222222222222";
 
-const { mockListPortfolios, mockRequireAuthenticatedUser } = vi.hoisted(() => ({
+const { mockListPortfolios, mockRequireAuthenticatedAppUser } = vi.hoisted(() => ({
   mockListPortfolios: vi.fn(),
-  mockRequireAuthenticatedUser: vi.fn()
+  mockRequireAuthenticatedAppUser: vi.fn()
 }));
 
-vi.mock("@/server/auth/supabase-server", () => ({
-  requireAuthenticatedUser: mockRequireAuthenticatedUser
+vi.mock("@/server/auth/app-session", () => ({
+  requireAuthenticatedAppUser: mockRequireAuthenticatedAppUser
 }));
 
 vi.mock("@/server/services/portfolio-service", async (importOriginal) => {
@@ -79,7 +79,7 @@ describe("PortfolioListView", () => {
 describe("PortfolioListPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAuthenticatedUser.mockResolvedValue({ id: TEST_USER_ID });
+    mockRequireAuthenticatedAppUser.mockResolvedValue({ id: TEST_USER_ID });
     mockListPortfolios.mockResolvedValue({ portfolios: [buildPortfolio()] });
   });
 
@@ -89,7 +89,7 @@ describe("PortfolioListPage", () => {
     });
     const html = renderToStaticMarkup(jsx);
 
-    expect(mockRequireAuthenticatedUser).toHaveBeenCalled();
+    expect(mockRequireAuthenticatedAppUser).toHaveBeenCalled();
     expect(mockListPortfolios).toHaveBeenCalledWith(TEST_USER_ID);
     expect(html).toContain("Portfolio created.");
     expect(html).toContain("Retirement");

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import { PortfolioService, type PortfolioSummaryResult } from "@/server/services/portfolio-service";
 
 import styles from "./page.module.css";
@@ -157,7 +157,7 @@ export function PortfolioListView({ portfolios, notice, error }: PortfolioListVi
 }
 
 export default async function PortfolioListPage({ searchParams }: PortfolioListPageProps) {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedAppUser();
   const { portfolios } = await new PortfolioService().listPortfolios(user.id);
   const params = await searchParams;
   const noticeCode = readSearchParam(params?.status);

@@ -7,7 +7,7 @@ import {
   HoldingForm,
   type HoldingFormValues
 } from "@/components/portfolio/HoldingForm";
-import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import {
   PortfolioArchivedError,
   PortfolioNotFoundError,
@@ -92,7 +92,7 @@ function getReadinessClass(portfolio: PortfolioDetailResult): string {
 }
 
 async function loadPortfolioDetail(portfolioId: string): Promise<PortfolioDetailResult> {
-  const user = await requireAuthenticatedUser();
+  const user = await requireAuthenticatedAppUser();
 
   try {
     return await new PortfolioService().getPortfolioDetail({

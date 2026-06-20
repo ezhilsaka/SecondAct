@@ -358,7 +358,6 @@ export async function bootstrapAuthenticatedUserProfile(
     const existingProfile = await repository.findProfileById(user.id);
 
     if (existingProfile) {
-      await repository.ensureUserUsage(user.id);
       logger.info("User profile loaded.", {
         event: "user_profile.loaded",
         userId: user.id,
@@ -378,7 +377,6 @@ export async function bootstrapAuthenticatedUserProfile(
     });
 
     if (existingProfileByEmail) {
-      await repository.ensureUserUsage(user.id);
       logger.info("User profile loaded.", {
         event: "user_profile.loaded",
         userId: user.id,
@@ -448,7 +446,6 @@ export async function completeAuthenticatedUserProfile(
     const existingProfile = await repository.findProfileById(user.id);
 
     if (existingProfile) {
-      await repository.ensureUserUsage(user.id);
       logger.info("User profile loaded.", {
         event: "user_profile.loaded",
         userId: user.id,
@@ -468,7 +465,6 @@ export async function completeAuthenticatedUserProfile(
     });
 
     if (existingProfileByEmail) {
-      await repository.ensureUserUsage(user.id);
       logger.info("User profile loaded.", {
         event: "user_profile.loaded",
         userId: user.id,

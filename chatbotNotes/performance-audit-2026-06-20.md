@@ -14,7 +14,7 @@ Performance-only repo audit for the current Second Act worktree. Focus areas:
 
 Overall status: Yellow.
 
-The app has a strong baseline: most portfolio UI is server-rendered, heavy report generation is queued through Graphile Worker, external provider calls have timeout guards, and Prisma queries generally select only needed columns. The main risks are cacheability, repeated authenticated request work, growth behavior for holdings-heavy portfolios, and worker throughput for PDF generation.
+The app has a strong baseline: most portfolio UI is server-rendered, heavy report generation is queued through Graphile Worker, external provider calls have timeout guards, and Prisma queries generally select only needed columns. The homepage cacheability issue and protected-render auth/profile duplication have now been addressed. The main remaining risks are growth behavior for holdings-heavy portfolios, dashboard summary query shape, and worker throughput for PDF generation.
 
 ## Fixes Applied In This Pass
 
@@ -53,27 +53,43 @@ Files:
 - `src/db/prisma/schema.prisma`
 - `src/db/prisma/migrations/20260620000000_add_portfolio_updated_at_index/migration.sql`
 
-## Remaining Findings And Resolutions
-
-### P1 - Protected routes repeat auth/profile work per request
+### 3. Protected app render paths now share one request-scoped auth/profile load
 
 Evidence:
 
-- Proxy verifies auth before protected routes.
-- `src/app/app/layout.tsx` calls `requireAuthenticatedUser()` and `bootstrapAuthenticatedUserProfile()`.
-- Child pages such as `src/app/app/page.tsx` call `requireAuthenticatedUser()` again.
-- `bootstrapAuthenticatedUserProfile()` calls `ensureUserUsage()` even when the profile already exists.
+- Before: the protected app layout loaded auth/profile, then child pages called `requireAuthenticatedUser()` again for page data.
+- Before: `bootstrapAuthenticatedUserProfile()` also called `ensureUserUsage()` when loading an existing profile, adding a write-style database operation to normal page navigation.
+- After: `src/server/auth/app-session.ts` wraps auth/profile loading in React `cache()`, so app layout and child server components share the same request-scoped app session.
+- After: existing profile loads no longer upsert `user_usage`; new profile creation still ensures usage rows, and report completion keeps its existing usage upsert repair path.
 
-Why it matters:
+Resolution:
 
-- Every protected page can do repeated auth and database work before rendering useful content.
-- The per-request `user_usage` upsert is especially costly because it is a write-style operation on normal navigation.
+- Added a cached `loadAuthenticatedAppSession()` helper and `requireAuthenticatedAppUser()` wrapper.
+- Updated protected app render pages to use the cached app-session helper.
+- Kept server actions on direct `requireAuthenticatedUser()` calls because each mutation request should authenticate independently.
+- Updated tests to prove the app-session helper performs one auth/profile load per request cache, and existing profile reads no longer write usage rows.
 
-Recommended resolution:
+Files:
 
-- Introduce a request-scoped current-user/profile loader for server components.
-- Avoid `user_usage` upsert on every profile load; create it on profile creation and keep the report-run orchestrator's existing upsert as the repair path.
-- Add tests proving existing profile loads no longer write usage rows, while new profile creation still creates usage.
+- `src/server/auth/app-session.ts`
+- `src/server/auth/app-session.test.ts`
+- `src/server/auth/profile-bootstrap.ts`
+- `src/server/auth/profile-bootstrap.test.ts`
+- `src/app/app/layout.tsx`
+- `src/app/app/page.tsx`
+- `src/app/app/portfolios/page.tsx`
+- `src/app/app/portfolios/[portfolioId]/page.tsx`
+- `src/app/app/portfolios/[portfolioId]/edit/page.tsx`
+
+## Completed Findings
+
+### P1 - Protected routes repeat auth/profile work per request
+
+Status: Fixed.
+
+Completed by fix 3 above.
+
+## Remaining Findings And Resolutions
 
 ### P1 - Portfolio detail renders every edit form up front
 
@@ -145,6 +161,8 @@ Commands run:
 
 - `npm test -- --run 'src/app/(marketing)/page.test.tsx' src/components/landing/SecondActLanding.test.tsx`
 - `npm test -- --run src/server/services/portfolio-service.test.ts src/app/api/v1/portfolios/route.test.ts`
+- `npm test -- --run src/server/auth/app-session.test.ts src/server/auth/profile-bootstrap.test.ts src/server/auth/supabase-server.test.ts src/components/auth/ProfileCompletionForm.test.tsx src/app/app/page.test.tsx src/app/app/portfolios/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`
+- `npm test -- --run src/server/auth/app-session.test.ts src/server/auth/profile-bootstrap.test.ts src/app/app/page.test.tsx src/app/app/portfolios/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`
 - `npm run typecheck`
 - `npm run lint`
 - `npm run build`
@@ -155,7 +173,10 @@ Results:
 
 - Targeted landing tests: 2 files passed, 3 tests passed.
 - Portfolio service/API tests: 2 files passed, 27 tests passed.
+- Auth/profile dedupe focused tests: 6 files passed, 26 tests passed.
+- Auth/profile dedupe post-format tests: 5 files passed, 22 tests passed.
 - Typecheck passed.
 - Lint passed.
 - Build passed and confirmed `○ /` static homepage.
-- Full test suite passed: 56 files, 391 tests.
+- Full test suite passed before auth/profile dedupe: 56 files, 391 tests.
+- Full test suite passed after auth/profile dedupe: 57 files, 394 tests.

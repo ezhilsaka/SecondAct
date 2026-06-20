@@ -96,7 +96,7 @@ function buildPrismaKnownRequestError(
 }
 
 describe("bootstrapAuthenticatedUserProfile", () => {
-  it("loads an existing profile and ensures user usage without overwriting profile fields", async () => {
+  it("loads an existing profile without rewriting usage or profile fields", async () => {
     const existingProfile = buildProfile({
       firstName: "Existing",
       lastName: "Name",
@@ -117,7 +117,7 @@ describe("bootstrapAuthenticatedUserProfile", () => {
       created: false
     });
     expect(repository.createProfile).not.toHaveBeenCalled();
-    expect(repository.ensureUserUsage).toHaveBeenCalledWith(TEST_USER_ID);
+    expect(repository.ensureUserUsage).not.toHaveBeenCalled();
     expect(logger.info).toHaveBeenCalledWith(
       "User profile loaded.",
       expect.objectContaining({
@@ -371,7 +371,7 @@ describe("completeAuthenticatedUserProfile", () => {
       created: false
     });
     expect(repository.createProfile).not.toHaveBeenCalled();
-    expect(repository.ensureUserUsage).toHaveBeenCalledWith(TEST_USER_ID);
+    expect(repository.ensureUserUsage).not.toHaveBeenCalled();
   });
 
   it("rejects blank submitted profile names", async () => {

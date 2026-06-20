@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { buildLoginProfileCompletionPath } from "@/lib/auth/redirect";
 import { AuthenticationRequiredError } from "@/server/auth/authenticated-user";
-import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
+import { loadAuthenticatedAppSession } from "@/server/auth/app-session";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -20,11 +20,7 @@ export const metadata: Metadata = {
 
 async function loadProfileForAppShell() {
   try {
-    const user = await requireAuthenticatedUser();
-    const { bootstrapAuthenticatedUserProfile } = await import(
-      "@/server/auth/profile-bootstrap"
-    );
-    const { profile } = await bootstrapAuthenticatedUserProfile(user);
+    const { profile } = await loadAuthenticatedAppSession();
 
     return profile;
   } catch (error) {
