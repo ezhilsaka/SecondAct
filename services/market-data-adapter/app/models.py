@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
@@ -8,6 +9,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 DECIMAL_PATTERN = r"^-?(0|[1-9]\d*)(\.\d+)?$"
+TICKER_PATTERN = re.compile(r"^[A-Z0-9.-]{1,15}$")
 
 
 class SupportedCurrency(str, Enum):
@@ -64,6 +66,11 @@ class MarketDataRequest(BaseModel):
             cleaned = raw_ticker.strip().upper()
             if not cleaned:
                 continue
+            if not TICKER_PATTERN.fullmatch(cleaned):
+                raise ValueError(
+                    "Tickers can only contain letters, numbers, dots, and hyphens, "
+                    "up to 15 characters."
+                )
             if cleaned in seen:
                 continue
             seen.add(cleaned)

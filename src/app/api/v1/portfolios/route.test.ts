@@ -43,8 +43,7 @@ vi.mock("@/server/auth/api-auth", async (importOriginal) => {
 });
 
 vi.mock("@/server/services/portfolio-service", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@/server/services/portfolio-service")>();
+  const original = await importOriginal<typeof import("@/server/services/portfolio-service")>();
   return {
     ...original,
     PortfolioService: class {
@@ -60,10 +59,7 @@ vi.mock("@/server/services/portfolio-service", async (importOriginal) => {
   };
 });
 
-import {
-  GET as listPortfolios,
-  POST as createPortfolio
-} from "@/app/api/v1/portfolios/route";
+import { GET as listPortfolios, POST as createPortfolio } from "@/app/api/v1/portfolios/route";
 import {
   DELETE as archivePortfolio,
   GET as getPortfolioDetail,
@@ -254,7 +250,9 @@ describe("/api/v1/portfolios routes", () => {
   });
 
   it("returns 404 when the portfolio is missing or not owned", async () => {
-    mockGetPortfolioDetail.mockRejectedValue(new PortfolioNotFoundError("Portfolio not found"));
+    mockGetPortfolioDetail.mockRejectedValue(
+      new PortfolioNotFoundError(`Portfolio ${TEST_PORTFOLIO_ID} was not found.`)
+    );
 
     const response = await getPortfolioDetail(
       buildGetRequest(`/api/v1/portfolios/${TEST_PORTFOLIO_ID}`),
@@ -263,7 +261,13 @@ describe("/api/v1/portfolios routes", () => {
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("PORTFOLIO_NOT_FOUND");
+    expect(json).toEqual({
+      error: {
+        code: "PORTFOLIO_NOT_FOUND",
+        message: "Portfolio not found."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_PORTFOLIO_ID);
   });
 
   it("updates portfolio metadata", async () => {
@@ -350,7 +354,9 @@ describe("/api/v1/portfolios routes", () => {
   });
 
   it("returns 404 when adding holdings to an archived portfolio", async () => {
-    mockAddHolding.mockRejectedValue(new PortfolioArchivedError("Portfolio has been archived"));
+    mockAddHolding.mockRejectedValue(
+      new PortfolioArchivedError(`Portfolio ${TEST_PORTFOLIO_ID} has been archived.`)
+    );
 
     const response = await addHolding(
       buildJsonRequest(`/api/v1/portfolios/${TEST_PORTFOLIO_ID}/holdings`, "POST", {
@@ -364,7 +370,13 @@ describe("/api/v1/portfolios routes", () => {
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("PORTFOLIO_ARCHIVED");
+    expect(json).toEqual({
+      error: {
+        code: "PORTFOLIO_ARCHIVED",
+        message: "Portfolio not found."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_PORTFOLIO_ID);
   });
 
   it("updates a holding by portfolio and holding ids", async () => {

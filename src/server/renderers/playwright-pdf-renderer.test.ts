@@ -14,17 +14,21 @@ import { PlaywrightPdfRenderer } from "./playwright-pdf-renderer";
 // inside the vi.mock factory which gets hoisted above variable declarations.
 // ---------------------------------------------------------------------------
 
-const { mockPdf, mockSetContent, mockCloseContext, mockCloseBrowser } = vi.hoisted(() => ({
-  mockPdf: vi.fn(),
-  mockSetContent: vi.fn(),
-  mockCloseContext: vi.fn(),
-  mockCloseBrowser: vi.fn()
-}));
+const { mockPdf, mockRoute, mockSetContent, mockCloseContext, mockCloseBrowser } = vi.hoisted(
+  () => ({
+    mockPdf: vi.fn(),
+    mockRoute: vi.fn(),
+    mockSetContent: vi.fn(),
+    mockCloseContext: vi.fn(),
+    mockCloseBrowser: vi.fn()
+  })
+);
 
 vi.mock("playwright", () => ({
   chromium: {
     launch: vi.fn().mockResolvedValue({
       newContext: vi.fn().mockResolvedValue({
+        route: mockRoute,
         newPage: vi.fn().mockResolvedValue({
           setContent: mockSetContent,
           pdf: mockPdf
@@ -84,6 +88,21 @@ describe("PlaywrightPdfRenderer", () => {
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("Second Act");
     expect(options).toEqual({ waitUntil: "networkidle" });
+  });
+
+  it("blocks network requests while rendering report HTML", async () => {
+    const renderer = new PlaywrightPdfRenderer();
+
+    await renderer.render(getFixtureReport());
+
+    expect(mockRoute).toHaveBeenCalledOnce();
+    expect(mockRoute).toHaveBeenCalledWith("**/*", expect.any(Function));
+
+    const abort = vi.fn();
+    const handler = mockRoute.mock.calls[0]![1] as (route: { abort: () => void }) => void;
+    handler({ abort });
+
+    expect(abort).toHaveBeenCalledOnce();
   });
 
   it("generates A4 PDF with correct margins", async () => {

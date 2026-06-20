@@ -13,8 +13,22 @@ async function signOutAndRedirect(request: NextRequest): Promise<NextResponse> {
   return response;
 }
 
-export async function GET(request: NextRequest) {
-  return signOutAndRedirect(request);
+export async function GET() {
+  return NextResponse.json(
+    {
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "Use POST to sign out."
+      }
+    },
+    {
+      status: 405,
+      headers: {
+        Allow: "POST",
+        "Cache-Control": "private, no-store"
+      }
+    }
+  );
 }
 
 export async function POST(request: NextRequest) {

@@ -118,6 +118,19 @@ def test_quotes_endpoint_returns_400_for_invalid_request() -> None:
     assert response.json()["error"]["code"] == "INVALID_REQUEST"
 
 
+def test_quotes_endpoint_returns_400_for_unsafe_tickers() -> None:
+    client = build_test_client(FakeProvider())
+
+    response = client.post(
+        "/market-data/quotes",
+        json={"tickers": ["AAPL;DROP"], "reportingCurrency": "USD"},
+        headers={"X-Internal-Secret": "test-internal-secret"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_REQUEST"
+
+
 def test_quotes_endpoint_keeps_partial_symbol_failures_in_a_200_response() -> None:
     client = build_test_client(FakeProvider())
 

@@ -8,6 +8,31 @@ const optionalEnvString = z.preprocess((value) => {
   return value;
 }, z.string().min(1).optional());
 
+const envBooleanSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value !== "string") {
+      return value;
+    }
+
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === "true") {
+      return true;
+    }
+
+    if (normalized === "false") {
+      return false;
+    }
+
+    return value;
+  },
+  z.boolean({ error: "Expected true or false." })
+);
+
 function requiredString(name: string) {
   return z.string().min(1, `${name} is required.`);
 }
@@ -34,7 +59,7 @@ export const serverEnvSchema = z.object({
   REPORT_RUN_TASK_IDENTIFIER: requiredString("REPORT_RUN_TASK_IDENTIFIER").default(
     "report.run.generate"
   ),
-  PAYMENT_GATE_ENABLED: z.coerce.boolean().default(false),
+  PAYMENT_GATE_ENABLED: envBooleanSchema.default(false),
   SIGNED_URL_EXPIRY_SECONDS: z.coerce
     .number()
     .int()

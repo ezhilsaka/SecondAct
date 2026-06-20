@@ -51,7 +51,9 @@ describe("POST /api/v1/report-runs", () => {
   it("returns 201 with runId and status on success", async () => {
     mockCreateAndEnqueue.mockResolvedValue({ runId: TEST_RUN_ID, status: "QUEUED" });
 
-    const response = await POST(buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" }));
+    const response = await POST(
+      buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" })
+    );
 
     expect(response.status).toBe(201);
     expect(mockCreateAndEnqueue).toHaveBeenCalledWith({
@@ -91,7 +93,9 @@ describe("POST /api/v1/report-runs", () => {
   it("returns 401 when the request has no authenticated session", async () => {
     mockGetAuthenticatedApiUserId.mockResolvedValue(null);
 
-    const response = await POST(buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" }));
+    const response = await POST(
+      buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" })
+    );
 
     expect(response.status).toBe(401);
     const json = await response.json();
@@ -133,7 +137,11 @@ describe("POST /api/v1/report-runs", () => {
   });
 
   it("returns 404 when portfolio is not found", async () => {
-    mockCreateAndEnqueue.mockRejectedValue(new PortfolioNotFoundError("Portfolio not found"));
+    mockCreateAndEnqueue.mockRejectedValue(
+      new PortfolioNotFoundError(
+        `Portfolio ${TEST_PORTFOLIO_ID} not found for user ${TEST_USER_ID}.`
+      )
+    );
 
     const response = await POST(
       buildRequest({ portfolioId: TEST_PORTFOLIO_ID, reportingCurrency: "CAD" })
@@ -141,6 +149,13 @@ describe("POST /api/v1/report-runs", () => {
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("PORTFOLIO_NOT_FOUND");
+    expect(json).toEqual({
+      error: {
+        code: "PORTFOLIO_NOT_FOUND",
+        message: "Portfolio not found."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_USER_ID);
+    expect(JSON.stringify(json)).not.toContain(TEST_PORTFOLIO_ID);
   });
 });

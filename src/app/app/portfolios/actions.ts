@@ -95,10 +95,7 @@ function isPositiveDecimalString(value: string, maxDecimalPlaces: number): boole
   return /[1-9]/.test(value);
 }
 
-function getHoldingFormError(
-  values: HoldingFormValues,
-  mode: "create" | "edit"
-): string | null {
+function getHoldingFormError(values: HoldingFormValues, mode: "create" | "edit"): string | null {
   if (!values.portfolioId) {
     return "portfolio_not_found";
   }
@@ -146,17 +143,8 @@ function getPortfolioDetailPath(portfolioId: string): string {
   return `/app/portfolios/${portfolioId}`;
 }
 
-function buildFormRedirectPath(
-  pathname: string,
-  error: string,
-  values: PortfolioFormValues
-): string {
-  const params = new URLSearchParams({
-    error,
-    name: values.name,
-    baseCurrency: values.baseCurrency,
-    description: values.description
-  });
+function buildFormErrorRedirectPath(pathname: string, error: string): string {
+  const params = new URLSearchParams({ error });
 
   return `${pathname}?${params.toString()}`;
 }
@@ -177,20 +165,16 @@ function buildDetailErrorPath(portfolioId: string, error: string): string {
   return `${getPortfolioDetailPath(portfolioId)}?error=${error}`;
 }
 
-function handlePortfolioMutationError(
-  error: unknown,
-  fallbackPath: string,
-  values: PortfolioFormValues
-): never {
+function handlePortfolioMutationError(error: unknown, fallbackPath: string): never {
   if (error instanceof PortfolioNotFoundError || error instanceof PortfolioArchivedError) {
     redirect(`${PORTFOLIO_LIST_PATH}?error=portfolio_not_found`);
   }
 
   if (error instanceof ZodError) {
-    redirect(buildFormRedirectPath(fallbackPath, "validation_error", values));
+    redirect(buildFormErrorRedirectPath(fallbackPath, "validation_error"));
   }
 
-  redirect(buildFormRedirectPath(fallbackPath, "save_failed", values));
+  redirect(buildFormErrorRedirectPath(fallbackPath, "save_failed"));
 }
 
 function handleHoldingMutationError(error: unknown, portfolioId: string): never {
@@ -230,7 +214,7 @@ export async function createPortfolioFromForm(formData: FormData) {
   const validationError = getPortfolioFormError(values);
 
   if (validationError) {
-    redirect(buildFormRedirectPath(CREATE_PORTFOLIO_PATH, validationError, values));
+    redirect(buildFormErrorRedirectPath(CREATE_PORTFOLIO_PATH, validationError));
   }
 
   const user = await requireAuthenticatedUser();
@@ -244,7 +228,7 @@ export async function createPortfolioFromForm(formData: FormData) {
       baseCurrency: getSupportedCurrency(values.baseCurrency)
     });
   } catch (error) {
-    handlePortfolioMutationError(error, CREATE_PORTFOLIO_PATH, values);
+    handlePortfolioMutationError(error, CREATE_PORTFOLIO_PATH);
   }
 
   revalidatePath(PORTFOLIO_LIST_PATH);
@@ -262,7 +246,7 @@ export async function updatePortfolioFromForm(formData: FormData) {
   }
 
   if (validationError) {
-    redirect(buildFormRedirectPath(editPath, validationError, values));
+    redirect(buildFormErrorRedirectPath(editPath, validationError));
   }
 
   const user = await requireAuthenticatedUser();
@@ -276,7 +260,7 @@ export async function updatePortfolioFromForm(formData: FormData) {
       baseCurrency: getSupportedCurrency(values.baseCurrency)
     });
   } catch (error) {
-    handlePortfolioMutationError(error, editPath, values);
+    handlePortfolioMutationError(error, editPath);
   }
 
   const detailPath = getPortfolioDetailPath(portfolioId);

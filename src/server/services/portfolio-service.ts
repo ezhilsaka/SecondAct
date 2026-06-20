@@ -2,11 +2,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 
 import { prisma } from "@/db/prisma/client";
-import {
-  assetClassSchema,
-  supportedCurrencySchema,
-  uuidSchema
-} from "@/server/shared/types";
+import { assetClassSchema, supportedCurrencySchema, uuidSchema } from "@/server/shared/types";
 
 const PORTFOLIO_READY_STATUS = "READY_FOR_REPORT" as const;
 const PORTFOLIO_NEEDS_HOLDINGS_STATUS = "NEEDS_HOLDINGS" as const;
@@ -17,13 +13,16 @@ function normalizeWhitespace(value: string): string {
 
 function nullableTextSchema(maxLength: number) {
   return z
-    .preprocess((value) => {
-      if (typeof value === "string") {
-        return normalizeWhitespace(value);
-      }
+    .preprocess(
+      (value) => {
+        if (typeof value === "string") {
+          return normalizeWhitespace(value);
+        }
 
-      return value;
-    }, z.union([z.string().max(maxLength), z.null(), z.undefined()]))
+        return value;
+      },
+      z.union([z.string().max(maxLength), z.null(), z.undefined()])
+    )
     .transform((value) => {
       if (value === undefined) {
         return undefined;
@@ -258,6 +257,7 @@ export type CreatePortfolioRecordInput = {
 };
 
 export type UpdatePortfolioRecordInput = {
+  userId: string;
   portfolioId: string;
   name?: string;
   description?: string | null;
@@ -276,6 +276,8 @@ export type CreateHoldingRecordInput = {
 };
 
 export type UpdateHoldingRecordInput = {
+  userId: string;
+  portfolioId: string;
   holdingId: string;
   ticker?: string;
   securityName?: string | null;
@@ -294,7 +296,11 @@ export interface PortfolioRepository {
   getActivePortfolioDetail(userId: string, portfolioId: string): Promise<PortfolioDetailRow | null>;
   createPortfolio(input: CreatePortfolioRecordInput): Promise<PortfolioDetailRow>;
   updatePortfolio(input: UpdatePortfolioRecordInput): Promise<PortfolioDetailRow>;
-  archivePortfolio(portfolioId: string, archivedAt: Date): Promise<PortfolioStatusRow>;
+  archivePortfolio(
+    userId: string,
+    portfolioId: string,
+    archivedAt: Date
+  ): Promise<PortfolioStatusRow>;
   findHoldingByTicker(
     userId: string,
     portfolioId: string,
@@ -307,7 +313,7 @@ export interface PortfolioRepository {
   ): Promise<HoldingRow | null>;
   createHolding(input: CreateHoldingRecordInput): Promise<HoldingRow>;
   updateHolding(input: UpdateHoldingRecordInput): Promise<HoldingRow>;
-  removeHolding(holdingId: string): Promise<void>;
+  removeHolding(userId: string, portfolioId: string, holdingId: string): Promise<void>;
 }
 
 const portfolioSummarySelect = {
@@ -415,7 +421,9 @@ export class PrismaPortfolioRepository implements PortfolioRepository {
   async updatePortfolio(input: UpdatePortfolioRecordInput): Promise<PortfolioDetailRow> {
     return this.prismaClient.portfolio.update({
       where: {
-        id: input.portfolioId
+        id: input.portfolioId,
+        userId: input.userId,
+        archivedAt: null
       },
       data: {
         name: input.name,
@@ -433,10 +441,16 @@ export class PrismaPortfolioRepository implements PortfolioRepository {
     });
   }
 
-  async archivePortfolio(portfolioId: string, archivedAt: Date): Promise<PortfolioStatusRow> {
+  async archivePortfolio(
+    userId: string,
+    portfolioId: string,
+    archivedAt: Date
+  ): Promise<PortfolioStatusRow> {
     return this.prismaClient.portfolio.update({
       where: {
-        id: portfolioId
+        id: portfolioId,
+        userId,
+        archivedAt: null
       },
       data: {
         archivedAt
@@ -498,7 +512,9 @@ export class PrismaPortfolioRepository implements PortfolioRepository {
   async updateHolding(input: UpdateHoldingRecordInput): Promise<HoldingRow> {
     return this.prismaClient.portfolioHolding.update({
       where: {
-        id: input.holdingId
+        id: input.holdingId,
+        userId: input.userId,
+        portfolioId: input.portfolioId
       },
       data: {
         ticker: input.ticker,
@@ -512,10 +528,12 @@ export class PrismaPortfolioRepository implements PortfolioRepository {
     });
   }
 
-  async removeHolding(holdingId: string): Promise<void> {
+  async removeHolding(userId: string, portfolioId: string, holdingId: string): Promise<void> {
     await this.prismaClient.portfolioHolding.delete({
       where: {
-        id: holdingId
+        id: holdingId,
+        userId,
+        portfolioId
       }
     });
   }
@@ -658,6 +676,7 @@ export class PortfolioService {
     await this.assertActivePortfolio(parsed.userId, parsed.portfolioId);
 
     const portfolio = await this.repository.updatePortfolio({
+      userId: parsed.userId,
       portfolioId: parsed.portfolioId,
       name: parsed.name,
       description: parsed.description,
@@ -671,7 +690,11 @@ export class PortfolioService {
     const parsed = portfolioIdentityInputSchema.parse(input);
     await this.assertActivePortfolio(parsed.userId, parsed.portfolioId);
 
-    const archivedPortfolio = await this.repository.archivePortfolio(parsed.portfolioId, this.now());
+    const archivedPortfolio = await this.repository.archivePortfolio(
+      parsed.userId,
+      parsed.portfolioId,
+      this.now()
+    );
 
     if (!archivedPortfolio.archivedAt) {
       throw new PortfolioNotFoundError(`Portfolio ${parsed.portfolioId} was not archived.`);
@@ -732,6 +755,8 @@ export class PortfolioService {
 
     try {
       const holding = await this.repository.updateHolding({
+        userId: parsed.userId,
+        portfolioId: parsed.portfolioId,
         holdingId: parsed.holdingId,
         ticker: parsed.ticker,
         securityName: parsed.securityName,
@@ -767,7 +792,7 @@ export class PortfolioService {
       throw new HoldingNotFoundError(`Holding ${parsed.holdingId} was not found.`);
     }
 
-    await this.repository.removeHolding(parsed.holdingId);
+    await this.repository.removeHolding(parsed.userId, parsed.portfolioId, parsed.holdingId);
 
     return {
       holdingId: parsed.holdingId,

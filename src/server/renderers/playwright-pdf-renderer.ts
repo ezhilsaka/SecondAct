@@ -28,6 +28,7 @@ export class PlaywrightPdfRenderer implements PdfRenderer {
     try {
       browser = await chromium.launch({ headless: true });
       const context = await browser.newContext();
+      await context.route("**/*", (route) => route.abort());
       const page = await context.newPage();
 
       await page.setContent(html, { waitUntil: "networkidle" });

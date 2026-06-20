@@ -241,7 +241,7 @@ describe("PortfolioService", () => {
       portfolioId: TEST_PORTFOLIO_ID
     });
 
-    expect(repository.archivePortfolio).toHaveBeenCalledWith(TEST_PORTFOLIO_ID, NOW);
+    expect(repository.archivePortfolio).toHaveBeenCalledWith(TEST_USER_ID, TEST_PORTFOLIO_ID, NOW);
     expect(result).toEqual({
       portfolioId: TEST_PORTFOLIO_ID,
       archivedAt: "2026-06-16T10:30:00.000Z"
@@ -329,6 +329,8 @@ describe("PortfolioService", () => {
 
     expect(repository.findHoldingByTicker).not.toHaveBeenCalled();
     expect(repository.updateHolding).toHaveBeenCalledWith({
+      userId: TEST_USER_ID,
+      portfolioId: TEST_PORTFOLIO_ID,
       holdingId: TEST_HOLDING_ID,
       ticker: "AAPL",
       securityName: undefined,
@@ -365,7 +367,11 @@ describe("PortfolioService", () => {
       holdingId: TEST_HOLDING_ID
     });
 
-    expect(repository.removeHolding).toHaveBeenCalledWith(TEST_HOLDING_ID);
+    expect(repository.removeHolding).toHaveBeenCalledWith(
+      TEST_USER_ID,
+      TEST_PORTFOLIO_ID,
+      TEST_HOLDING_ID
+    );
     expect(result).toEqual({ holdingId: TEST_HOLDING_ID, removed: true });
   });
 });

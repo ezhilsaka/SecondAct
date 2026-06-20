@@ -110,12 +110,21 @@ describe("GET /api/v1/report-runs/:runId", () => {
   });
 
   it("returns 404 when report run is not found", async () => {
-    mockGetStatus.mockRejectedValue(new ReportRunNotFoundError("Not found"));
+    mockGetStatus.mockRejectedValue(
+      new ReportRunNotFoundError(`Report run ${TEST_RUN_ID} not found for user ${TEST_USER_ID}.`)
+    );
 
     const response = await GET(buildRequest(), buildParams());
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("REPORT_RUN_NOT_FOUND");
+    expect(json).toEqual({
+      error: {
+        code: "REPORT_RUN_NOT_FOUND",
+        message: "Report run not found."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_USER_ID);
+    expect(JSON.stringify(json)).not.toContain(TEST_RUN_ID);
   });
 });

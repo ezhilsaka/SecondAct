@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { readSearchParam } from "@/lib/auth/redirect";
-import {
-  PortfolioForm,
-  PORTFOLIO_FORM_ERROR_MESSAGES,
-  type PortfolioFormValues
-} from "@/components/portfolio/PortfolioForm";
+import { PortfolioForm, PORTFOLIO_FORM_ERROR_MESSAGES } from "@/components/portfolio/PortfolioForm";
 import { requireAuthenticatedUser } from "@/server/auth/supabase-server";
 import {
   PortfolioArchivedError,
@@ -30,25 +26,6 @@ export const metadata: Metadata = {
   description: "Edit Second Act portfolio details."
 };
 
-function readCurrency(
-  value: string | string[] | undefined,
-  fallback: PortfolioFormValues["baseCurrency"]
-): PortfolioFormValues["baseCurrency"] {
-  const currency = readSearchParam(value);
-  return currency === "USD" || currency === "CAD" ? currency : fallback;
-}
-
-function buildDefaultValues(
-  portfolio: PortfolioDetailResult,
-  params: Record<string, string | string[] | undefined> | undefined
-): PortfolioFormValues {
-  return {
-    name: readSearchParam(params?.name, portfolio.name) ?? portfolio.name,
-    baseCurrency: readCurrency(params?.baseCurrency, portfolio.baseCurrency),
-    description: readSearchParam(params?.description, portfolio.description ?? "") ?? ""
-  };
-}
-
 async function loadEditablePortfolio(portfolioId: string): Promise<PortfolioDetailResult> {
   const user = await requireAuthenticatedUser();
 
@@ -66,10 +43,7 @@ async function loadEditablePortfolio(portfolioId: string): Promise<PortfolioDeta
   }
 }
 
-export default async function EditPortfolioPage({
-  params,
-  searchParams
-}: EditPortfolioPageProps) {
+export default async function EditPortfolioPage({ params, searchParams }: EditPortfolioPageProps) {
   const { portfolioId } = await params;
   const portfolio = await loadEditablePortfolio(portfolioId);
   const query = await searchParams;
@@ -90,7 +64,11 @@ export default async function EditPortfolioPage({
       <PortfolioForm
         mode="edit"
         action={updatePortfolioFromForm}
-        defaultValues={buildDefaultValues(portfolio, query)}
+        defaultValues={{
+          name: portfolio.name,
+          baseCurrency: portfolio.baseCurrency,
+          description: portfolio.description ?? ""
+        }}
         errorMessage={errorMessage ?? null}
         cancelHref={`/app/portfolios/${portfolio.id}`}
         portfolioId={portfolio.id}

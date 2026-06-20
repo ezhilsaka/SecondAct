@@ -61,10 +61,12 @@ describe("parseServerEnv", () => {
     expect(parsedEnv.PLAYWRIGHT_BROWSER).toBe("chromium");
   });
 
-  it("coerces PAYMENT_GATE_ENABLED string to boolean", () => {
-    const parsedEnv = parseServerEnv(buildValidEnv({ PAYMENT_GATE_ENABLED: "true" }));
+  it("parses PAYMENT_GATE_ENABLED string values explicitly", () => {
+    const enabledEnv = parseServerEnv(buildValidEnv({ PAYMENT_GATE_ENABLED: "true" }));
+    const disabledEnv = parseServerEnv(buildValidEnv({ PAYMENT_GATE_ENABLED: "false" }));
 
-    expect(parsedEnv.PAYMENT_GATE_ENABLED).toBe(true);
+    expect(enabledEnv.PAYMENT_GATE_ENABLED).toBe(true);
+    expect(disabledEnv.PAYMENT_GATE_ENABLED).toBe(false);
   });
 
   it("surfaces aggregated validation errors", () => {

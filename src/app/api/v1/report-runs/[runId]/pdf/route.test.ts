@@ -99,23 +99,41 @@ describe("GET /api/v1/report-runs/:runId/pdf", () => {
   });
 
   it("returns 404 when report run is not found", async () => {
-    mockGetPdfSignedUrl.mockRejectedValue(new ReportRunNotFoundError("Not found"));
+    mockGetPdfSignedUrl.mockRejectedValue(
+      new ReportRunNotFoundError(`Report run ${TEST_RUN_ID} not found for user ${TEST_USER_ID}.`)
+    );
 
     const response = await GET(buildRequest(), buildParams());
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("REPORT_RUN_NOT_FOUND");
+    expect(json).toEqual({
+      error: {
+        code: "REPORT_RUN_NOT_FOUND",
+        message: "Report run not found."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_USER_ID);
+    expect(JSON.stringify(json)).not.toContain(TEST_RUN_ID);
   });
 
   it("returns 404 when artifact is not found", async () => {
-    mockGetPdfSignedUrl.mockRejectedValue(new ArtifactNotFoundError("Not completed"));
+    mockGetPdfSignedUrl.mockRejectedValue(
+      new ArtifactNotFoundError(`Report run ${TEST_RUN_ID} is not completed (status: PROCESSING).`)
+    );
 
     const response = await GET(buildRequest(), buildParams());
 
     expect(response.status).toBe(404);
     const json = await response.json();
-    expect(json.error.code).toBe("ARTIFACT_NOT_FOUND");
+    expect(json).toEqual({
+      error: {
+        code: "ARTIFACT_NOT_FOUND",
+        message: "PDF artifact is not available."
+      }
+    });
+    expect(JSON.stringify(json)).not.toContain(TEST_RUN_ID);
+    expect(JSON.stringify(json)).not.toContain("PROCESSING");
   });
 
   it("returns 502 when signed URL generation fails", async () => {

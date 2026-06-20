@@ -51,3 +51,10 @@ def test_quote_service_enforces_max_ticker_limit() -> None:
 
     with pytest.raises(RequestLimitExceededError):
         service.get_quotes(request)
+
+
+def test_market_data_request_rejects_unsafe_tickers() -> None:
+    with pytest.raises(ValueError, match="Tickers can only contain"):
+        MarketDataRequest.model_validate(
+            {"tickers": ["AAPL;DROP"], "reportingCurrency": "USD"}
+        )

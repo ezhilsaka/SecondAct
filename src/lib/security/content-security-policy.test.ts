@@ -16,6 +16,14 @@ describe("buildContentSecurityPolicy", () => {
     expect(scriptDirective).not.toContain("'unsafe-inline'");
   });
 
+  it("disables legacy object/plugin execution", () => {
+    const policy = buildContentSecurityPolicy({
+      nonce: "test-nonce"
+    });
+
+    expect(policy).toContain("object-src 'none'");
+  });
+
   it("allows the Supabase origin for auth requests", () => {
     const policy = buildContentSecurityPolicy({
       nonce: "test-nonce",

@@ -263,7 +263,7 @@ export class ReportRunService {
     // 1. Verify the user owns this portfolio
     const ownsPortfolio = await this.repository.verifyPortfolioOwnership(userId, portfolioId);
     if (!ownsPortfolio) {
-      throw new PortfolioNotFoundError(`Portfolio ${portfolioId} not found for user ${userId}.`);
+      throw new PortfolioNotFoundError("Portfolio not found.");
     }
 
     // 2. Create the report run in QUEUED status (payment gate is off)
@@ -359,9 +359,7 @@ export class ReportRunService {
 
     const run = await this.repository.getReportRunByIdAndUser(validatedRunId, validatedUserId);
     if (!run) {
-      throw new ReportRunNotFoundError(
-        `Report run ${validatedRunId} not found for user ${validatedUserId}.`
-      );
+      throw new ReportRunNotFoundError("Report run not found.");
     }
 
     return {
@@ -385,15 +383,11 @@ export class ReportRunService {
     // 1. Verify run exists, belongs to user, and is COMPLETED
     const run = await this.repository.getReportRunByIdAndUser(validatedRunId, validatedUserId);
     if (!run) {
-      throw new ReportRunNotFoundError(
-        `Report run ${validatedRunId} not found for user ${validatedUserId}.`
-      );
+      throw new ReportRunNotFoundError("Report run not found.");
     }
 
     if (run.status !== "COMPLETED") {
-      throw new ArtifactNotFoundError(
-        `Report run ${validatedRunId} is not completed (status: ${run.status}).`
-      );
+      throw new ArtifactNotFoundError("PDF artifact is not available.");
     }
 
     // 2. Find the artifact
@@ -402,7 +396,7 @@ export class ReportRunService {
       validatedUserId
     );
     if (!artifact) {
-      throw new ArtifactNotFoundError(`No PDF artifact found for report run ${validatedRunId}.`);
+      throw new ArtifactNotFoundError("PDF artifact is not available.");
     }
 
     // 3. Generate signed URL

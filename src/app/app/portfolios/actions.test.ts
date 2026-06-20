@@ -38,8 +38,7 @@ vi.mock("@/server/auth/supabase-server", () => ({
 }));
 
 vi.mock("@/server/services/portfolio-service", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("@/server/services/portfolio-service")>();
+  const original = await importOriginal<typeof import("@/server/services/portfolio-service")>();
 
   return {
     ...original,
@@ -110,9 +109,7 @@ describe("portfolio form actions", () => {
           description: "Long term"
         })
       )
-    ).rejects.toThrow(
-      `REDIRECT:/app/portfolios/${TEST_PORTFOLIO_ID}?status=portfolio_created`
-    );
+    ).rejects.toThrow(`REDIRECT:/app/portfolios/${TEST_PORTFOLIO_ID}?status=portfolio_created`);
 
     expect(mockCreatePortfolio).toHaveBeenCalledWith({
       userId: TEST_USER_ID,
@@ -130,16 +127,16 @@ describe("portfolio form actions", () => {
           portfolioId: TEST_PORTFOLIO_ID,
           name: "Retirement",
           baseCurrency: "EUR",
-          description: ""
+          description: "Sensitive retirement plan"
         })
       )
     ).rejects.toThrow("REDIRECT:");
 
     expect(mockRedirect).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `/app/portfolios/${TEST_PORTFOLIO_ID}/edit?error=invalid_currency`
-      )
+      `/app/portfolios/${TEST_PORTFOLIO_ID}/edit?error=invalid_currency`
     );
+    expect(mockRedirect).not.toHaveBeenCalledWith(expect.stringContaining("Retirement"));
+    expect(mockRedirect).not.toHaveBeenCalledWith(expect.stringContaining("Sensitive"));
     expect(mockUpdatePortfolio).not.toHaveBeenCalled();
   });
 
@@ -153,9 +150,7 @@ describe("portfolio form actions", () => {
           description: "Updated"
         })
       )
-    ).rejects.toThrow(
-      `REDIRECT:/app/portfolios/${TEST_PORTFOLIO_ID}?status=portfolio_updated`
-    );
+    ).rejects.toThrow(`REDIRECT:/app/portfolios/${TEST_PORTFOLIO_ID}?status=portfolio_updated`);
 
     expect(mockUpdatePortfolio).toHaveBeenCalledWith({
       userId: TEST_USER_ID,
@@ -166,9 +161,7 @@ describe("portfolio form actions", () => {
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/app/portfolios");
     expect(mockRevalidatePath).toHaveBeenCalledWith(`/app/portfolios/${TEST_PORTFOLIO_ID}`);
-    expect(mockRevalidatePath).toHaveBeenCalledWith(
-      `/app/portfolios/${TEST_PORTFOLIO_ID}/edit`
-    );
+    expect(mockRevalidatePath).toHaveBeenCalledWith(`/app/portfolios/${TEST_PORTFOLIO_ID}/edit`);
   });
 
   it("redirects invalid add holding submissions back to detail", async () => {

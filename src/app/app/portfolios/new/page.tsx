@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 
 import { readSearchParam } from "@/lib/auth/redirect";
-import {
-  PortfolioForm,
-  PORTFOLIO_FORM_ERROR_MESSAGES,
-  type PortfolioFormValues
-} from "@/components/portfolio/PortfolioForm";
+import { PortfolioForm, PORTFOLIO_FORM_ERROR_MESSAGES } from "@/components/portfolio/PortfolioForm";
 
 import { createPortfolioFromForm } from "../actions";
 import styles from "../form-page.module.css";
@@ -18,21 +14,6 @@ export const metadata: Metadata = {
   title: "Create Portfolio | Second Act",
   description: "Create a manual Second Act portfolio."
 };
-
-function readCurrency(value: string | string[] | undefined): PortfolioFormValues["baseCurrency"] {
-  const currency = readSearchParam(value);
-  return currency === "USD" ? "USD" : "CAD";
-}
-
-function readDefaultValues(
-  params: Record<string, string | string[] | undefined> | undefined
-): PortfolioFormValues {
-  return {
-    name: readSearchParam(params?.name, "") ?? "",
-    baseCurrency: readCurrency(params?.baseCurrency),
-    description: readSearchParam(params?.description, "") ?? ""
-  };
-}
 
 export default async function NewPortfolioPage({ searchParams }: NewPortfolioPageProps) {
   const params = await searchParams;
@@ -52,7 +33,7 @@ export default async function NewPortfolioPage({ searchParams }: NewPortfolioPag
       <PortfolioForm
         mode="create"
         action={createPortfolioFromForm}
-        defaultValues={readDefaultValues(params)}
+        defaultValues={{ name: "", baseCurrency: "CAD", description: "" }}
         errorMessage={errorMessage ?? null}
       />
     </div>

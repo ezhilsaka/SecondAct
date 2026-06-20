@@ -57,15 +57,15 @@ export function mapPortfolioServiceError(error: unknown): NextResponse | null {
   }
 
   if (error instanceof PortfolioNotFoundError) {
-    return buildPortfolioApiErrorResponse("PORTFOLIO_NOT_FOUND", error.message, 404);
+    return buildPortfolioApiErrorResponse("PORTFOLIO_NOT_FOUND", "Portfolio not found.", 404);
   }
 
   if (error instanceof PortfolioArchivedError) {
-    return buildPortfolioApiErrorResponse("PORTFOLIO_ARCHIVED", error.message, 404);
+    return buildPortfolioApiErrorResponse("PORTFOLIO_ARCHIVED", "Portfolio not found.", 404);
   }
 
   if (error instanceof HoldingNotFoundError) {
-    return buildPortfolioApiErrorResponse("HOLDING_NOT_FOUND", error.message, 404);
+    return buildPortfolioApiErrorResponse("HOLDING_NOT_FOUND", "Holding not found.", 404);
   }
 
   if (error instanceof DuplicateHoldingTickerError) {

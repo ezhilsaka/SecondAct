@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 
-import {
-  buildApiUnauthorizedResponse,
-  getAuthenticatedApiUserId
-} from "@/server/auth/api-auth";
+import { buildApiUnauthorizedResponse, getAuthenticatedApiUserId } from "@/server/auth/api-auth";
 import { uuidSchema } from "@/server/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -65,7 +62,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof PortfolioNotFoundError) {
       return NextResponse.json(
-        { error: { code: "PORTFOLIO_NOT_FOUND", message: error.message } },
+        { error: { code: "PORTFOLIO_NOT_FOUND", message: "Portfolio not found." } },
         { status: 404 }
       );
     }

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  buildApiUnauthorizedResponse,
-  getAuthenticatedApiUserId
-} from "@/server/auth/api-auth";
+import { buildApiUnauthorizedResponse, getAuthenticatedApiUserId } from "@/server/auth/api-auth";
 import { uuidSchema } from "@/server/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -39,7 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ runI
   } catch (error) {
     if (error instanceof ReportRunNotFoundError) {
       return NextResponse.json(
-        { error: { code: "REPORT_RUN_NOT_FOUND", message: error.message } },
+        { error: { code: "REPORT_RUN_NOT_FOUND", message: "Report run not found." } },
         { status: 404 }
       );
     }

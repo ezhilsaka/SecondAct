@@ -37,13 +37,19 @@ describe("/auth/logout", () => {
     signOutMock.mockResolvedValue({ error: null });
   });
 
-  it("signs out and redirects home on GET", async () => {
-    const response = await GET(buildRequest());
-    const location = getLocation(response);
+  it("rejects GET without signing out", async () => {
+    const response = await GET();
 
-    expect(signOutMock).toHaveBeenCalledTimes(1);
-    expect(location.pathname).toBe("/");
+    expect(response.status).toBe(405);
+    expect(response.headers.get("Allow")).toBe("POST");
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(signOutMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "METHOD_NOT_ALLOWED",
+        message: "Use POST to sign out."
+      }
+    });
   });
 
   it("signs out and redirects home on POST", async () => {
