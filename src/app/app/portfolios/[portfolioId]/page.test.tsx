@@ -94,7 +94,7 @@ describe("PortfolioDetailView", () => {
     expect(html).not.toContain("report-runs");
   });
 
-  it("renders holdings, edit/remove flows, and the ready placeholder action", () => {
+  it("renders holdings, lazy edit/remove toggles, and the ready placeholder action", () => {
     const html = renderToStaticMarkup(
       <PortfolioDetailView
         portfolio={buildPortfolioDetail()}
@@ -112,7 +112,10 @@ describe("PortfolioDetailView", () => {
     expect(html).toContain("101.25 USD");
     expect(html).toContain("202.5 USD");
     expect(html).toContain("Edit");
-    expect(html).toContain("Remove Holding");
+    expect(html).toContain("Remove");
+    expect(html).not.toContain("Save Holding");
+    expect(html).not.toContain("Remove Holding");
+    expect(html).not.toContain('name="holdingId"');
     expect(html).toContain("disabled");
     expect(html).not.toContain("market value");
   });

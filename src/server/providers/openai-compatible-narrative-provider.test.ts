@@ -7,10 +7,14 @@ import {
   NarrativeProviderAuthError,
   NarrativeProviderError,
   NarrativeProviderTimeoutError,
-  OpenAICompatibleNarrativeProvider
+  OpenAICompatibleNarrativeProvider,
+  type OpenAICompatibleNarrativeProviderOptions
 } from "@/server/providers/openai-compatible-narrative-provider";
 
-function createProvider(fetchImplementation: typeof fetch) {
+function createProvider(
+  fetchImplementation: typeof fetch,
+  options: Partial<Pick<OpenAICompatibleNarrativeProviderOptions, "logger" | "nowMs">> = {}
+) {
   return new OpenAICompatibleNarrativeProvider({
     providerName: "openai-compatible",
     baseUrl: "http://127.0.0.1:11434/v1",
@@ -18,8 +22,17 @@ function createProvider(fetchImplementation: typeof fetch) {
     model: "qwen3.5:9b",
     timeoutMs: 5000,
     fetchImplementation,
-    now: () => new Date("2026-04-06T12:30:00.000Z")
+    now: () => new Date("2026-04-06T12:30:00.000Z"),
+    ...options
   });
+}
+
+function createMockLogger() {
+  return {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  };
 }
 
 function buildSuccessfulResponse() {
@@ -208,7 +221,14 @@ describe("OpenAICompatibleNarrativeProvider", () => {
           headers: { "Content-Type": "application/json" }
         })
       );
-    const provider = createProvider(fetchMock);
+    const logger = createMockLogger();
+    const nowMs = vi
+      .fn()
+      .mockReturnValueOnce(1000)
+      .mockReturnValueOnce(1125)
+      .mockReturnValueOnce(2000)
+      .mockReturnValueOnce(2200);
+    const provider = createProvider(fetchMock, { logger, nowMs });
 
     const result = await provider.generateNarrative(narrativeInput);
 
@@ -220,6 +240,27 @@ describe("OpenAICompatibleNarrativeProvider", () => {
         ? JSON.parse(String(retryRequestInit.body))
         : null;
     expect(retryRequestBody.messages.at(-1)?.content).toContain("output_template");
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Narrative provider first attempt returned invalid structured output.",
+      expect.objectContaining({
+        event: "narrative_provider.first_attempt_invalid",
+        provider: "openai-compatible",
+        model: "qwen3.5:9b",
+        durationMs: 125,
+        errorMessage: expect.stringContaining("valid JSON")
+      })
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      "Narrative provider retry recovered structured output.",
+      expect.objectContaining({
+        event: "narrative_provider.retry_recovered",
+        provider: "openai-compatible",
+        model: "qwen3.5:9b",
+        firstAttemptDurationMs: 125,
+        retryDurationMs: 200
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it("fails fast for invalid narrative input", async () => {
@@ -327,12 +368,38 @@ describe("OpenAICompatibleNarrativeProvider", () => {
           { status: 200, headers: { "Content-Type": "application/json" } }
         )
       );
-    const provider = createProvider(fetchMock);
+    const logger = createMockLogger();
+    const nowMs = vi
+      .fn()
+      .mockReturnValueOnce(10)
+      .mockReturnValueOnce(20)
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(160);
+    const provider = createProvider(fetchMock, { logger, nowMs });
 
     await expect(provider.generateNarrative(narrativeInput)).rejects.toBeInstanceOf(
       NarrativeContractError
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Narrative provider first attempt returned invalid structured output.",
+      expect.objectContaining({
+        event: "narrative_provider.first_attempt_invalid",
+        durationMs: 10
+      })
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      "Narrative provider retry returned invalid structured output.",
+      expect.objectContaining({
+        event: "narrative_provider.retry_invalid",
+        provider: "openai-compatible",
+        model: "qwen3.5:9b",
+        firstAttemptDurationMs: 10,
+        retryDurationMs: 60,
+        errorMessage: expect.any(String)
+      })
+    );
+    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it("throws a transport error for non-timeout fetch failures", async () => {

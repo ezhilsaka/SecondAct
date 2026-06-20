@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_PORTFOLIO_ID = "22222222-2222-4222-8222-222222222222";
 
-const { mockListPortfolios, mockRequireAuthenticatedAppUser } = vi.hoisted(() => ({
-  mockListPortfolios: vi.fn(),
+const { mockGetDashboardSummary, mockRequireAuthenticatedAppUser } = vi.hoisted(() => ({
+  mockGetDashboardSummary: vi.fn(),
   mockRequireAuthenticatedAppUser: vi.fn()
 }));
 
@@ -20,7 +20,7 @@ vi.mock("@/server/services/portfolio-service", async (importOriginal) => {
   return {
     ...original,
     PortfolioService: class {
-      listPortfolios = mockListPortfolios;
+      getDashboardSummary = mockGetDashboardSummary;
     }
   };
 });
@@ -52,7 +52,9 @@ function buildPortfolio(
 
 describe("AppDashboardView", () => {
   it("renders an empty portfolio state with create link", () => {
-    const html = renderToStaticMarkup(<AppDashboardView portfolios={[]} />);
+    const html = renderToStaticMarkup(
+      <AppDashboardView portfolioCount={0} latestPortfolio={null} />
+    );
 
     expect(html).toContain("Portfolio management is live");
     expect(html).toContain("0 portfolios in this workspace");
@@ -66,14 +68,8 @@ describe("AppDashboardView", () => {
   it("renders portfolio count, latest portfolio, and portfolio list link", () => {
     const html = renderToStaticMarkup(
       <AppDashboardView
-        portfolios={[
-          buildPortfolio(),
-          buildPortfolio({
-            id: "44444444-4444-4444-8444-444444444444",
-            name: "Income",
-            updatedAt: "2026-01-01T12:00:00.000Z"
-          })
-        ]}
+        portfolioCount={2}
+        latestPortfolio={buildPortfolio()}
       />
     );
 
@@ -93,15 +89,18 @@ describe("AppDashboardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireAuthenticatedAppUser.mockResolvedValue({ id: TEST_USER_ID });
-    mockListPortfolios.mockResolvedValue({ portfolios: [buildPortfolio()] });
+    mockGetDashboardSummary.mockResolvedValue({
+      portfolioCount: 1,
+      latestPortfolio: buildPortfolio()
+    });
   });
 
-  it("loads portfolios for the authenticated user", async () => {
+  it("loads only the dashboard portfolio summary for the authenticated user", async () => {
     const jsx = await AppDashboardPage();
     const html = renderToStaticMarkup(jsx);
 
     expect(mockRequireAuthenticatedAppUser).toHaveBeenCalled();
-    expect(mockListPortfolios).toHaveBeenCalledWith(TEST_USER_ID);
+    expect(mockGetDashboardSummary).toHaveBeenCalledWith(TEST_USER_ID);
     expect(html).toContain("Retirement");
   });
 });

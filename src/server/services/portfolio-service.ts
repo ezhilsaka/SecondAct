@@ -184,6 +184,11 @@ export type PortfolioDetailResult = PortfolioSummaryResult & {
   holdings: PortfolioHoldingResult[];
 };
 
+export type PortfolioDashboardSummaryResult = {
+  portfolioCount: number;
+  latestPortfolio: PortfolioSummaryResult | null;
+};
+
 export type ArchivePortfolioResult = {
   portfolioId: string;
   archivedAt: string;
@@ -228,6 +233,11 @@ type PortfolioSummaryRow = {
 type PortfolioStatusRow = {
   id: string;
   archivedAt: Date | null;
+};
+
+type PortfolioDashboardSummaryRow = {
+  portfolioCount: number;
+  latestPortfolio: PortfolioSummaryRow | null;
 };
 
 type HoldingRow = {
@@ -289,6 +299,7 @@ export type UpdateHoldingRecordInput = {
 
 export interface PortfolioRepository {
   listActivePortfolios(userId: string): Promise<PortfolioSummaryRow[]>;
+  getActivePortfolioDashboardSummary(userId: string): Promise<PortfolioDashboardSummaryRow>;
   getPortfolioStatusByIdAndUser(
     userId: string,
     portfolioId: string
@@ -362,6 +373,28 @@ export class PrismaPortfolioRepository implements PortfolioRepository {
       },
       select: portfolioSummarySelect
     });
+  }
+
+  async getActivePortfolioDashboardSummary(userId: string): Promise<PortfolioDashboardSummaryRow> {
+    const where = {
+      userId,
+      archivedAt: null
+    } satisfies Prisma.PortfolioWhereInput;
+    const [portfolioCount, latestPortfolio] = await this.prismaClient.$transaction([
+      this.prismaClient.portfolio.count({ where }),
+      this.prismaClient.portfolio.findFirst({
+        where,
+        orderBy: {
+          updatedAt: "desc"
+        },
+        select: portfolioSummarySelect
+      })
+    ]);
+
+    return {
+      portfolioCount,
+      latestPortfolio
+    };
   }
 
   async getPortfolioStatusByIdAndUser(
@@ -649,6 +682,18 @@ export class PortfolioService {
 
     return {
       portfolios: portfolios.map(mapPortfolioSummary)
+    };
+  }
+
+  async getDashboardSummary(userId: string): Promise<PortfolioDashboardSummaryResult> {
+    const parsedUserId = uuidSchema.parse(userId);
+    const summary = await this.repository.getActivePortfolioDashboardSummary(parsedUserId);
+
+    return {
+      portfolioCount: summary.portfolioCount,
+      latestPortfolio: summary.latestPortfolio
+        ? mapPortfolioSummary(summary.latestPortfolio)
+        : null
     };
   }
 

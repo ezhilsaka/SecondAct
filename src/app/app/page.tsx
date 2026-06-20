@@ -1,12 +1,16 @@
 import Link from "next/link";
 
 import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
-import { PortfolioService, type PortfolioSummaryResult } from "@/server/services/portfolio-service";
+import {
+  PortfolioService,
+  type PortfolioSummaryResult
+} from "@/server/services/portfolio-service";
 
 import styles from "./page.module.css";
 
 type AppDashboardViewProps = {
-  portfolios: PortfolioSummaryResult[];
+  portfolioCount: number;
+  latestPortfolio: PortfolioSummaryResult | null;
 };
 
 function formatPortfolioCount(count: number): string {
@@ -25,10 +29,7 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export function AppDashboardView({ portfolios }: AppDashboardViewProps) {
-  const portfolioCount = portfolios.length;
-  const latestPortfolio = portfolios[0] ?? null;
-
+export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboardViewProps) {
   return (
     <div className={styles.dashboard}>
       <header className={styles.pageHeader}>
@@ -127,7 +128,13 @@ export function AppDashboardView({ portfolios }: AppDashboardViewProps) {
 
 export default async function AppDashboardPage() {
   const user = await requireAuthenticatedAppUser();
-  const { portfolios } = await new PortfolioService().listPortfolios(user.id);
+  const { portfolioCount, latestPortfolio } =
+    await new PortfolioService().getDashboardSummary(user.id);
 
-  return <AppDashboardView portfolios={portfolios} />;
+  return (
+    <AppDashboardView
+      portfolioCount={portfolioCount}
+      latestPortfolio={latestPortfolio}
+    />
+  );
 }

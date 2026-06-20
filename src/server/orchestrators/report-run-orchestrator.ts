@@ -429,7 +429,8 @@ export class ReportRunOrchestrator {
         portfolioId: run.portfolioId,
         paymentStatus: run.paymentStatus,
         stage,
-        durationMs: this.elapsedMs(stageStartedAtMs)
+        durationMs: this.elapsedMs(stageStartedAtMs),
+        ...this.getStageResultMetadata(stage, result)
       });
       return result;
     } catch (error) {
@@ -510,6 +511,18 @@ export class ReportRunOrchestrator {
   private elapsedMs(startedAtMs: number) {
     return Math.max(0, Math.round(this.nowMs() - startedAtMs));
   }
+
+  private getStageResultMetadata(stage: string, result: unknown): Record<string, unknown> {
+    if (stage !== "pdf_render" || !isRenderPdfResult(result)) {
+      return {};
+    }
+
+    return {
+      pdfRenderer: this.pdfRenderer.rendererName,
+      pdfByteSize: result.byteSize ?? null,
+      pdfMimeType: result.mimeType
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -541,4 +554,14 @@ function errorCategoryForCode(errorCode: string): string {
     default:
       return ORCHESTRATOR_ERROR_CATEGORIES.ORCHESTRATION_FAILURE;
   }
+}
+
+function isRenderPdfResult(result: unknown): result is RenderPdfResult {
+  if (!result || typeof result !== "object") {
+    return false;
+  }
+
+  const maybeResult = result as Partial<RenderPdfResult>;
+
+  return typeof maybeResult.filePath === "string" && maybeResult.mimeType === "application/pdf";
 }

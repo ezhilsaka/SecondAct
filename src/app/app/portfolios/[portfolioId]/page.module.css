@@ -70,7 +70,7 @@
 }
 
 .headerActions a,
-.rowActions summary,
+.rowActionToggle,
 .removeForm button {
   min-height: 40px;
   display: inline-flex;
@@ -90,8 +90,8 @@
 
 .headerActions a:hover,
 .headerActions a:focus-visible,
-.rowActions summary:hover,
-.rowActions summary:focus-visible,
+.rowActionToggle:hover,
+.rowActionToggle:focus-visible,
 .removeForm button:hover,
 .removeForm button:focus-visible {
   border-color: rgba(170, 207, 128, 0.5);
@@ -249,11 +249,8 @@
   flex-direction: column;
 }
 
-.rowActions details {
+.rowActionPanel {
   width: min(560px, 78vw);
-}
-
-.rowActions details[open] {
   display: grid;
   gap: 12px;
   border: 1px solid rgba(255, 248, 238, 0.1);
@@ -262,13 +259,8 @@
   padding: 10px;
 }
 
-.rowActions summary {
+.rowActionToggle {
   width: fit-content;
-  list-style: none;
-}
-
-.rowActions summary::-webkit-details-marker {
-  display: none;
 }
 
 .removeForm {

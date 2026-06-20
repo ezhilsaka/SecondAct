@@ -20,6 +20,10 @@ const NOW = new Date("2026-06-16T10:30:00.000Z");
 function buildMockRepository(overrides: Partial<PortfolioRepository> = {}): PortfolioRepository {
   return {
     listActivePortfolios: vi.fn().mockResolvedValue([]),
+    getActivePortfolioDashboardSummary: vi.fn().mockResolvedValue({
+      portfolioCount: 0,
+      latestPortfolio: null
+    }),
     getPortfolioStatusByIdAndUser: vi
       .fn()
       .mockResolvedValue({ id: TEST_PORTFOLIO_ID, archivedAt: null }),
@@ -149,6 +153,29 @@ describe("PortfolioService", () => {
           readiness: expect.objectContaining({ status: "NEEDS_HOLDINGS" })
         })
       ]
+    });
+  });
+
+  it("loads dashboard summary without listing every active portfolio", async () => {
+    const repository = buildMockRepository({
+      getActivePortfolioDashboardSummary: vi.fn().mockResolvedValue({
+        portfolioCount: 3,
+        latestPortfolio: buildPortfolioSummaryRow({ _count: { holdings: 2 } })
+      })
+    });
+    const service = new PortfolioService({ repository });
+
+    const result = await service.getDashboardSummary(TEST_USER_ID);
+
+    expect(repository.getActivePortfolioDashboardSummary).toHaveBeenCalledWith(TEST_USER_ID);
+    expect(repository.listActivePortfolios).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      portfolioCount: 3,
+      latestPortfolio: expect.objectContaining({
+        id: TEST_PORTFOLIO_ID,
+        holdingCount: 2,
+        readiness: expect.objectContaining({ status: "READY_FOR_REPORT" })
+      })
     });
   });
 

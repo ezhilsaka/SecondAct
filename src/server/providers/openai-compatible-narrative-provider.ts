@@ -33,6 +33,8 @@ export type OpenAICompatibleNarrativeProviderOptions = {
   timeoutMs: number;
   fetchImplementation?: FetchImplementation;
   now?: () => Date;
+  nowMs?: () => number;
+  logger?: Pick<typeof console, "info" | "warn" | "error">;
 };
 
 export class NarrativeClientInputError extends Error {
@@ -250,6 +252,8 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
   private readonly timeoutMs: number;
   private readonly fetchImplementation: FetchImplementation;
   private readonly now: () => Date;
+  private readonly nowMs: () => number;
+  private readonly logger: Pick<typeof console, "info" | "warn" | "error">;
 
   constructor(options: OpenAICompatibleNarrativeProviderOptions) {
     this.providerName = options.providerName.trim();
@@ -259,6 +263,8 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
     this.timeoutMs = options.timeoutMs;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
     this.now = options.now ?? (() => new Date());
+    this.nowMs = options.nowMs ?? (() => Date.now());
+    this.logger = options.logger ?? console;
 
     if (!this.providerName) {
       throw new NarrativeProviderError("NARRATIVE_PROVIDER must be configured.");
@@ -283,8 +289,10 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
     }
 
     const promptPayload = buildNarrativeExplainerUserPrompt(parsedInput.data);
+    const firstAttemptStartedAtMs = this.nowMs();
     const firstAttempt = await this.requestNarrative(promptPayload);
     const parsedFirstAttempt = this.parseModelPayload(firstAttempt);
+    const firstAttemptDurationMs = this.elapsedMs(firstAttemptStartedAtMs);
 
     if (parsedFirstAttempt.success) {
       validateReturnedStructure(parsedInput.data, parsedFirstAttempt.data);
@@ -298,22 +306,48 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
       );
     }
 
+    this.logger.warn("Narrative provider first attempt returned invalid structured output.", {
+      event: "narrative_provider.first_attempt_invalid",
+      provider: this.providerName,
+      model: this.model,
+      durationMs: firstAttemptDurationMs,
+      errorMessage: formatContractError(parsedFirstAttempt.error)
+    });
+
     const retryInstruction =
       "Your previous reply was not valid JSON that matched the required schema. Return ONLY valid JSON with the top-level key `sections`. Follow the provided `output_template` exactly: preserve the exact section count, preserve the exact metric count inside each section, and fill every slot in the template. Each section must contain `summary_narrative`, `key_takeaways`, and `metrics`. Each metric must contain only `narrative` and `takeaways`. Do not repeat section keys, section titles, metric names, or display names. Do not add markdown fences or extra commentary.";
+    const retryStartedAtMs = this.nowMs();
     const secondAttempt = await this.requestNarrative(
       promptPayload,
       retryInstruction,
       firstAttempt
     );
     const parsedSecondAttempt = this.parseModelPayload(secondAttempt);
+    const retryDurationMs = this.elapsedMs(retryStartedAtMs);
 
     if (!parsedSecondAttempt.success) {
+      this.logger.error("Narrative provider retry returned invalid structured output.", {
+        event: "narrative_provider.retry_invalid",
+        provider: this.providerName,
+        model: this.model,
+        firstAttemptDurationMs,
+        retryDurationMs,
+        errorMessage: formatContractError(parsedSecondAttempt.error)
+      });
+
       throw new NarrativeContractError(
         `Narrative provider returned invalid JSON output after retry: ${formatContractError(parsedSecondAttempt.error)}`
       );
     }
 
     validateReturnedStructure(parsedInput.data, parsedSecondAttempt.data);
+    this.logger.info("Narrative provider retry recovered structured output.", {
+      event: "narrative_provider.retry_recovered",
+      provider: this.providerName,
+      model: this.model,
+      firstAttemptDurationMs,
+      retryDurationMs
+    });
 
     return buildNarrativeOutput(
       parsedInput.data,
@@ -353,6 +387,10 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
         ])
       };
     }
+  }
+
+  private elapsedMs(startedAtMs: number) {
+    return Math.max(0, Math.round(this.nowMs() - startedAtMs));
   }
 
   private async requestNarrative(

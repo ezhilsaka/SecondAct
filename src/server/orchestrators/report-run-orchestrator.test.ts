@@ -296,6 +296,18 @@ describe("ReportRunOrchestrator", () => {
           durationMs: expect.any(Number)
         })
       );
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report run stage completed.",
+        expect.objectContaining({
+          event: "report_run.stage_completed",
+          runId: RUN_ID,
+          stage: "pdf_render",
+          durationMs: expect.any(Number),
+          pdfRenderer: "mock-renderer",
+          pdfByteSize: 1024,
+          pdfMimeType: "application/pdf"
+        })
+      );
     });
 
     it("logs overall processing completion duration", async () => {

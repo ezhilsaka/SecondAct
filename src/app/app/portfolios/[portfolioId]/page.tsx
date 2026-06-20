@@ -7,6 +7,7 @@ import {
   HoldingForm,
   type HoldingFormValues
 } from "@/components/portfolio/HoldingForm";
+import { HoldingRowActions } from "./HoldingRowActions";
 import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import {
   PortfolioArchivedError,
@@ -108,26 +109,6 @@ async function loadPortfolioDetail(portfolioId: string): Promise<PortfolioDetail
   }
 }
 
-function RemoveHoldingForm({
-  portfolioId,
-  holding
-}: {
-  portfolioId: string;
-  holding: PortfolioHoldingResult;
-}) {
-  return (
-    <form className={styles.removeForm} action={removeHoldingFromForm}>
-      <input type="hidden" name="portfolioId" value={portfolioId} />
-      <input type="hidden" name="holdingId" value={holding.id} />
-      <label>
-        <input type="checkbox" name="confirmRemove" required />
-        <span>Remove {holding.ticker} from this portfolio</span>
-      </label>
-      <button type="submit">Remove Holding</button>
-    </form>
-  );
-}
-
 function HoldingsTable({ portfolio }: { portfolio: PortfolioDetailResult }) {
   if (portfolio.holdings.length === 0) {
     return (
@@ -170,22 +151,13 @@ function HoldingsTable({ portfolio }: { portfolio: PortfolioDetailResult }) {
                 {formatDecimal(holding.estimatedCostBasis)} {holding.securityCurrency}
               </td>
               <td>
-                <div className={styles.rowActions}>
-                  <details>
-                    <summary>Edit</summary>
-                    <HoldingForm
-                      mode="edit"
-                      action={updateHoldingFromForm}
-                      portfolioId={portfolio.id}
-                      holdingId={holding.id}
-                      defaultValues={buildHoldingDefaults(holding)}
-                    />
-                  </details>
-                  <details>
-                    <summary>Remove</summary>
-                    <RemoveHoldingForm portfolioId={portfolio.id} holding={holding} />
-                  </details>
-                </div>
+                <HoldingRowActions
+                  portfolioId={portfolio.id}
+                  holding={holding}
+                  defaultValues={buildHoldingDefaults(holding)}
+                  updateAction={updateHoldingFromForm}
+                  removeAction={removeHoldingFromForm}
+                />
               </td>
             </tr>
           ))}
