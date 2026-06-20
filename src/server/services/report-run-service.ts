@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { quickAddJob } from "graphile-worker";
 
@@ -42,6 +42,7 @@ export type ReportRunRow = {
   id: string;
   userId: string;
   portfolioId: string;
+  portfolioName: string;
   status: string;
   paymentStatus: string;
   reportingCurrency: string;
@@ -52,6 +53,18 @@ export type ReportRunRow = {
   failedAt: Date | null;
 };
 
+export type ReportRunListOptions = {
+  portfolioId?: string;
+  limit?: number;
+};
+
+type NormalizedReportRunListOptions = {
+  portfolioId: string | undefined;
+  limit: number;
+};
+
+export type ReportRunListRow = ReportRunRow;
+
 export type ArtifactRow = {
   storageBucket: string;
   storagePath: string;
@@ -59,10 +72,72 @@ export type ArtifactRow = {
 
 export interface ReportRunRepository {
   verifyPortfolioOwnership(userId: string, portfolioId: string): Promise<boolean>;
+  verifyPortfolioBelongsToUser(userId: string, portfolioId: string): Promise<boolean>;
   createReportRun(input: CreateReportRunInput): Promise<{ id: string }>;
   deleteReportRun(runId: string): Promise<void>;
   getReportRunByIdAndUser(runId: string, userId: string): Promise<ReportRunRow | null>;
+  listReportRunsByUser(
+    userId: string,
+    options: NormalizedReportRunListOptions
+  ): Promise<ReportRunListRow[]>;
+  findActiveReportRunForPortfolio(
+    userId: string,
+    portfolioId: string
+  ): Promise<ReportRunListRow | null>;
   getArtifactForCompletedRun(runId: string, userId: string): Promise<ArtifactRow | null>;
+}
+
+const reportRunSelect = {
+  id: true,
+  userId: true,
+  portfolioId: true,
+  status: true,
+  paymentStatus: true,
+  reportingCurrency: true,
+  errorCode: true,
+  requestedAt: true,
+  startedAt: true,
+  completedAt: true,
+  failedAt: true,
+  portfolio: {
+    select: {
+      name: true
+    }
+  }
+} satisfies Prisma.ReportRunSelect;
+
+type PrismaReportRunRow = {
+  id: string;
+  userId: string;
+  portfolioId: string;
+  status: string;
+  paymentStatus: string;
+  reportingCurrency: string;
+  errorCode: string | null;
+  requestedAt: Date;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  failedAt: Date | null;
+  portfolio: {
+    name: string;
+  };
+};
+
+function mapReportRunRow(row: PrismaReportRunRow): ReportRunRow {
+  return {
+    id: row.id,
+    userId: row.userId,
+    portfolioId: row.portfolioId,
+    portfolioName: row.portfolio.name,
+    status: row.status,
+    paymentStatus: row.paymentStatus,
+    reportingCurrency: row.reportingCurrency,
+    errorCode: row.errorCode,
+    requestedAt: row.requestedAt,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    failedAt: row.failedAt
+  };
 }
 
 export class PrismaReportRunRepository implements ReportRunRepository {
@@ -71,6 +146,14 @@ export class PrismaReportRunRepository implements ReportRunRepository {
   async verifyPortfolioOwnership(userId: string, portfolioId: string): Promise<boolean> {
     const portfolio = await this.prismaClient.portfolio.findFirst({
       where: { id: portfolioId, userId, archivedAt: null },
+      select: { id: true }
+    });
+    return portfolio !== null;
+  }
+
+  async verifyPortfolioBelongsToUser(userId: string, portfolioId: string): Promise<boolean> {
+    const portfolio = await this.prismaClient.portfolio.findFirst({
+      where: { id: portfolioId, userId },
       select: { id: true }
     });
     return portfolio !== null;
@@ -91,22 +174,54 @@ export class PrismaReportRunRepository implements ReportRunRepository {
   }
 
   async getReportRunByIdAndUser(runId: string, userId: string): Promise<ReportRunRow | null> {
-    return this.prismaClient.reportRun.findFirst({
+    const run = await this.prismaClient.reportRun.findFirst({
       where: { id: runId, userId },
-      select: {
-        id: true,
-        userId: true,
-        portfolioId: true,
-        status: true,
-        paymentStatus: true,
-        reportingCurrency: true,
-        errorCode: true,
-        requestedAt: true,
-        startedAt: true,
-        completedAt: true,
-        failedAt: true
-      }
+      select: reportRunSelect
     });
+
+    return run ? mapReportRunRow(run) : null;
+  }
+
+  async listReportRunsByUser(
+    userId: string,
+    options: NormalizedReportRunListOptions
+  ): Promise<ReportRunListRow[]> {
+    const where = {
+      userId,
+      ...(options.portfolioId ? { portfolioId: options.portfolioId } : {})
+    } satisfies Prisma.ReportRunWhereInput;
+
+    const runs = await this.prismaClient.reportRun.findMany({
+      where,
+      orderBy: {
+        requestedAt: "desc"
+      },
+      take: options.limit,
+      select: reportRunSelect
+    });
+
+    return runs.map(mapReportRunRow);
+  }
+
+  async findActiveReportRunForPortfolio(
+    userId: string,
+    portfolioId: string
+  ): Promise<ReportRunListRow | null> {
+    const run = await this.prismaClient.reportRun.findFirst({
+      where: {
+        userId,
+        portfolioId,
+        status: {
+          in: ["QUEUED", "PROCESSING"]
+        }
+      },
+      orderBy: {
+        requestedAt: "desc"
+      },
+      select: reportRunSelect
+    });
+
+    return run ? mapReportRunRow(run) : null;
   }
 
   async deleteReportRun(runId: string): Promise<void> {
@@ -217,9 +332,28 @@ export type CreateReportRunResult = {
   status: string;
 };
 
+export type ReportRunSummaryResult = {
+  runId: string;
+  portfolioId: string;
+  portfolioName: string;
+  status: string;
+  paymentStatus: string;
+  reportingCurrency: string;
+  errorCode: string | null;
+  requestedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+};
+
+export type ReportRunListResult = {
+  reportRuns: ReportRunSummaryResult[];
+};
+
 export type ReportRunStatusResult = {
   runId: string;
   portfolioId: string;
+  portfolioName: string;
   status: string;
   paymentStatus: string;
   reportingCurrency: string;
@@ -234,6 +368,44 @@ export type PdfSignedUrlResult = {
   signedUrl: string;
   expiresInSeconds: number;
 };
+
+const DEFAULT_REPORT_RUN_LIST_LIMIT = 20;
+const MAX_REPORT_RUN_LIST_LIMIT = 50;
+const ACTIVE_REPORT_RUN_STATUSES = new Set(["QUEUED", "PROCESSING"]);
+
+function normalizeReportRunListOptions(
+  options: ReportRunListOptions = {}
+): NormalizedReportRunListOptions {
+  const portfolioId = options.portfolioId ? uuidSchema.parse(options.portfolioId) : undefined;
+  const limit = options.limit ?? DEFAULT_REPORT_RUN_LIST_LIMIT;
+
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_REPORT_RUN_LIST_LIMIT) {
+    throw new Error(
+      `Report run list limit must be an integer from 1 to ${MAX_REPORT_RUN_LIST_LIMIT}.`
+    );
+  }
+
+  return {
+    portfolioId,
+    limit
+  };
+}
+
+function mapReportRunSummary(row: ReportRunRow): ReportRunSummaryResult {
+  return {
+    runId: row.id,
+    portfolioId: row.portfolioId,
+    portfolioName: row.portfolioName,
+    status: row.status,
+    paymentStatus: row.paymentStatus,
+    reportingCurrency: row.reportingCurrency,
+    errorCode: row.errorCode,
+    requestedAt: row.requestedAt.toISOString(),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    failedAt: row.failedAt?.toISOString() ?? null
+  };
+}
 
 export class ReportRunService {
   private readonly repository: ReportRunRepository;
@@ -365,6 +537,7 @@ export class ReportRunService {
     return {
       runId: run.id,
       portfolioId: run.portfolioId,
+      portfolioName: run.portfolioName,
       status: run.status,
       paymentStatus: run.paymentStatus,
       reportingCurrency: run.reportingCurrency,
@@ -374,6 +547,49 @@ export class ReportRunService {
       completedAt: run.completedAt?.toISOString() ?? null,
       failedAt: run.failedAt?.toISOString() ?? null
     };
+  }
+
+  async listReportRunsForUser(
+    userId: string,
+    options: ReportRunListOptions = {}
+  ): Promise<ReportRunListResult> {
+    const validatedUserId = uuidSchema.parse(userId);
+    const listOptions = normalizeReportRunListOptions(options);
+
+    if (listOptions.portfolioId) {
+      const ownsPortfolio = await this.repository.verifyPortfolioBelongsToUser(
+        validatedUserId,
+        listOptions.portfolioId
+      );
+
+      if (!ownsPortfolio) {
+        throw new PortfolioNotFoundError("Portfolio not found.");
+      }
+    }
+
+    const runs = await this.repository.listReportRunsByUser(validatedUserId, listOptions);
+
+    return {
+      reportRuns: runs.map(mapReportRunSummary)
+    };
+  }
+
+  async findActiveReportRunForPortfolio(
+    userId: string,
+    portfolioId: string
+  ): Promise<ReportRunSummaryResult | null> {
+    const validatedUserId = uuidSchema.parse(userId);
+    const validatedPortfolioId = uuidSchema.parse(portfolioId);
+    const run = await this.repository.findActiveReportRunForPortfolio(
+      validatedUserId,
+      validatedPortfolioId
+    );
+
+    if (!run || !ACTIVE_REPORT_RUN_STATUSES.has(run.status)) {
+      return null;
+    }
+
+    return mapReportRunSummary(run);
   }
 
   async getPdfSignedUrl(runId: string, userId: string): Promise<PdfSignedUrlResult> {

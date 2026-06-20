@@ -52,6 +52,7 @@ describe("GET /api/v1/report-runs/:runId", () => {
     const statusResult = {
       runId: TEST_RUN_ID,
       portfolioId: TEST_PORTFOLIO_ID,
+      portfolioName: "Retirement Portfolio",
       status: "PROCESSING",
       paymentStatus: "NOT_REQUIRED",
       reportingCurrency: "CAD",
@@ -75,6 +76,7 @@ describe("GET /api/v1/report-runs/:runId", () => {
     mockGetStatus.mockResolvedValue({
       runId: TEST_RUN_ID,
       portfolioId: TEST_PORTFOLIO_ID,
+      portfolioName: "Retirement Portfolio",
       status: "QUEUED",
       paymentStatus: "NOT_REQUIRED",
       reportingCurrency: "CAD",

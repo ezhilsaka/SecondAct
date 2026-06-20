@@ -13,6 +13,85 @@ const createReportRunBodySchema = z.object({
   reportingCurrency: z.enum(["USD", "CAD"])
 });
 
+const MAX_REPORT_RUN_LIST_LIMIT = 50;
+
+const listReportRunsQuerySchema = z.object({
+  portfolioId: uuidSchema.optional(),
+  limit: z.preprocess((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return Number(value);
+  }, z.number().int().min(1).max(MAX_REPORT_RUN_LIST_LIMIT).optional())
+});
+
+function parseListReportRunsQuery(request: Request): z.infer<typeof listReportRunsQuerySchema> {
+  const url = new URL(request.url);
+  const portfolioId = url.searchParams.get("portfolioId") ?? undefined;
+  const limit = url.searchParams.get("limit") ?? undefined;
+
+  return listReportRunsQuerySchema.parse({
+    portfolioId,
+    limit
+  });
+}
+
+function buildValidationErrorResponse(error: ZodError) {
+  return NextResponse.json(
+    {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: error.issues.map((i) => i.message).join("; ")
+      }
+    },
+    { status: 400 }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/report-runs
+// ---------------------------------------------------------------------------
+
+export async function GET(request: Request) {
+  const userId = await getAuthenticatedApiUserId();
+
+  if (!userId) {
+    return buildApiUnauthorizedResponse();
+  }
+
+  let query: z.infer<typeof listReportRunsQuerySchema>;
+  try {
+    query = parseListReportRunsQuery(request);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return buildValidationErrorResponse(error);
+    }
+
+    throw error;
+  }
+
+  const { ReportRunService, PortfolioNotFoundError } =
+    await import("@/server/services/report-run-service");
+  try {
+    const service = new ReportRunService();
+    const result = await service.listReportRunsForUser(userId, {
+      portfolioId: query.portfolioId,
+      limit: query.limit
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof PortfolioNotFoundError) {
+      return NextResponse.json(
+        { error: { code: "PORTFOLIO_NOT_FOUND", message: "Portfolio not found." } },
+        { status: 404 }
+      );
+    }
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/v1/report-runs
 // ---------------------------------------------------------------------------
@@ -31,15 +110,7 @@ export async function POST(request: Request) {
     body = createReportRunBodySchema.parse(raw);
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "VALIDATION_ERROR",
-            message: error.issues.map((i) => i.message).join("; ")
-          }
-        },
-        { status: 400 }
-      );
+      return buildValidationErrorResponse(error);
     }
     return NextResponse.json(
       { error: { code: "INVALID_BODY", message: "Request body must be valid JSON." } },

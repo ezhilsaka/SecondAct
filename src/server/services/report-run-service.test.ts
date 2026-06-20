@@ -29,9 +29,12 @@ const BASE_ENV = {
 function buildMockRepository(overrides: Partial<ReportRunRepository> = {}): ReportRunRepository {
   return {
     verifyPortfolioOwnership: vi.fn().mockResolvedValue(true),
+    verifyPortfolioBelongsToUser: vi.fn().mockResolvedValue(true),
     createReportRun: vi.fn().mockResolvedValue({ id: TEST_RUN_ID }),
     deleteReportRun: vi.fn().mockResolvedValue(undefined),
     getReportRunByIdAndUser: vi.fn().mockResolvedValue(null),
+    listReportRunsByUser: vi.fn().mockResolvedValue([]),
+    findActiveReportRunForPortfolio: vi.fn().mockResolvedValue(null),
     getArtifactForCompletedRun: vi.fn().mockResolvedValue(null),
     ...overrides
   };
@@ -63,6 +66,7 @@ function buildRunRow(overrides: Record<string, unknown> = {}) {
     id: TEST_RUN_ID,
     userId: TEST_USER_ID,
     portfolioId: TEST_PORTFOLIO_ID,
+    portfolioName: "Retirement Portfolio",
     status: "QUEUED",
     paymentStatus: "NOT_REQUIRED",
     reportingCurrency: "CAD",
@@ -285,6 +289,144 @@ describe("ReportRunService", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // listReportRunsForUser
+  // ---------------------------------------------------------------------------
+
+  describe("listReportRunsForUser", () => {
+    it("lists user-owned report runs with safe metadata", async () => {
+      const run = buildRunRow({
+        status: "COMPLETED",
+        completedAt: new Date("2025-01-01T00:05:00Z")
+      });
+      const repository = buildMockRepository({
+        listReportRunsByUser: vi.fn().mockResolvedValue([run])
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      const result = await service.listReportRunsForUser(TEST_USER_ID);
+
+      expect(repository.verifyPortfolioBelongsToUser).not.toHaveBeenCalled();
+      expect(repository.listReportRunsByUser).toHaveBeenCalledWith(TEST_USER_ID, {
+        portfolioId: undefined,
+        limit: 20
+      });
+      expect(result).toEqual({
+        reportRuns: [
+          {
+            runId: TEST_RUN_ID,
+            portfolioId: TEST_PORTFOLIO_ID,
+            portfolioName: "Retirement Portfolio",
+            status: "COMPLETED",
+            paymentStatus: "NOT_REQUIRED",
+            reportingCurrency: "CAD",
+            errorCode: null,
+            requestedAt: "2025-01-01T00:00:00.000Z",
+            startedAt: null,
+            completedAt: "2025-01-01T00:05:00.000Z",
+            failedAt: null
+          }
+        ]
+      });
+      expect(result.reportRuns[0]).not.toHaveProperty("canonicalSnapshot");
+      expect(result.reportRuns[0]).not.toHaveProperty("analysisOutput");
+      expect(result.reportRuns[0]).not.toHaveProperty("narrativeOutput");
+      expect(result.reportRuns[0]).not.toHaveProperty("errorDetails");
+    });
+
+    it("lists runs for one owned portfolio", async () => {
+      const run = buildRunRow();
+      const repository = buildMockRepository({
+        verifyPortfolioBelongsToUser: vi.fn().mockResolvedValue(true),
+        listReportRunsByUser: vi.fn().mockResolvedValue([run])
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      const result = await service.listReportRunsForUser(TEST_USER_ID, {
+        portfolioId: TEST_PORTFOLIO_ID,
+        limit: 10
+      });
+
+      expect(repository.verifyPortfolioBelongsToUser).toHaveBeenCalledWith(
+        TEST_USER_ID,
+        TEST_PORTFOLIO_ID
+      );
+      expect(repository.listReportRunsByUser).toHaveBeenCalledWith(TEST_USER_ID, {
+        portfolioId: TEST_PORTFOLIO_ID,
+        limit: 10
+      });
+      expect(result.reportRuns).toHaveLength(1);
+      expect(result.reportRuns[0]?.portfolioId).toBe(TEST_PORTFOLIO_ID);
+    });
+
+    it("does not leak runs when portfolio filtering targets a not-owned portfolio", async () => {
+      const repository = buildMockRepository({
+        verifyPortfolioBelongsToUser: vi.fn().mockResolvedValue(false),
+        listReportRunsByUser: vi.fn().mockResolvedValue([buildRunRow()])
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      await expect(
+        service.listReportRunsForUser(TEST_USER_ID, {
+          portfolioId: TEST_PORTFOLIO_ID
+        })
+      ).rejects.toThrow(PortfolioNotFoundError);
+
+      expect(repository.listReportRunsByUser).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // findActiveReportRunForPortfolio
+  // ---------------------------------------------------------------------------
+
+  describe("findActiveReportRunForPortfolio", () => {
+    it("finds an active queued or processing report run for a portfolio", async () => {
+      const run = buildRunRow({
+        status: "PROCESSING",
+        startedAt: new Date("2025-01-01T00:01:00Z")
+      });
+      const repository = buildMockRepository({
+        findActiveReportRunForPortfolio: vi.fn().mockResolvedValue(run)
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      const result = await service.findActiveReportRunForPortfolio(
+        TEST_USER_ID,
+        TEST_PORTFOLIO_ID
+      );
+
+      expect(repository.findActiveReportRunForPortfolio).toHaveBeenCalledWith(
+        TEST_USER_ID,
+        TEST_PORTFOLIO_ID
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          runId: TEST_RUN_ID,
+          portfolioId: TEST_PORTFOLIO_ID,
+          status: "PROCESSING"
+        })
+      );
+    });
+
+    it("does not treat completed or failed runs as active", async () => {
+      const repository = buildMockRepository({
+        findActiveReportRunForPortfolio: vi
+          .fn()
+          .mockResolvedValueOnce(buildRunRow({ status: "COMPLETED" }))
+          .mockResolvedValueOnce(buildRunRow({ status: "FAILED" }))
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      await expect(
+        service.findActiveReportRunForPortfolio(TEST_USER_ID, TEST_PORTFOLIO_ID)
+      ).resolves.toBeNull();
+      await expect(
+        service.findActiveReportRunForPortfolio(TEST_USER_ID, TEST_PORTFOLIO_ID)
+      ).resolves.toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // getStatus
   // ---------------------------------------------------------------------------
 
@@ -305,6 +447,7 @@ describe("ReportRunService", () => {
       expect(result).toEqual({
         runId: TEST_RUN_ID,
         portfolioId: TEST_PORTFOLIO_ID,
+        portfolioName: "Retirement Portfolio",
         status: "PROCESSING",
         paymentStatus: "NOT_REQUIRED",
         reportingCurrency: "CAD",
