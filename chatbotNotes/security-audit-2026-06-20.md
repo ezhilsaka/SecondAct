@@ -1,13 +1,23 @@
 # Security Audit: Repo Deep Dive
 
-**Reviewed by:** Security Engineer persona  
-**Date:** 2026-06-20  
-**Scope:** Current Second Act worktree, with focus on Next.js App Router auth, API routes, server actions, Prisma data access, CSP/security headers, env parsing, and report artifact access.  
-**Status:** Fixes applied for confirmed repo-evidence issues, including approved high-severity npm audit remediations. Low/moderate dependency advisories remain tracked separately where npm's force path would downgrade or break core tooling.
+- **Reviewed by:** Security Engineer persona
+- **Date:** 2026-06-20
+- **Audit checkpoint commit:** `cd35760b325665fac2adbc7161701a7555690cbe` (`PerformanceFixes-2`, committed 2026-06-20 17:27:51 -04:00)
+- **Scope:** Current Second Act worktree, with focus on Next.js App Router auth, API routes, server actions, Prisma data access, CSP/security headers, env parsing, and report artifact access.
+- **Status:** Security audit completed through the checkpoint commit above. All confirmed repo-evidence findings from this audit are fixed except the two explicitly tracked pending items: moderate/low dependency advisories not force-fixed, and app-side rate limiting for pre-public launch.
 
 ## Summary
 
-The app already had strong foundations in the current worktree: request-level auth in `src/proxy.ts`, route-level API auth, server-side user identity sourcing, Supabase auth helpers, Zod validation, Prisma parameterization, untracked `.env`, and security headers/CSP. The audit found several concrete hardening gaps that could disclose sensitive metadata or weaken security controls. All confirmed code-level issues listed below were fixed with focused security-only changes, regression tests, and a non-force dependency audit fix for high-severity advisories.
+The app already had strong foundations in the current worktree: request-level auth in `src/proxy.ts`, route-level API auth, server-side user identity sourcing, Supabase auth helpers, Zod validation, Prisma parameterization, untracked `.env`, and security headers/CSP. The audit found several concrete hardening gaps that could disclose sensitive metadata or weaken security controls. All confirmed code-level issues listed below were fixed with focused security-only changes, regression tests, and a non-force dependency audit fix for high-severity advisories. Future security audit work should start from code added after the checkpoint commit, while carrying forward only the two pending items listed in `Remaining Recommendations`.
+
+## Remediation Workflow
+
+Handle the remaining audit items one at a time in the sequence below. After each fix, update this audit document before moving to the next item: record the status change, the exact resolution, files changed, functional-impact notes, and the verification commands/results for that fix.
+
+1. Moderate/low dependency advisories not force-fixed - resolve through planned Next/Prisma/tooling upgrades or approved targeted overrides; do not use `npm audit fix --force` without a separate compatibility plan.
+2. App-side rate limiting for pre-public launch - add product-approved limits for auth, report creation, and market-data search while preserving normal user workflows.
+
+No other audit findings are pending from this security review.
 
 ## Fixed Findings
 
