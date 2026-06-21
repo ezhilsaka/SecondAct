@@ -37,8 +37,9 @@ Current status:
 - Stage 6 report history/list UI: complete
 - Stage 7 failure, retry, and long-running state polish: complete
 - Stage 8 local end-to-end report generation validation: complete
-- Stage 9 full verification and quality gate: not started
-- Stage 10 documentation updates: in progress through this execution file
+- Stage 9 full verification and quality gate: complete
+- Stage 10 documentation updates: complete
+- Post-Step 10 remainder-of-plan audit: complete
 
 Review checkpoint:
 
@@ -47,11 +48,14 @@ Review checkpoint:
 - User then requested implementation only through Step 5 and Step 6, then stop before Step 7.
 - User then requested implementation only through Step 7, then stop before Step 8.
 - User then requested implementation only through Step 8, then stop before Step 9.
+- User then requested implementation only through Step 9 and Step 10, then stop before the next step.
+- User then requested the remainder of the planning document after Step 10 be audited before calling Phase 4 complete.
 - No UX clarification blocked Step 3 or Step 4 because the planning document already called for the ready portfolio action, compact USD/CAD selector, redirect to status page, and 2-3 second polling behavior.
 - No UX clarification blocked Step 5 or Step 6 because the planning document already called for completion-only PDF access, friendly PDF errors, a Reports history route, live navigation, and portfolio-detail report previews.
 - No UX clarification blocked Step 7 because the planning document already included failure-copy mapping, retry behavior, and calm long-running queued/processing copy.
 - No UX clarification blocked Step 8 because the planning document already called for local Next.js, worker, market-data adapter, valid narrative-provider env, authenticated browser flow, ready portfolio, Supabase row checks, storage checks, and practical failure drills.
-- No backend knowledge base update was required for Step 3 through Step 8 because no new durable product clarification was discussed beyond the existing Phase 4 plan.
+- No UX clarification blocked Step 9 or Step 10 because the planning document already listed the full quality gate, manual verification checklist, and documentation update scope.
+- A backend knowledge base update was added during the post-Step 10 remainder audit because the Phase 3 report-placeholder entries needed a current Phase 4 superseding note.
 
 ## 4) Stage 0: Baseline And Current-State Audit
 
@@ -586,11 +590,184 @@ Verification:
 - `npm run lint`: passed
 - `git diff --check`: passed
 
-## 13) Current Stop Point
+## 13) Stage 9: Full Verification And Quality Gate
+
+Status: complete on 2026-06-21.
+
+Goal:
+
+- Verify Phase 4 before signoff.
+
+Automated verification:
+
+- `npm test`: passed, 439 tests across 63 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm run build`: passed
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed, 26 tests
+- `git diff --check`: passed
+- `npm run security:audit`: not run because no dependency manifest or lockfile changes were made in Step 9 or Step 10.
+
+Manual verification:
+
+- Signed-in ready portfolio happy path:
+  - Covered by Stage 8 run `001ca892-5329-4cec-93a7-a1e2a8ea0f39`.
+  - Ready portfolio `df05817f-f37b-48c3-a70b-36e920b64df4` generated a completed report and PDF artifact.
+- Signed-in not-ready portfolio blocked path:
+  - Created isolated Step 9 user/profile `19f07974-95de-45e2-b24e-abf224f59d2e`.
+  - Created empty owned portfolio `ca128e25-ec1d-481a-bc97-9e5799190cf6`.
+  - Browser showed `Needs holdings`, holding count `0`, copy `Add at least one holding`, and disabled `Add holdings first`.
+- Report status polling path:
+  - Covered by Stage 8 happy path and revalidated after the polling fix with failure-drill run `055f037e-2d3b-4b98-9c1c-f9d824e19e65`.
+  - Browser updated from active status to `FAILED` without a manual route refresh after the fix.
+- Completed PDF access path:
+  - Covered by Stage 8 completed run `001ca892-5329-4cec-93a7-a1e2a8ea0f39`.
+  - Signed Supabase Storage request returned `200 OK`, `content-type: application/pdf`, and `content-length: 241698`.
+- Failed status display path:
+  - Covered by Stage 8 market-data-adapter failure drill.
+  - Browser showed `FAILED`, friendly market-data snapshot message, failed timestamp, and `Retry report`.
+- Report history path:
+  - Covered by Stage 8 global `/app/reports` history and portfolio-detail report preview/history.
+  - Step 9 user with no report runs saw the empty report-history state, proving another user's runs were not listed.
+- Signed-out app route guard:
+  - `GET http://localhost:3000/app`: returned `307` with location `/login?next=%2Fapp`.
+- Signed-out report API:
+  - `GET http://localhost:3000/api/v1/report-runs`: returned `401` with error code `UNAUTHORIZED`.
+- Cross-user/not-owned report status and PDF access:
+  - Step 9 user `19f07974-95de-45e2-b24e-abf224f59d2e` attempted to open Stage 8 user report `001ca892-5329-4cec-93a7-a1e2a8ea0f39`.
+  - Browser status page rendered safe 404.
+  - `GET /api/v1/report-runs/001ca892-5329-4cec-93a7-a1e2a8ea0f39`: returned `404` with `REPORT_RUN_NOT_FOUND`.
+  - `GET /api/v1/report-runs/001ca892-5329-4cec-93a7-a1e2a8ea0f39/pdf`: returned `404` with `REPORT_RUN_NOT_FOUND`.
+  - No cross-user report metadata or signed PDF URL was exposed.
+
+Notes:
+
+- Local Next.js dev server was started for manual verification and stopped after the checks.
+- No worker or market-data adapter was required for the Step 9 not-ready, signed-out, and cross-user checks.
+
+## 14) Stage 10: Documentation Updates
+
+Status: complete on 2026-06-21.
+
+Goal:
+
+- Preserve the head-office context for the next phase.
+
+Documentation updates:
+
+- `chatbotNotes/phase-4-report-generation-ui-execution.md`
+  - Updated through Stage 9 and Stage 10.
+  - Records implementation, automated verification, manual verification, caveats, and final stop point.
+- `chatbotNotes/manual-testing-steps.md`
+  - Already updated with a reusable Phase 4 manual QA runbook.
+  - Covers setup, report generation, status, PDF, history, Supabase verification, signed-out/cross-user checks, failure drills, retry, cleanup, and signoff fields.
+- `chatbotNotes/backend-knowledge-base.md`
+  - Reviewed for Step 10.
+  - No Step 10 update was required at the time because Step 9 and Step 10 introduced no new durable product/architecture clarification beyond the existing Phase 4 plan and execution evidence.
+  - Updated during the post-Step 10 remainder audit with a current Phase 4 note superseding the Phase 3 report-generation placeholder state.
+- `chatbotNotes/production-readiness.md`
+  - Reviewed for Step 10.
+  - No update required because the already-recorded production caveats still cover the Phase 4 findings:
+    - production-hosted Graphile worker required
+    - production-ready market-data provider/service required
+    - narrative/model readiness remains a production improvement
+    - auth branding and secret-handling readiness remain production prerequisites
+
+Phase 4 acceptance criteria closeout:
+
+1. Ready portfolio detail shows a real generate-report action: complete.
+2. Not-ready portfolio detail blocks report generation with clear copy: complete.
+3. Generate action defaults reporting currency to portfolio base currency: complete.
+4. Generate action creates a report run using the authenticated user session: complete.
+5. Generate action does not trust spoofed user IDs from client input: complete.
+6. Accidental duplicate active generation is prevented or redirected to the active run: complete.
+7. Successful generation redirects to `/app/reports/[runId]`: complete.
+8. Report status page renders queued state: complete.
+9. Report status page renders processing state: complete.
+10. Report status page renders completed state: complete.
+11. Report status page renders failed state with friendly copy: complete.
+12. Browser polling updates queued/processing runs and stops on terminal states: complete.
+13. Completed reports expose an open/download PDF action through the signed-URL endpoint: complete.
+14. Signed URL failures and missing artifacts show user-friendly messages: complete.
+15. `/app/reports` lists the signed-in user's report history: complete.
+16. Report history does not expose another user's runs: complete.
+17. Portfolio detail shows useful report context, such as active/latest report link: complete.
+18. App shell includes a live Reports navigation item: complete.
+19. Existing report APIs remain authenticated and ownership-scoped: complete.
+20. Full local happy path can generate and download at least one PDF when Next, worker, Python adapter, Supabase, and narrative provider are running: complete.
+21. Tests, typecheck, lint, build, and relevant Python tests pass: complete.
+22. Phase 4 execution notes record implementation, verification, manual caveats, and signoff status: complete.
+
+## 15) Post-Step 10 Remainder-Of-Plan Audit
+
+Status: complete on 2026-06-21.
+
+Goal:
+
+- Audit the planning-document sections after Stage 10 and close any remaining Phase 4 work before signoff.
+
+Findings:
+
+- Acceptance criteria:
+  - All 22 Phase 4 acceptance criteria were already covered by the Stage 9/10 implementation, tests, and manual validation evidence.
+  - During the audit, the `/app` dashboard still had stale future-facing report copy from Phase 3.
+  - Fixed the dashboard copy so it now says report generation is live and points users to ready portfolios and Reports history.
+  - Added a dashboard test assertion to prevent the old `Report generation comes next` copy from returning.
+- Suggested implementation order:
+  - Items 1 through 16 are complete or superseded by the completed Stage 0 through Stage 10 work.
+  - The extra acceptance-criteria review requested in item 16 is now complete in this section.
+- Risks and watchpoints:
+  - Worker not running:
+    - Covered by queued/long-running UI copy and the Phase 4 manual testing setup instructions for `npm run worker:dev`.
+    - No additional implementation required.
+  - Market-data adapter not running:
+    - Covered by manual testing setup instructions and friendly canonical/market-data failure copy.
+    - The Stage 8 failure drill verified the browser failure state and retry action.
+    - No additional implementation required.
+  - Narrative provider latency or failure:
+    - Covered by polling behavior, calm active-state copy, retryable failure presentation, and no exact completion-time promise.
+    - No additional implementation required.
+  - Duplicate runs and cost:
+    - Covered by pending submit state and active-run detection/redirect behavior.
+    - Stronger idempotency remains a later option if real production cost risk increases.
+    - No Phase 4 blocker remains.
+  - Signed URL expiry:
+    - Covered by on-demand signed URL requests from the PDF button and friendly signed-URL/artifact failures.
+    - No additional implementation required.
+  - Error leakage:
+    - Covered by API and UI safe summaries, friendly error-code mapping, and tests that keep raw `errorDetails`/pipeline JSON out of status and history responses.
+    - No additional implementation required.
+  - Production readiness confusion:
+    - Existing `production-readiness.md` caveats still cover hosted worker, production market-data service/provider, narrative/model readiness, auth branding, and secret-handling readiness.
+    - No new production-only prerequisite was found during Phase 4.
+- Next Phase Preview:
+  - The listed Phase 5 options are future product-priority choices, not remaining Phase 4 requirements.
+
+Documentation updates from this audit:
+
+- `chatbotNotes/backend-knowledge-base.md`
+  - Added the current Phase 4 report-generation workflow note that supersedes the Phase 3 placeholder entries.
+- `chatbotNotes/phase-4-report-generation-ui-execution.md`
+  - Added this remainder-of-plan audit and updated the current stop point.
+
+Focused verification for the audit fix:
+
+- `npm test -- src/app/app/page.test.tsx`: passed, 3 tests.
+
+Final verification after the audit/documentation/dashboard updates:
+
+- `npm test -- src/app/app/page.test.tsx`: passed, 3 tests.
+- `npm test`: passed, 439 tests across 63 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- `git diff --check`: passed.
+
+## 16) Current Stop Point
 
 Stop requested by user:
 
-- Complete only Step 8, then stop before Step 9.
+- Complete only Step 9 and Step 10, then audit the remainder of the planning document before Phase 4 signoff.
 
 Current stop point status:
 
@@ -602,7 +779,11 @@ Current stop point status:
 - Step 6 is implemented and focused tests pass.
 - Step 7 is implemented and focused tests pass.
 - Step 8 is complete with local E2E validation evidence.
+- Step 9 full verification and quality gate is complete.
+- Step 10 documentation closeout is complete.
+- Post-Step 10 acceptance criteria, suggested order, risks/watchpoints, and next-phase preview audit is complete.
 - Portfolio detail now starts report generation for ready portfolios.
+- Dashboard copy now reflects that report generation is live.
 - `/app/reports/[runId]` now displays authenticated report status with polling for active runs.
 - Completed report status now exposes an `Open PDF` action.
 - `/app/reports` now displays authenticated report history.
@@ -613,7 +794,10 @@ Current stop point status:
 - Local E2E validation confirmed the happy path from ready portfolio to completed PDF artifact.
 - Practical failure drills confirmed queued copy and market-data-adapter failure copy.
 - A Step 8 polling issue was fixed and revalidated in the browser.
-- Stage 9 full verification and quality gate has not been started.
+- Step 9 confirmed not-ready blocking, signed-out guard/API behavior, and cross-user report isolation.
+- Step 10 updated this execution note and reviewed backend knowledge base and production-readiness notes.
+- The post-Step 10 remainder audit updated the backend knowledge base with the current Phase 4 superseding state and confirmed no production-readiness note changes were required.
+- Phase 4 acceptance criteria are complete.
 
 Verification at this stop point:
 
@@ -623,11 +807,22 @@ Verification at this stop point:
 - `npm test -- --run src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/actions.test.ts src/app/app/reports/page.test.tsx`: passed, 20 tests across 3 files
 - `npm test -- src/app/app/reports/[runId]/ReportStatusPanel.test.tsx`: passed, 11 tests
 - Browser E2E happy path, PDF access, report history, portfolio preview, queued drill, and failed-state drill: passed
+- Step 9 browser/API not-ready, signed-out, and cross-user checks: passed
+- `npm test`: passed, 439 tests across 63 files
 - `npm run typecheck`: passed
 - `npm run lint`: passed
+- `npm run build`: passed
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed, 26 tests
 - `git diff --check`: passed
-- Prior full-suite/build evidence from the Step 7 stop point remains recorded above; Stage 9 full quality gate has not been started.
+- `npm run security:audit`: not run because no dependency changes were made in Step 9 or Step 10
+- Post-audit final verification:
+  - `npm test -- src/app/app/page.test.tsx`: passed, 3 tests
+  - `npm test`: passed, 439 tests across 63 files
+  - `npm run typecheck`: passed
+  - `npm run lint`: passed
+  - `npm run build`: passed
+  - `git diff --check`: passed
 
 Next planned step after user review:
 
-- Stage 9: Full verification and quality gate.
+- Stop here. Phase 4 is complete; wait for user review before starting any next phase or new scope.

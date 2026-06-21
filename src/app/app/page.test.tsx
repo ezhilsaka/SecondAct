@@ -62,7 +62,8 @@ describe("AppDashboardView", () => {
     expect(html).toContain("Create your first portfolio");
     expect(html).toContain("href=\"/app/portfolios/new\"");
     expect(html).toContain("Create Portfolio");
-    expect(html).toContain("Report generation comes next");
+    expect(html).toContain("Report generation is live");
+    expect(html).not.toContain("Report generation comes next");
   });
 
   it("renders portfolio count, latest portfolio, and portfolio list link", () => {

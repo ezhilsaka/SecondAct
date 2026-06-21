@@ -36,7 +36,7 @@ export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboa
         <p className={styles.kicker}>Workspace</p>
         <h1>Portfolio command center</h1>
         <p>
-          Track manual portfolios here, then move into report generation when that workflow opens.
+          Track manual portfolios here, then generate reports from portfolios that are ready.
         </p>
       </header>
 
@@ -51,10 +51,10 @@ export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboa
 
         <article className={styles.statusCard}>
           <p className={styles.cardLabel}>Report pipeline</p>
-          <h2>Report generation comes next</h2>
+          <h2>Report generation is live</h2>
           <p>
-            Canonical model, analysis, narrative, and PDF generation remain backend-ready while the
-            report UI stays out of this phase.
+            Open a ready portfolio to start a report, then return to Reports to revisit completed
+            runs.
           </p>
         </article>
       </section>

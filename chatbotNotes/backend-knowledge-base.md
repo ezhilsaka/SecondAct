@@ -320,6 +320,26 @@ A:
   - no required Phase 3 implementation work remains
 - Report-generation UI remains a separate later-phase scope decision.
 
+### Q: What did Phase 4 change about the Phase 3 report-generation placeholders?
+
+A:
+
+- Phase 3 intentionally left report generation as informational UI only.
+- Phase 4 superseded that placeholder state with a live report-generation workflow:
+  - ready portfolio detail can start report generation
+  - not-ready portfolio detail blocks generation until holdings exist
+  - successful generation redirects to `/app/reports/[runId]`
+  - `/app/reports/[runId]` shows queued, processing, completed, and failed report states
+  - completed reports can request an on-demand signed PDF URL
+  - failed reports show friendly failure copy and a retry action
+  - `/app/reports` lists the authenticated user's report history
+  - the app shell includes a live Reports navigation item
+  - the `/app` dashboard now treats report generation as live instead of future scope
+- Phase 4 remains a local/dev signoff, not full production readiness:
+  - a hosted Graphile worker is still required for production completion
+  - a production-ready market-data service/provider is still required
+  - narrative/model and secret-handling production hardening remain tracked in `production-readiness.md`
+
 ## 7) Auth Clarifications
 
 ### Q: What does “Supabase Auth” mean here?
