@@ -4,9 +4,9 @@ Last updated: 2026-06-21
 
 Purpose:
 
-- Provide one browser-ready manual testing checklist for Phase 2 auth/app-shell behavior, Phase 3 portfolio management, and Phase 4 report-generation UI.
+- Provide one browser-ready manual testing checklist for Phase 2 auth/app-shell behavior, Phase 3 portfolio management, Phase 4 report-generation UI, and Phase 5 report-library/profile MVP closeout.
 - Keep this document focused on local manual validation. Automated test evidence remains in the phase execution notes.
-- Treat Phase 4 as the UI/interaction layer on top of the existing report pipeline. This checklist does not replace the automated test suite or the phase execution notes.
+- Treat Phase 4 and Phase 5 as the local functional UI/interaction layers on top of the existing report pipeline. This checklist does not replace the automated test suite or the phase execution notes.
 
 ## 1) Local Setup
 
@@ -24,7 +24,7 @@ http://localhost:3000
 
 ### 1.2 Start Market-Data Adapter For Ticker Search And Reports
 
-Run this if you want ticker autocomplete to return real local results or if you are testing Phase 4 report generation.
+Run this if you want ticker autocomplete to return real local results or if you are testing Phase 4/5 report generation.
 
 ```bash
 cd services/market-data-adapter
@@ -54,7 +54,7 @@ Expected:
 
 ### 1.3 Start Graphile Worker For Report Generation
 
-Run this in a separate terminal for Phase 4 report generation:
+Run this in a separate terminal for Phase 4/5 report generation:
 
 ```bash
 npm run worker:dev
@@ -66,9 +66,9 @@ Expected:
 - log says it is connected and looking for jobs
 - task name includes `report.run.generate`
 
-### 1.4 Confirm Phase 4 Report Env
+### 1.4 Confirm Phase 4/5 Report Env
 
-Before running Phase 4 report-generation checks, confirm the local environment has valid values for:
+Before running Phase 4/5 report-generation and report-management checks, confirm the local environment has valid values for:
 
 ```text
 DATABASE_URL
@@ -814,7 +814,7 @@ await fetch("/api/v1/report-runs/<runId>/pdf").then(async (r) => ({
 Expected:
 
 - status `200`
-- body includes a temporary `url`
+- body includes a temporary `signedUrl`
 - body does not include storage service credentials
 
 ### 4.5 Report History Page
@@ -1040,7 +1040,419 @@ Expected:
 - new run uses the same source portfolio and reporting currency
 - new run follows the normal queued/processing/completed flow if services are healthy
 
-## 5) Final Automated Gate
+## 5) Phase 5 Manual Testing
+
+Phase 5 covers:
+
+```text
+Account profile -> portfolio-scoped report library -> report management -> dashboard report summary
+```
+
+Before starting Phase 5:
+
+- complete the local setup steps above
+- keep Next.js running
+- keep the market-data adapter running for fresh report generation
+- keep the Graphile worker running for happy-path report completion
+- keep DevTools Console open
+- sign in through the app using Google or email OTP
+- use an active owned portfolio with at least one holding
+- have at least one completed report available, or generate one using the Phase 4 flow
+- use disposable report runs for delete/storage-cleanup checks
+
+### 5.1 Account Profile View And Edit
+
+1. Sign in.
+2. Visit `/app/account`.
+
+Expected:
+
+- page title is `Profile`
+- first name is visible
+- last name is visible
+- email is visible and marked read-only
+- investor handle is visible and marked read-only
+- created timestamp is visible
+- updated timestamp is visible
+- no billing controls are visible
+- no payment controls are visible
+- no full account deletion control is visible
+
+Edit name:
+
+1. Change first name.
+2. Change last name.
+3. Save.
+
+Expected:
+
+- page returns to `/app/account?notice=profile_updated`
+- success message says `Profile updated.`
+- app shell display name reflects the new first/last name after refresh/navigation
+- `public.user_profiles.first_name` and `public.user_profiles.last_name` update for the signed-in user
+- `public.user_profiles.email` remains unchanged
+- `public.user_profiles.investor_handle` remains unchanged
+
+Validation drill:
+
+1. Clear first name or last name.
+2. Save.
+
+Expected:
+
+- save is blocked by browser required validation or server redirects to `/app/account?error=profile_validation_error`
+- friendly copy asks for both first and last name
+- no raw Supabase/Auth/Prisma error is shown
+
+### 5.2 Dashboard Latest Report Summary
+
+1. Visit `/app`.
+
+If at least one report run exists:
+
+- dashboard shows a latest-report section
+- latest report portfolio name is visible
+- status is visible
+- reporting currency is visible
+- requested/completed/failed date is visible
+- `Open Report` links to `/app/reports/<runId>`
+- `Reports` links to `/app/reports`
+- portfolio summary still appears
+
+If no report runs exist:
+
+- dashboard shows a no-report state
+- copy points the user toward portfolios
+- if no portfolios exist, CTA points to `/app/portfolios/new`
+- if portfolios exist, CTA points to `/app/portfolios`
+
+### 5.3 Portfolio-Scoped Report Library Link
+
+1. Open an owned portfolio detail page:
+
+```text
+/app/portfolios/<portfolioId>
+```
+
+Expected:
+
+- report preview panel is visible
+- `View all reports for this portfolio` is visible
+- link target is `/app/reports?portfolioId=<portfolioId>`
+
+Click the link.
+
+Expected:
+
+- `/app/reports?portfolioId=<portfolioId>` loads
+- library shows only report runs for that portfolio
+- filter bar indicates portfolio scope is active
+- clearing portfolio scope returns to `/app/reports`
+
+### 5.4 Report Library Filters
+
+From `/app/reports`:
+
+1. Set status filter to `Completed`.
+2. Apply filters.
+
+Expected:
+
+- URL includes `status=COMPLETED`
+- completed reports are shown
+- active and failed reports are not shown
+- summary counts remain useful for the current library scope
+
+Then:
+
+1. Set currency filter to `CAD` or `USD`.
+2. Apply filters.
+
+Expected:
+
+- URL includes `reportingCurrency=CAD` or `reportingCurrency=USD`
+- visible rows match the selected reporting currency
+- raw pipeline JSON is not visible
+- raw provider details are not visible
+
+No-results drill:
+
+1. Choose a filter combination that has no matches.
+
+Expected:
+
+- no-results empty state appears
+- copy says no reports match the filters
+- clear/reset filter action is visible
+
+### 5.5 Completed Report Library Actions
+
+Find a completed report row in `/app/reports`.
+
+Expected row actions:
+
+- `Report details`
+- `Open PDF`
+- `Generate fresh report`
+- `Delete report`
+
+Open PDF:
+
+1. Click `Open PDF`.
+
+Expected:
+
+- signed PDF opens in a new tab or downloads
+- no signed URL is permanently rendered into the report-list response
+- no bucket path or service role key is visible
+
+Generate fresh report:
+
+1. Click `Generate fresh report`.
+
+Expected:
+
+- if no active report exists for that portfolio, a new report run is created
+- browser redirects to `/app/reports/<newRunId>`
+- new run uses the same source portfolio and reporting currency
+- if an active report already exists for the portfolio, browser redirects to that active run instead of creating a duplicate
+
+### 5.6 Completed Report Delete And Storage Cleanup
+
+Use a disposable completed report.
+
+Before deleting, record from Supabase:
+
+- `public.report_runs.id`
+- `public.report_artifacts.report_run_id`
+- `public.report_artifacts.storage_bucket`
+- `public.report_artifacts.storage_path`
+- private Storage object path
+
+Delete from the library or report detail:
+
+1. Click `Delete report`.
+2. Confirm the browser confirmation prompt.
+
+Expected browser behavior:
+
+- delete succeeds
+- browser returns to `/app/reports?notice=report_deleted` or preserves current filters with `notice=report_deleted`
+- deleted report no longer appears in the library
+- old `/app/reports/<runId>` no longer exposes report detail
+
+Expected Supabase behavior:
+
+- deleted `public.report_runs` row is gone
+- matching `public.report_artifacts` row is gone
+- private Storage PDF object is gone
+- other users' report rows/artifacts are untouched
+
+Storage failure drill, if you can safely simulate it:
+
+1. Temporarily make storage deletion fail, or disconnect storage in a disposable local setup.
+2. Attempt completed-report deletion.
+
+Expected:
+
+- app shows a friendly retryable delete/storage error
+- report-run metadata remains present
+- private PDF object is not orphaned by a false success
+
+### 5.7 Failed Report Management
+
+Use an existing failed report from the Phase 4 failure drill or create a disposable failed run.
+
+From `/app/reports` or `/app/reports/<runId>`:
+
+Expected:
+
+- failed report shows `Retry report`
+- failed report shows `Delete report` or `Delete failed report`
+- `Open PDF` is not shown for failed runs
+
+Retry:
+
+1. Restore worker and market-data adapter.
+2. Click `Retry report`.
+
+Expected:
+
+- browser redirects to an active/new report status page
+- failed run remains available unless explicitly deleted
+- new run uses the same portfolio and reporting currency
+
+Delete:
+
+1. Click failed-report delete.
+2. Confirm if prompted.
+
+Expected:
+
+- failed run disappears from report library
+- `public.report_runs` row is removed
+- related artifact metadata is removed if any exists
+- no PDF artifact is required for failed-report deletion
+
+### 5.8 Active Report Management Restrictions
+
+Create or use a `QUEUED` or `PROCESSING` report.
+
+Expected in `/app/reports`:
+
+- active report is visible
+- status is `QUEUED` or `PROCESSING`
+- active row links to status/detail
+- active row does not show delete
+- active row does not show Open PDF
+- active row communicates management unlocks after the run finishes
+
+Expected in `/app/reports/<runId>`:
+
+- active polling remains visible
+- `Back to Reports` is visible
+- `Back to Portfolio` is visible
+- delete action is not visible
+- long-running local queued/processing copy remains friendly
+
+Optional API check while signed in as owner:
+
+```js
+await fetch("/api/v1/report-runs/<activeRunId>", {
+  method: "DELETE"
+}).then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `409`
+- body error code `REPORT_RUN_NOT_TERMINAL`
+
+### 5.9 Report Detail State Actions
+
+For a completed report detail page:
+
+- `Open PDF` is visible
+- `Generate fresh report` is visible
+- `Delete report` is visible
+- `Back to Reports` is visible
+- `Back to Portfolio` is visible
+- copy says the report is ready and can be revisited
+
+For a failed report detail page:
+
+- friendly failure reason is visible
+- `Retry report` is visible
+- `Delete failed report` is visible
+- `Back to Reports` is visible
+- `Back to Portfolio` is visible
+- raw worker/provider errors are not visible
+
+For an active report detail page:
+
+- polling remains active
+- active status copy remains visible
+- terminal delete/fresh-report actions are hidden
+
+### 5.10 Cross-User Report Library And Delete Protection
+
+Run this only if you have two local/dev auth accounts.
+
+1. Sign in as User A.
+2. Create or choose a report run and copy:
+   - `/app/reports/<runId>`
+   - `/app/reports?portfolioId=<portfolioId>`
+3. Sign out.
+4. Sign in as User B.
+5. Open User A's report detail URL.
+
+Expected:
+
+- User B receives not-found behavior
+- User A report metadata is not shown
+- User A PDF cannot be opened
+
+List isolation:
+
+1. As User B, visit `/app/reports`.
+
+Expected:
+
+- User A's report runs are absent
+
+Portfolio-scoped isolation:
+
+1. As User B, visit User A's `/app/reports?portfolioId=<portfolioId>`.
+
+Expected:
+
+- app returns not-found behavior or otherwise does not show User A reports
+
+Delete protection:
+
+```js
+await fetch("/api/v1/report-runs/<userARunId>", {
+  method: "DELETE"
+}).then(async (r) => ({
+  status: r.status,
+  body: r.status === 204 ? null : await r.json()
+}))
+```
+
+Expected:
+
+- status `404`
+- User A report row and artifact remain untouched
+
+### 5.11 Signed-Out Phase 5 API Checks
+
+Sign out or use incognito/private mode.
+
+Report list:
+
+```js
+await fetch("/api/v1/report-runs?status=COMPLETED&reportingCurrency=CAD").then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `401`
+- body error code `UNAUTHORIZED`
+
+Report delete:
+
+```js
+await fetch("/api/v1/report-runs/<runId>", {
+  method: "DELETE"
+}).then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `401`
+- body error code `UNAUTHORIZED`
+
+Signed-out app routes:
+
+1. Visit `/app/reports`.
+2. Visit `/app/account`.
+3. Visit `/app/portfolios/<portfolioId>`.
+
+Expected:
+
+- each route redirects to login with a safe `next` value
+- no private app data is shown
+
+## 6) Final Automated Gate
 
 Run after manual testing:
 
@@ -1057,7 +1469,7 @@ Expected:
 
 - all commands pass
 
-## 6) Cleanup
+## 7) Cleanup
 
 Preferred cleanup:
 
@@ -1079,7 +1491,7 @@ If direct database cleanup is needed:
    - `report_runs.user_id`
    - `report_artifacts.user_id`
 
-## 7) Signoff Summary
+## 8) Signoff Summary
 
 Use this section to record your manual test result.
 
@@ -1115,6 +1527,17 @@ Phase 4 signed-out and cross-user report auth:
 Phase 4 queued drill:
 Phase 4 market-data failure drill:
 Phase 4 retry failed report:
+Phase 5 account profile view/edit:
+Phase 5 dashboard latest-report summary:
+Phase 5 portfolio-scoped report library:
+Phase 5 report library filters:
+Phase 5 completed report PDF/fresh-run actions:
+Phase 5 completed report delete/storage cleanup:
+Phase 5 failed report retry/delete:
+Phase 5 active report management restrictions:
+Phase 5 report detail state actions:
+Phase 5 cross-user report protection:
+Phase 5 signed-out API checks:
 Final automated gate:
 Notes:
 ```

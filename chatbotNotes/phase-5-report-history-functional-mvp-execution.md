@@ -40,18 +40,24 @@ Current status:
 - Stage 4 report detail UI: complete
 - Stage 5 portfolio preview and dashboard polish: complete
 - Stage 6 account/profile polish: complete
-- Stage 7 full local E2E runbook and documentation: pending
-- Stage 8 full verification and closeout: pending
+- Stage 7 full local E2E runbook and documentation: complete
+- Stage 8 full verification and closeout: complete
 
 Current stop point requested by user:
 
-- Implement Stage 5 and Stage 6 only.
-- Stop after Stage 6 verification and before Stage 7 full local E2E runbook/documentation.
+- Implement Stage 7 and Stage 8 only.
+- Stop after Stage 8 verification and closeout before any production-readiness or payment phase.
 
 UX clarification status:
 
-- No UX question blocks Stages 5-6.
-- The plan already defines the relevant Stage 5-6 behavior:
+- No UX question blocks Stages 7-8.
+- Stage 7 is documentation/runbook work and Stage 8 is verification/closeout work.
+- Manual local E2E execution still requires live local browser/auth/Supabase/worker/provider state.
+  This pass creates the runbook and records automated verification; any human-executed manual E2E
+  result should be recorded in `chatbotNotes/manual-testing-steps.md` section 8.
+
+Prior Stage 5-6 UX behavior:
+
   - portfolio detail keeps recent reports and links to the portfolio-scoped report library
   - dashboard keeps portfolio summary and adds latest-report summary/no-report next step
   - account page shows real profile data
@@ -104,12 +110,12 @@ Findings:
 - No other worktree changes were present at Stage 0 start.
 - Phase 4 closeout confirms report generation, status polling, PDF access, basic history,
   failure/retry states, and local E2E validation are complete.
-- Current `/app/reports` is a basic authenticated report history list.
-- Current `/app/reports/[runId]` supports status polling, completed PDF access, and failed retry.
-- Current portfolio detail shows a recent-report preview.
-- Current dashboard says report generation is live but does not summarize latest reports.
-- Current account page still shows placeholder profile-foundation copy.
-- Current `ReportRunService` has an unscoped `deleteReportRun(runId)` repository helper used only
+- At Stage 0, `/app/reports` was a basic authenticated report history list.
+- At Stage 0, `/app/reports/[runId]` supported status polling, completed PDF access, and failed retry.
+- At Stage 0, portfolio detail showed a recent-report preview.
+- At Stage 0, the dashboard said report generation was live but had no latest-report summary.
+- At Stage 0, the account page showed placeholder profile-foundation copy.
+- At Stage 0, `ReportRunService` had an unscoped `deleteReportRun(runId)` repository helper used only
   for enqueue-failure cleanup; Phase 5 user-facing deletion needs a separate owner-scoped path.
 - Existing Prisma schema supports Phase 5 hard deletion without a migration because
   `ReportArtifact` cascades from `ReportRun`.
@@ -504,12 +510,204 @@ Verification:
 - Full `npm test`: passed, 483 tests across 65 files.
 - `git diff --check`: passed.
 
-## 11) Current Stop Point
+## 11) Stage 7: Full Local E2E Runbook And Documentation
+
+Status: complete on 2026-06-21.
+
+Implemented:
+
+- Updated `chatbotNotes/manual-testing-steps.md` from Phase 2-4 coverage to Phase 2-5 coverage.
+- Added a full Phase 5 manual E2E checklist covering:
+  - account profile view/edit
+  - dashboard latest-report summary and no-report state
+  - portfolio-scoped report-library link
+  - report-library status/currency/portfolio filters
+  - completed report PDF open and fresh-report actions
+  - completed report delete with Supabase row/artifact/storage cleanup checks
+  - failed report retry/delete
+  - active report management restrictions
+  - report detail state actions
+  - cross-user report library/detail/PDF/delete protection
+  - signed-out report-list/delete/app-route checks
+- Updated final automated gate commands in the runbook.
+- Updated cleanup guidance to keep report rows/artifacts/private PDFs in mind.
+- Updated the signoff template with Phase 5 fields.
+
+Files changed:
+
+- `chatbotNotes/manual-testing-steps.md`
+- `chatbotNotes/phase-5-report-history-functional-mvp-execution.md`
+
+Manual execution note:
+
+- The runbook is ready for local browser execution.
+- This agent pass did not perform live Google/email OTP, Supabase dashboard, Graphile worker,
+  Storage-object, or two-user manual browser checks because those require live local credentials,
+  provider state, and human-controlled test accounts.
+- When a human performs the runbook, record the result in `chatbotNotes/manual-testing-steps.md`
+  section 8.
+
+Verification:
+
+- `npm test`: passed, 483 tests across 65 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed,
+  26 tests.
+- `npm run build`: passed.
+- `git diff --check`: passed.
+
+## 12) Stage 8: Full Verification And Closeout
+
+Status: complete on 2026-06-21 for automated verification and documentation closeout.
+
+Verification run:
+
+- `npm test`: passed, 483 tests across 65 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `services/market-data-adapter/.venv/bin/pytest services/market-data-adapter/tests`: passed,
+  26 tests.
+- `npm run build`: passed.
+- `git diff --check`: passed.
+
+Scoped skips:
+
+- `npm audit` was skipped because no dependency manifest or lockfile changed in Stage 7-8.
+- No production-worker, production-market-data, payment, billing, email-delivery, public-sharing,
+  broker-import, CSV-import, team, analytics, or account-deletion work was added.
+
+Manual E2E status:
+
+- Manual E2E runbook exists and is Phase 5-ready.
+- Live manual execution remains a user/local-environment signoff step because it requires live
+  Supabase Auth/provider access, local worker/adapter runtime, Storage inspection, and optional
+  two-user account checks.
+
+### Acceptance Criteria Closeout
+
+1. `/app/reports` works as a report library, not just a static history list.
+   - Status: complete.
+   - Evidence: Stage 3 implementation and tests for summary counts, filters, row actions, and
+     empty states.
+
+2. Report library supports status and currency filtering.
+   - Status: complete.
+   - Evidence: Stage 1 service filters, Stage 2 API filters, Stage 3 URL-backed UI filters, and
+     tests for selected search params.
+
+3. Report library can be scoped to a source portfolio.
+   - Status: complete.
+   - Evidence: Stage 1/2 `portfolioId` support, Stage 3 portfolio-scoped library behavior, and
+     Stage 5 portfolio detail link to `/app/reports?portfolioId=<id>`.
+
+4. Completed reports can be opened directly from the library.
+   - Status: complete.
+   - Evidence: Stage 3 completed-row `Open PDF` action using the signed-url route.
+
+5. Completed reports can start a fresh report for the same portfolio/currency.
+   - Status: complete.
+   - Evidence: Stage 3 completed-row `Generate fresh report` action and Stage 4 completed detail
+     action using `generateReportFromPortfolio`.
+
+6. Failed reports can still be retried.
+   - Status: complete.
+   - Evidence: Stage 4 retry behavior preserved and Stage 3 failed-row retry action.
+
+7. Completed and failed reports can be deleted by their owner.
+   - Status: complete.
+   - Evidence: Stage 1 owner-scoped service deletion, Stage 2 API/action deletion, Stage 3/4 UI
+     delete actions, and focused tests.
+
+8. Active reports cannot be deleted.
+   - Status: complete.
+   - Evidence: Stage 1 terminal-status enforcement, Stage 2 `409 REPORT_RUN_NOT_TERMINAL`, and
+     Stage 3/4 active UI hiding delete actions.
+
+9. Completed-report deletion removes the private storage PDF object and report metadata.
+   - Status: complete in automated service coverage; manual Supabase verification remains in the
+     runbook for live storage.
+   - Evidence: Stage 1 storage-first deletion service tests and Phase 5 runbook section 5.6.
+
+10. Storage deletion failure does not silently remove DB metadata.
+    - Status: complete.
+    - Evidence: Stage 1 `ReportStorageDeleteError` behavior and tests proving metadata is
+      preserved when storage cleanup fails.
+
+11. Cross-user report listing, detail, PDF, and deletion remain protected.
+    - Status: complete in automated route/service coverage; optional two-user manual check is in
+      the runbook.
+    - Evidence: owner-scoped services/API tests from Stages 1-2 and Phase 5 runbook section 5.10.
+
+12. Report list/status/delete responses do not expose raw pipeline JSON or provider details.
+    - Status: complete.
+    - Evidence: safe summary DTOs and Stage 3 no-raw-pipeline-details tests.
+
+13. Report detail page has complete actions for active, completed, and failed states.
+    - Status: complete.
+    - Evidence: Stage 4 completed/failed/active detail tests.
+
+14. Portfolio detail page links to the portfolio-scoped report library.
+    - Status: complete.
+    - Evidence: Stage 5 portfolio-detail implementation and tests for
+      `/app/reports?portfolioId=<id>`.
+
+15. Dashboard gives a clear path into reports and portfolios after Phase 5.
+    - Status: complete.
+    - Evidence: Stage 5 latest-report/no-report dashboard implementation and tests.
+
+16. Account page shows real profile data.
+    - Status: complete.
+    - Evidence: Stage 6 account page implementation and tests.
+
+17. Account page allows first/last name updates.
+    - Status: complete.
+    - Evidence: Stage 6 server action/service implementation and tests.
+
+18. Account page keeps email, investor handle, payment, and billing controls out of scope.
+    - Status: complete.
+    - Evidence: Stage 6 read-only account fields and tests asserting no payment/billing/account
+      deletion controls.
+
+19. Manual Phase 5 local E2E runbook exists.
+    - Status: complete.
+    - Evidence: `chatbotNotes/manual-testing-steps.md` section 5 and signoff section 8.
+
+20. Automated tests cover new service, API/action, and UI behavior.
+    - Status: complete.
+    - Evidence: Stage 1-6 focused tests plus full `npm test` passing with 483 tests across 65
+      files.
+
+21. `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, and `git diff --check`
+    pass unless a documented environment blocker exists.
+    - Status: complete.
+    - Evidence: all listed commands passed during Stage 8.
+
+22. No Phase 5 implementation requires production worker hosting.
+    - Status: complete.
+    - Evidence: local worker assumptions remain documented; no production worker code/config was
+      added.
+
+23. No Phase 5 implementation requires production market-data provider migration.
+    - Status: complete.
+    - Evidence: no provider migration code/config changed; local adapter tests passed.
+
+24. No Phase 5 implementation requires payment setup.
+    - Status: complete.
+    - Evidence: payment/billing stayed out of scope; account tests assert payment/billing controls
+      are not rendered.
+
+25. No stale UI/documentation copy claims report generation, report history, or profile management
+    is still future work after Phase 5 closeout.
+    - Status: complete for touched Phase 5 UI/docs.
+    - Evidence: stale-copy scan run during Stage 8 and old Stage 6 stop wording was replaced.
+
+## 13) Current Stop Point
 
 Stop requested by user:
 
-- Complete Stage 5 and Stage 6 only.
-- Stop before Stage 7 full local E2E runbook/documentation.
+- Complete Stage 7 and Stage 8 only.
+- Stop before proceeding to the next phase/step.
 
 Current stop point status:
 
@@ -520,18 +718,12 @@ Current stop point status:
 - Stage 4 report detail UI is complete.
 - Stage 5 portfolio preview/dashboard polish is complete.
 - Stage 6 account/profile polish is complete.
-- No Stage 7 manual runbook work has been started.
+- Stage 7 full local E2E runbook and documentation is complete.
+- Stage 8 automated verification and documentation closeout is complete.
+- Manual live E2E execution is prepared in the runbook and should be recorded by the human tester.
 - No production worker, production market-data, or payment scope was added.
-
-Verification at this stop point:
-
-- `npm test -- --run src/server/auth/profile-bootstrap.test.ts src/app/app/account/page.test.tsx src/app/app/account/actions.test.ts src/app/app/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx`: passed, 34 tests across 6 files.
-- `npm run typecheck`: passed.
-- `npm run lint`: passed.
-- `npm run build`: passed.
-- `npm test`: passed, 483 tests across 65 files.
-- `git diff --check`: passed.
 
 Next planned step after user review:
 
-- Stage 7: Full Local E2E Runbook And Documentation.
+- Human/manual Phase 5 local E2E execution using `chatbotNotes/manual-testing-steps.md`, then
+  production-readiness planning only after user signoff.
