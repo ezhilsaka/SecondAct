@@ -5,12 +5,17 @@ import {
   PortfolioService,
   type PortfolioSummaryResult
 } from "@/server/services/portfolio-service";
+import {
+  ReportRunService,
+  type ReportRunSummaryResult
+} from "@/server/services/report-run-service";
 
 import styles from "./page.module.css";
 
 type AppDashboardViewProps = {
   portfolioCount: number;
   latestPortfolio: PortfolioSummaryResult | null;
+  latestReport: ReportRunSummaryResult | null;
 };
 
 function formatPortfolioCount(count: number): string {
@@ -29,7 +34,23 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboardViewProps) {
+function getReportOutcomeDate(run: ReportRunSummaryResult): string {
+  if (run.completedAt) {
+    return formatDate(run.completedAt);
+  }
+
+  if (run.failedAt) {
+    return formatDate(run.failedAt);
+  }
+
+  return formatDate(run.requestedAt);
+}
+
+export function AppDashboardView({
+  portfolioCount,
+  latestPortfolio,
+  latestReport
+}: AppDashboardViewProps) {
   return (
     <div className={styles.dashboard}>
       <header className={styles.pageHeader}>
@@ -57,6 +78,58 @@ export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboa
             runs.
           </p>
         </article>
+      </section>
+
+      <section className={styles.reportOverview} aria-label="Report overview">
+        {latestReport ? (
+          <article className={styles.latestReportPanel}>
+            <div>
+              <p className={styles.cardLabel}>Latest report</p>
+              <h2>{latestReport.portfolioName}</h2>
+              <p>Latest report activity from your private report library.</p>
+            </div>
+            <dl className={styles.latestFacts}>
+              <div>
+                <dt>Status</dt>
+                <dd>{latestReport.status}</dd>
+              </div>
+              <div>
+                <dt>Currency</dt>
+                <dd>{latestReport.reportingCurrency}</dd>
+              </div>
+              <div>
+                <dt>Requested / finished</dt>
+                <dd>{getReportOutcomeDate(latestReport)}</dd>
+              </div>
+            </dl>
+            <div className={styles.reportLinks}>
+              <Link className={styles.secondaryLink} href={`/app/reports/${latestReport.runId}`}>
+                Open Report
+              </Link>
+              <Link className={styles.secondaryLink} href="/app/reports">
+                Reports
+              </Link>
+            </div>
+          </article>
+        ) : (
+          <article className={styles.emptyReportPanel}>
+            <div>
+              <p className={styles.cardLabel}>Latest report</p>
+              <h2>No reports yet</h2>
+              <p>
+                {portfolioCount > 0
+                  ? "Open a ready portfolio to generate your first report."
+                  : "Create a portfolio and add holdings before reports appear here."}
+              </p>
+            </div>
+            <Link
+              className={styles.secondaryLink}
+              href={portfolioCount > 0 ? "/app/portfolios" : "/app/portfolios/new"}
+            >
+              {portfolioCount > 0 ? "View Portfolios" : "Create Portfolio"}
+            </Link>
+          </article>
+        )}
       </section>
 
       <section className={styles.portfolioOverview} aria-label="Portfolio overview">
@@ -128,13 +201,18 @@ export function AppDashboardView({ portfolioCount, latestPortfolio }: AppDashboa
 
 export default async function AppDashboardPage() {
   const user = await requireAuthenticatedAppUser();
-  const { portfolioCount, latestPortfolio } =
-    await new PortfolioService().getDashboardSummary(user.id);
+  const [{ portfolioCount, latestPortfolio }, reportHistory] = await Promise.all([
+    new PortfolioService().getDashboardSummary(user.id),
+    new ReportRunService().listReportRunsForUser(user.id, {
+      limit: 1
+    })
+  ]);
 
   return (
     <AppDashboardView
       portfolioCount={portfolioCount}
       latestPortfolio={latestPortfolio}
+      latestReport={reportHistory.reportRuns[0] ?? null}
     />
   );
 }

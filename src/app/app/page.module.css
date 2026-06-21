@@ -23,7 +23,9 @@
 .statusCard h2,
 .nextPanel h2,
 .latestPanel h2,
-.emptyPanel h2 {
+.emptyPanel h2,
+.latestReportPanel h2,
+.emptyReportPanel h2 {
   margin: 0;
   color: #fff8ee;
 }
@@ -40,7 +42,9 @@
 .nextPanel p,
 .metricPanel p,
 .latestPanel p,
-.emptyPanel p {
+.emptyPanel p,
+.latestReportPanel p,
+.emptyReportPanel p {
   margin: 0;
   color: rgba(255, 248, 238, 0.68);
   line-height: 1.6;
@@ -56,7 +60,9 @@
 .nextPanel,
 .metricPanel,
 .latestPanel,
-.emptyPanel {
+.emptyPanel,
+.latestReportPanel,
+.emptyReportPanel {
   border: 1px solid rgba(255, 248, 238, 0.12);
   border-radius: 8px;
   background: rgba(255, 248, 238, 0.055);
@@ -73,9 +79,44 @@
 .statusCard h2,
 .nextPanel h2,
 .latestPanel h2,
-.emptyPanel h2 {
+.emptyPanel h2,
+.latestReportPanel h2,
+.emptyReportPanel h2 {
   font-size: 22px;
   line-height: 1.16;
+}
+
+.reportOverview {
+  display: grid;
+}
+
+.latestReportPanel,
+.emptyReportPanel {
+  display: grid;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+}
+
+.latestReportPanel {
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.1fr) auto;
+}
+
+.emptyReportPanel {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.latestReportPanel > div:first-child,
+.emptyReportPanel > div:first-child,
+.reportLinks {
+  display: grid;
+  gap: 8px;
+}
+
+.reportLinks {
+  grid-template-columns: repeat(2, max-content);
+  justify-content: end;
+  gap: 10px;
 }
 
 .portfolioOverview {
@@ -192,7 +233,9 @@
 
 @media (max-width: 980px) {
   .portfolioOverview,
-  .latestPanel {
+  .latestPanel,
+  .latestReportPanel,
+  .emptyReportPanel {
     grid-template-columns: 1fr;
   }
 
@@ -202,6 +245,11 @@
 
   .secondaryLink {
     width: 100%;
+  }
+
+  .reportLinks {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
   }
 }
 

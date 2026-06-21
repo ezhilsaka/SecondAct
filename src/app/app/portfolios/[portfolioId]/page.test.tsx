@@ -130,6 +130,8 @@ describe("PortfolioDetailView", () => {
     expect(html).toContain("No holdings yet");
     expect(html).toContain("Add Holding");
     expect(html).toContain("Add holdings first");
+    expect(html).toContain("View all reports for this portfolio");
+    expect(html).toContain(`href="/app/reports?portfolioId=${TEST_PORTFOLIO_ID}"`);
     expect(html).not.toContain("Generate report");
     expect(html).not.toContain("report-runs");
   });
@@ -188,7 +190,9 @@ describe("PortfolioDetailView", () => {
     expect(html).toContain("Report history");
     expect(html).toContain("A report is already in progress for this portfolio.");
     expect(html).toContain("View active report");
+    expect(html).toContain("View all reports for this portfolio");
     expect(html).toContain(`href="/app/reports/${TEST_RUN_ID}"`);
+    expect(html).toContain(`href="/app/reports?portfolioId=${TEST_PORTFOLIO_ID}"`);
     expect(html).toContain("QUEUED");
   });
 
@@ -218,6 +222,9 @@ describe("PortfolioDetailView", () => {
 
     expect(html).toContain("The latest completed report is ready to revisit.");
     expect(html).toContain("Open completed report");
+    expect(html).toContain("Report details");
+    expect(html).toContain("Open PDF");
+    expect(html).toContain("Manage failed report");
     expect(html).toContain(`href="/app/reports/${completedRunId}"`);
     expect(html).toContain("FAILED");
   });

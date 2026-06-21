@@ -394,6 +394,39 @@ A:
 - Failed reports keep the retry action and can also be deleted once the user no longer needs the
   failed run in their private library.
 
+### Q: What did Phase 5 add to dashboard, portfolio previews, and account profile behavior?
+
+A:
+
+- The dashboard now keeps the portfolio summary and adds a lightweight latest-report summary.
+- If reports exist, the dashboard shows:
+  - latest report portfolio
+  - report status
+  - reporting currency
+  - requested/completed/failed date
+  - links into Reports and the report detail page
+- If no reports exist, the dashboard points users toward portfolios as the next local-MVP step.
+- Portfolio detail keeps the recent report preview and now links directly to the portfolio-scoped
+  report library:
+  - `/app/reports?portfolioId=<portfolioId>`
+- Completed portfolio-preview rows can open the PDF through the existing signed-url flow.
+- Failed portfolio-preview rows route users to the report detail page, where retry and delete are
+  available.
+- The account page now shows the app-owned profile:
+  - first name
+  - last name
+  - email
+  - investor handle
+  - created/updated timestamps
+- Account profile editing is intentionally narrow in Phase 5:
+  - first name and last name are editable
+  - names are trimmed and must be non-empty
+  - email remains read-only because Supabase Auth owns identity email
+  - investor handle remains read-only to avoid uniqueness/profile-link scope
+  - payment, billing, and full account deletion stay out of Phase 5
+- Profile update uses a server action and an owner-scoped profile service update; browser-facing
+  errors remain friendly and do not expose raw auth or database failures.
+
 ## 7) Auth Clarifications
 
 ### Q: What does “Supabase Auth” mean here?

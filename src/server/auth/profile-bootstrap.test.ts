@@ -11,6 +11,7 @@ import {
   ProfileEmailAlreadyLinkedError,
   ProfileBootstrapMissingEmailError,
   PrismaProfileBootstrapRepository,
+  updateAuthenticatedUserProfile,
   type AppUserProfile,
   type CreateUserProfileInput,
   type ProfileBootstrapRepository
@@ -70,6 +71,13 @@ function buildRepository(
         ...input,
         createdAt: CREATED_AT,
         updatedAt: UPDATED_AT
+      })
+    ),
+    updateProfileNames: vi.fn(async (userId, input) =>
+      buildProfile({
+        id: userId,
+        firstName: input.firstName,
+        lastName: input.lastName
       })
     ),
     ensureUserUsage: vi.fn().mockResolvedValue(undefined),
@@ -388,6 +396,67 @@ describe("completeAuthenticatedUserProfile", () => {
         }
       )
     ).rejects.toBeInstanceOf(ProfileCompletionRequiredError);
+  });
+});
+
+describe("updateAuthenticatedUserProfile", () => {
+  it("updates only submitted profile names for the authenticated profile", async () => {
+    const repository = buildRepository();
+    const logger = buildLogger();
+
+    const result = await updateAuthenticatedUserProfile(
+      buildAuthenticatedUser(),
+      {
+        firstName: "  Grace  ",
+        lastName: "  Hopper  "
+      },
+      {
+        repository,
+        logger
+      }
+    );
+
+    expect(repository.updateProfileNames).toHaveBeenCalledWith(TEST_USER_ID, {
+      firstName: "Grace",
+      lastName: "Hopper"
+    });
+    expect(repository.createProfile).not.toHaveBeenCalled();
+    expect(repository.ensureUserUsage).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: TEST_USER_ID,
+      email: "ada.lovelace@example.com",
+      firstName: "Grace",
+      lastName: "Hopper",
+      investorHandle: "ada-lovelace"
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      "User profile updated.",
+      expect.objectContaining({
+        event: "user_profile.updated",
+        userId: TEST_USER_ID,
+        profileId: TEST_USER_ID
+      })
+    );
+  });
+
+  it("rejects blank update names", async () => {
+    const repository = buildRepository();
+
+    await expect(
+      updateAuthenticatedUserProfile(
+        buildAuthenticatedUser(),
+        {
+          firstName: "",
+          lastName: " "
+        },
+        {
+          repository,
+          logger: buildLogger()
+        }
+      )
+    ).rejects.toBeInstanceOf(ProfileCompletionRequiredError);
+
+    expect(repository.updateProfileNames).not.toHaveBeenCalled();
   });
 });
 

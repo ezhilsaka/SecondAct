@@ -38,6 +38,7 @@ export type ProfileBootstrapRepository = {
   findProfileById(userId: Uuid): Promise<AppUserProfile | null>;
   findProfileByEmail(email: string): Promise<AppUserProfile | null>;
   createProfile(input: CreateUserProfileInput): Promise<AppUserProfile>;
+  updateProfileNames(userId: Uuid, input: CompleteUserProfileInput): Promise<AppUserProfile>;
   ensureUserUsage(userId: Uuid): Promise<void>;
 };
 
@@ -132,6 +133,21 @@ export class PrismaProfileBootstrapRepository implements ProfileBootstrapReposit
 
       throw error;
     }
+  }
+
+  updateProfileNames(
+    userId: Uuid,
+    input: CompleteUserProfileInput
+  ): Promise<AppUserProfile> {
+    return this.prismaClient.userProfile.update({
+      where: {
+        id: userId
+      },
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName
+      }
+    });
   }
 
   async ensureUserUsage(userId: Uuid): Promise<void> {
@@ -500,6 +516,42 @@ export async function completeAuthenticatedUserProfile(
   } catch (error) {
     logger.error("User profile completion failed.", {
       event: "user_profile.completion_failed",
+      userId: user.id,
+      errorCode: error instanceof ProfileBootstrapError ? error.code : undefined,
+      errorName: error instanceof Error ? error.name : undefined,
+      error: getErrorMessage(error)
+    });
+
+    throw error;
+  }
+}
+
+export async function updateAuthenticatedUserProfile(
+  user: AuthenticatedUser,
+  input: CompleteUserProfileInput,
+  options: ProfileBootstrapOptions = {}
+): Promise<AppUserProfile> {
+  const repository = options.repository ?? new PrismaProfileBootstrapRepository();
+  const logger = options.logger ?? console;
+  const profileNames = normalizeProfileCompletionInput(input);
+
+  try {
+    const profile = await repository.updateProfileNames(user.id, profileNames);
+
+    logger.info("User profile updated.", {
+      event: "user_profile.updated",
+      userId: user.id,
+      profileId: profile.id
+    });
+
+    return profile;
+  } catch (error) {
+    if (error instanceof ProfileCompletionRequiredError) {
+      throw error;
+    }
+
+    logger.error("User profile update failed.", {
+      event: "user_profile.update_failed",
       userId: user.id,
       errorCode: error instanceof ProfileBootstrapError ? error.code : undefined,
       errorName: error instanceof Error ? error.name : undefined,

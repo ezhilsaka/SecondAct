@@ -38,20 +38,33 @@ Current status:
 - Stage 2 report API and server actions: complete
 - Stage 3 report library UI: complete
 - Stage 4 report detail UI: complete
-- Stage 5 portfolio preview and dashboard polish: pending
-- Stage 6 account/profile polish: pending
+- Stage 5 portfolio preview and dashboard polish: complete
+- Stage 6 account/profile polish: complete
 - Stage 7 full local E2E runbook and documentation: pending
 - Stage 8 full verification and closeout: pending
 
 Current stop point requested by user:
 
-- Implement Stage 3 and Stage 4 only.
-- Stop after Stage 4 verification and before Stage 5 portfolio preview/dashboard polish.
+- Implement Stage 5 and Stage 6 only.
+- Stop after Stage 6 verification and before Stage 7 full local E2E runbook/documentation.
 
 UX clarification status:
 
-- No UX question blocks Stages 3-4.
-- The plan already defines the relevant Stage 3-4 behavior:
+- No UX question blocks Stages 5-6.
+- The plan already defines the relevant Stage 5-6 behavior:
+  - portfolio detail keeps recent reports and links to the portfolio-scoped report library
+  - dashboard keeps portfolio summary and adds latest-report summary/no-report next step
+  - account page shows real profile data
+  - first and last name are editable
+  - email and investor handle stay read-only
+  - payment, billing, and full account deletion stay out of scope
+- Stage 6 preserves the plan's modest account scope:
+  - profile update is a server action, not a new public API surface
+  - names are trimmed and must be non-empty
+  - browser-facing failures stay friendly and generic
+
+Prior Stage 3-4 UX behavior:
+
   - report library summary counts and filters
   - completed report library actions for PDF open, fresh report generation, and deletion
   - failed report library actions for retry and deletion
@@ -370,12 +383,133 @@ Verification:
 - Full `npm test`: passed, 473 tests across 63 files.
 - `git diff --check`: passed.
 
-## 9) Current Stop Point
+## 9) Stage 5: Portfolio Preview And Dashboard Polish
+
+Status: complete on 2026-06-21.
+
+Implemented:
+
+- Kept the existing portfolio-detail recent-report preview.
+- Added a portfolio-scoped report-library link from portfolio detail:
+  - `/app/reports?portfolioId=<portfolioId>`
+- Added completed preview-row actions:
+  - report detail
+  - direct `Open PDF`
+- Added failed preview-row routing to the report detail page for retry/delete management.
+- Added a dashboard latest-report summary when reports exist:
+  - portfolio name
+  - report status
+  - reporting currency
+  - requested/completed/failed date
+  - report detail link
+  - Reports library link
+- Added a dashboard no-report state that points users toward portfolios.
+
+Files changed:
+
+- `src/app/app/portfolios/[portfolioId]/page.tsx`
+- `src/app/app/portfolios/[portfolioId]/page.module.css`
+- `src/app/app/portfolios/[portfolioId]/page.test.tsx`
+- `src/app/app/page.tsx`
+- `src/app/app/page.module.css`
+- `src/app/app/page.test.tsx`
+
+Behavior notes:
+
+- Portfolio detail still fetches the latest three report runs for the portfolio.
+- Completed preview-row PDF access reuses the existing signed-url flow through
+  `ReportDownloadButton`.
+- Failed preview rows route to `/app/reports/[runId]`, where Stage 4 retry/delete actions live.
+- Dashboard latest-report data uses `ReportRunService.listReportRunsForUser(user.id, { limit: 1 })`.
+- No production worker, production market-data, or payment behavior was added.
+
+Focused tests added/updated:
+
+- portfolio detail links to `/app/reports?portfolioId=<id>`
+- completed portfolio preview rows show report detail and Open PDF actions
+- failed portfolio preview rows point to report detail management
+- dashboard latest-report summary renders when reports exist
+- dashboard no-report state renders when no reports exist
+- dashboard still handles no-portfolio state
+
+Verification:
+
+- `npm test -- --run src/server/auth/profile-bootstrap.test.ts src/app/app/account/page.test.tsx src/app/app/account/actions.test.ts src/app/app/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx`: passed, 34 tests across 6 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- Full `npm test`: passed, 483 tests across 65 files.
+- `git diff --check`: passed.
+
+## 10) Stage 6: Account/Profile Polish
+
+Status: complete on 2026-06-21.
+
+Implemented:
+
+- Replaced `/app/account` placeholder copy with real profile details.
+- Displayed:
+  - first name
+  - last name
+  - email
+  - investor handle
+  - created timestamp
+  - updated timestamp
+- Added first/last-name edit form.
+- Added `updateProfileNameFromForm` server action.
+- Added `updateAuthenticatedUserProfile` service behavior.
+- Kept email and investor handle read-only.
+- Kept payment, billing, and account deletion out of the account page.
+- Added friendly save success/error states:
+  - `notice=profile_updated`
+  - `error=profile_validation_error`
+  - `error=profile_update_failed`
+
+Files changed:
+
+- `src/server/auth/profile-bootstrap.ts`
+- `src/server/auth/profile-bootstrap.test.ts`
+- `src/app/app/account/actions.ts`
+- `src/app/app/account/actions.test.ts`
+- `src/app/app/account/page.tsx`
+- `src/app/app/account/page.module.css`
+- `src/app/app/account/page.test.tsx`
+
+Behavior notes:
+
+- Profile updates are owner-scoped by the authenticated Supabase user.
+- Only `firstName` and `lastName` are updated.
+- Submitted names are trimmed and must be non-empty.
+- The profile update path does not update email or investor handle.
+- The account page relies on the existing app layout/session guard for signed-out redirects.
+- Raw auth/database failures are mapped to friendly account-page errors.
+
+Focused tests added/updated:
+
+- account page renders profile details
+- account page renders profile save success and validation error states
+- account page does not render payment, billing, or account-deletion controls
+- profile service updates only first and last name
+- profile service rejects blank names
+- account action persists valid name edits and revalidates app/account paths
+- account action rejects blank names before authenticated update
+- account action maps validation and unexpected failures to friendly errors
+
+Verification:
+
+- `npm test -- --run src/server/auth/profile-bootstrap.test.ts src/app/app/account/page.test.tsx src/app/app/account/actions.test.ts src/app/app/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx`: passed, 34 tests across 6 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- Full `npm test`: passed, 483 tests across 65 files.
+- `git diff --check`: passed.
+
+## 11) Current Stop Point
 
 Stop requested by user:
 
-- Complete Stage 3 and Stage 4 only.
-- Stop before Stage 5 portfolio preview/dashboard polish.
+- Complete Stage 5 and Stage 6 only.
+- Stop before Stage 7 full local E2E runbook/documentation.
 
 Current stop point status:
 
@@ -384,20 +518,20 @@ Current stop point status:
 - Stage 2 report API and server actions are complete.
 - Stage 3 report library UI is complete.
 - Stage 4 report detail UI is complete.
-- No Stage 5 portfolio preview/dashboard polish has been started.
-- No Stage 6 account/profile polish has been started.
+- Stage 5 portfolio preview/dashboard polish is complete.
+- Stage 6 account/profile polish is complete.
 - No Stage 7 manual runbook work has been started.
 - No production worker, production market-data, or payment scope was added.
 
 Verification at this stop point:
 
-- `npm test -- --run src/app/app/reports/page.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/actions.test.ts`: passed, 44 tests across 5 files.
+- `npm test -- --run src/server/auth/profile-bootstrap.test.ts src/app/app/account/page.test.tsx src/app/app/account/actions.test.ts src/app/app/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx`: passed, 34 tests across 6 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
-- `npm test`: passed, 473 tests across 63 files.
+- `npm test`: passed, 483 tests across 65 files.
 - `git diff --check`: passed.
 
 Next planned step after user review:
 
-- Stage 5: Portfolio Preview And Dashboard Polish.
+- Stage 7: Full Local E2E Runbook And Documentation.

@@ -10,7 +10,8 @@
 }
 
 .kicker,
-.panelLabel {
+.panelLabel,
+.profileForm label span {
   margin: 0;
   color: #aacf80;
   font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
@@ -33,14 +34,63 @@
 }
 
 .pageHeader p,
-.accountPanel p {
+.accountPanel p,
+.profileGrid p {
   margin: 0;
   color: rgba(255, 248, 238, 0.68);
   line-height: 1.6;
 }
 
+.noticeMessage,
+.errorMessage {
+  margin: 0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.noticeMessage {
+  border: 1px solid rgba(170, 207, 128, 0.34);
+  background: rgba(170, 207, 128, 0.12);
+  color: #dff8bf;
+}
+
+.errorMessage {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profileGrid > div {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+  padding: 18px;
+}
+
+.profileGrid p:last-of-type {
+  color: #fff8ee;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.profileGrid span {
+  color: rgba(255, 248, 238, 0.52);
+  font-size: 13px;
+}
+
 .accountPanel {
-  max-width: 760px;
+  max-width: 860px;
   border: 1px solid rgba(255, 248, 238, 0.12);
   border-radius: 8px;
   background: rgba(255, 248, 238, 0.055);
@@ -57,8 +107,64 @@
   line-height: 1.16;
 }
 
+.profileForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.profileForm label {
+  display: grid;
+  gap: 8px;
+}
+
+.profileForm input {
+  min-height: 42px;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 15, 22, 0.72);
+  color: #fff8ee;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.profileForm input:focus-visible {
+  border-color: rgba(170, 207, 128, 0.55);
+  outline: none;
+}
+
+.profileForm button {
+  min-height: 42px;
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  border-radius: 6px;
+  background: #aacf80;
+  color: #0a0f16;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profileForm button:hover,
+.profileForm button:focus-visible {
+  background: #c2e79a;
+  outline: none;
+}
+
 @media (max-width: 760px) {
   .pageHeader h1 {
     font-size: 38px;
+  }
+
+  .profileGrid,
+  .profileForm {
+    grid-template-columns: 1fr;
+  }
+
+  .profileForm button {
+    width: 100%;
   }
 }

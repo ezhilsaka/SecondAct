@@ -265,13 +265,27 @@
   gap: 18px;
 }
 
-.reportPreviewLead > div {
+.reportPreviewLead > div:first-child {
   display: grid;
   gap: 10px;
 }
 
+.reportPreviewActions,
+.reportPreviewRowActions,
+.reportPreviewDownloadAction {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reportPreviewActions {
+  justify-content: flex-end;
+}
+
 .reportPreviewAction,
-.reportPreviewList a {
+.reportPreviewList a,
+.reportPreviewButton {
   min-height: 38px;
   display: inline-flex;
   align-items: center;
@@ -281,17 +295,26 @@
   background: rgba(10, 15, 22, 0.6);
   color: #fff8ee;
   padding: 0 12px;
+  font: inherit;
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .reportPreviewAction:hover,
 .reportPreviewAction:focus-visible,
 .reportPreviewList a:hover,
-.reportPreviewList a:focus-visible {
+.reportPreviewList a:focus-visible,
+.reportPreviewButton:hover,
+.reportPreviewButton:focus-visible {
   border-color: rgba(170, 207, 128, 0.5);
   outline: none;
+}
+
+.reportPreviewButton:disabled {
+  cursor: progress;
+  opacity: 0.72;
 }
 
 .reportPreviewList {
@@ -304,13 +327,24 @@
 
 .reportPreviewList li {
   display: grid;
-  grid-template-columns: minmax(90px, 0.8fr) minmax(70px, 0.5fr) minmax(110px, 1fr) auto;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(70px, 0.5fr) minmax(110px, 1fr) minmax(220px, auto);
   align-items: center;
   gap: 12px;
   border: 1px solid rgba(255, 248, 238, 0.1);
   border-radius: 8px;
   background: rgba(10, 15, 22, 0.42);
   padding: 12px;
+}
+
+.inlineError {
+  width: 100%;
+  margin: 0;
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  border-radius: 8px;
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+  padding: 10px 12px;
+  font-size: 13px;
 }
 
 .reportPreviewList span {
@@ -447,6 +481,11 @@
     grid-template-columns: 1fr;
     align-items: stretch;
   }
+
+  .reportPreviewActions,
+  .reportPreviewRowActions {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 620px) {
@@ -461,7 +500,9 @@
   .headerActions a,
   .readinessPanel button,
   .reportPreviewAction,
+  .reportPreviewButton,
   .reportPreviewList a,
+  .reportPreviewDownloadAction,
   .reportForm select {
     width: 100%;
   }

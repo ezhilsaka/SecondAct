@@ -22,6 +22,7 @@ import {
   ReportRunService,
   type ReportRunSummaryResult
 } from "@/server/services/report-run-service";
+import { ReportDownloadButton } from "@/app/app/reports/[runId]/ReportDownloadButton";
 
 import {
   addHoldingFromForm,
@@ -147,10 +148,29 @@ function formatReportTimestamp(value: string | null): string {
   }).format(new Date(value));
 }
 
-function PortfolioReportPreview({ reportRuns }: { reportRuns: ReportRunSummaryResult[] }) {
+function getReportPreviewActionLabel(run: ReportRunSummaryResult): string {
+  if (run.status === "FAILED") {
+    return "Manage failed report";
+  }
+
+  if (run.status === "COMPLETED") {
+    return "Report details";
+  }
+
+  return "View status";
+}
+
+function PortfolioReportPreview({
+  portfolioId,
+  reportRuns
+}: {
+  portfolioId: string;
+  reportRuns: ReportRunSummaryResult[];
+}) {
   const activeRun = reportRuns.find(isActiveReportRun) ?? null;
   const latestCompletedRun = reportRuns.find((run) => run.status === "COMPLETED") ?? null;
   const highlightedRun = activeRun ?? latestCompletedRun;
+  const portfolioReportsPath = `/app/reports?portfolioId=${portfolioId}`;
 
   return (
     <section className={styles.reportPreviewPanel} aria-labelledby="report-preview-heading">
@@ -167,15 +187,16 @@ function PortfolioReportPreview({ reportRuns }: { reportRuns: ReportRunSummaryRe
           </p>
         </div>
 
-        {highlightedRun ? (
-          <Link className={styles.reportPreviewAction} href={`/app/reports/${highlightedRun.runId}`}>
-            {activeRun ? "View active report" : "Open completed report"}
+        <div className={styles.reportPreviewActions}>
+          {highlightedRun ? (
+            <Link className={styles.reportPreviewAction} href={`/app/reports/${highlightedRun.runId}`}>
+              {activeRun ? "View active report" : "Open completed report"}
+            </Link>
+          ) : null}
+          <Link className={styles.reportPreviewAction} href={portfolioReportsPath}>
+            View all reports for this portfolio
           </Link>
-        ) : (
-          <Link className={styles.reportPreviewAction} href="/app/reports">
-            View all reports
-          </Link>
-        )}
+        </div>
       </div>
 
       {reportRuns.length > 0 ? (
@@ -185,7 +206,17 @@ function PortfolioReportPreview({ reportRuns }: { reportRuns: ReportRunSummaryRe
               <span>{run.status}</span>
               <span>{run.reportingCurrency}</span>
               <span>{formatReportTimestamp(run.requestedAt)}</span>
-              <Link href={`/app/reports/${run.runId}`}>View status</Link>
+              <div className={styles.reportPreviewRowActions}>
+                <Link href={`/app/reports/${run.runId}`}>{getReportPreviewActionLabel(run)}</Link>
+                {run.status === "COMPLETED" ? (
+                  <ReportDownloadButton
+                    runId={run.runId}
+                    containerClassName={styles.reportPreviewDownloadAction}
+                    buttonClassName={styles.reportPreviewButton}
+                    messageClassName={styles.inlineError}
+                  />
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
@@ -354,7 +385,7 @@ export function PortfolioDetailView({
         <ReportGenerationPanel portfolio={portfolio} />
       </section>
 
-      <PortfolioReportPreview reportRuns={reportRuns} />
+      <PortfolioReportPreview portfolioId={portfolio.id} reportRuns={reportRuns} />
 
       <section className={styles.addHoldingPanel} aria-labelledby="add-holding-heading">
         <div className={styles.sectionHeader}>
