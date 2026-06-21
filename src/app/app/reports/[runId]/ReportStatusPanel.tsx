@@ -190,7 +190,7 @@ export function ReportStatusPanel({
     }
 
     let cancelled = false;
-    const timeoutId = window.setTimeout(async () => {
+    const intervalId = window.setInterval(async () => {
       const result = await refreshReportStatusOnce(status.runId, fetchStatus);
 
       if (cancelled) {
@@ -205,9 +205,9 @@ export function ReportStatusPanel({
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
+      window.clearInterval(intervalId);
     };
-  }, [fetchStatus, isPolling, pollIntervalMs, status.runId, status.status]);
+  }, [fetchStatus, isPolling, pollIntervalMs, status.runId]);
 
   return (
     <section className={styles.statusPanel} aria-labelledby="report-status-heading">

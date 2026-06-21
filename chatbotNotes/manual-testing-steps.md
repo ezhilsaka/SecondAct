@@ -1,12 +1,12 @@
 # Manual Testing Steps
 
-Last updated: 2026-06-18
+Last updated: 2026-06-21
 
 Purpose:
 
-- Provide one browser-ready manual testing checklist for Phase 2 auth/app-shell behavior and Phase 3 portfolio management.
+- Provide one browser-ready manual testing checklist for Phase 2 auth/app-shell behavior, Phase 3 portfolio management, and Phase 4 report-generation UI.
 - Keep this document focused on local manual validation. Automated test evidence remains in the phase execution notes.
-- Treat report-generation UI as out of scope for this checklist. Phase 3 should still show `Report generation comes next` instead of a working report-generation UI.
+- Treat Phase 4 as the UI/interaction layer on top of the existing report pipeline. This checklist does not replace the automated test suite or the phase execution notes.
 
 ## 1) Local Setup
 
@@ -22,9 +22,9 @@ Open:
 http://localhost:3000
 ```
 
-### 1.2 Start Market-Data Adapter For Ticker Search
+### 1.2 Start Market-Data Adapter For Ticker Search And Reports
 
-Run this if you want ticker autocomplete to return real local results.
+Run this if you want ticker autocomplete to return real local results or if you are testing Phase 4 report generation.
 
 ```bash
 cd services/market-data-adapter
@@ -40,7 +40,60 @@ MARKET_DATA_SERVICE_URL=http://127.0.0.1:8000
 MARKET_DATA_ADAPTER_INTERNAL_API_SECRET=<same value used by the adapter>
 ```
 
-### 1.3 Browser Setup
+Health check:
+
+```bash
+curl -i http://127.0.0.1:8000/health
+```
+
+Expected:
+
+- status `200`
+- body includes `status: ok`
+- body includes provider `yfinance`
+
+### 1.3 Start Graphile Worker For Report Generation
+
+Run this in a separate terminal for Phase 4 report generation:
+
+```bash
+npm run worker:dev
+```
+
+Expected:
+
+- worker starts without env validation errors
+- log says it is connected and looking for jobs
+- task name includes `report.run.generate`
+
+### 1.4 Confirm Phase 4 Report Env
+
+Before running Phase 4 report-generation checks, confirm the local environment has valid values for:
+
+```text
+DATABASE_URL
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_REPORTS_BUCKET
+REPORT_RUN_TASK_IDENTIFIER
+MARKET_DATA_SERVICE_URL
+MARKET_DATA_ADAPTER_INTERNAL_API_SECRET
+NARRATIVE_PROVIDER
+NARRATIVE_PROVIDER_BASE_URL
+NARRATIVE_PROVIDER_API_KEY
+NARRATIVE_MODEL
+```
+
+Expected:
+
+- narrative provider credentials are valid
+- Supabase report bucket exists
+- report bucket is private
+- local market-data adapter URL matches `MARKET_DATA_SERVICE_URL`
+- do not paste or commit secret values into this file
+
+### 1.5 Browser Setup
 
 Use either:
 
@@ -289,7 +342,8 @@ Expected:
 - portfolio dashboard section is visible
 - if no active portfolios exist, dashboard CTA is `Create Portfolio`
 - if active portfolios exist, dashboard CTA is `View Portfolios` or equivalent portfolio-list action
-- report card says `Report generation comes next`
+- report-related dashboard or navigation affordances should not expose data while signed out
+- full report-generation behavior is covered in Phase 4 below
 
 ### 3.2 Portfolio List Empty State
 
@@ -358,7 +412,7 @@ Expected:
 
 - portfolio is clearly not ready
 - copy indicates holdings are needed
-- report-generation action remains informational/disabled
+- report-generation action remains disabled, for example `Add holdings first`
 - page does not call `report-runs`
 
 ### 3.7 Add Holding With Ticker Autocomplete
@@ -476,7 +530,7 @@ Expected:
 - no unrelated holdings are removed
 - if the portfolio has no holdings left, readiness returns to not-ready
 
-### 3.13 Deferred Phase 2 Owned-Portfolio Report API Positive Path
+### 3.13 Owned-Portfolio Report API Positive Path
 
 Use an active owned portfolio ID from the URL:
 
@@ -510,6 +564,7 @@ Expected:
 - body includes `runId`
 - body status is `QUEUED`
 - spoofed `x-user-id` and body `userId` do not control ownership
+- if the worker is running, the run may move quickly to `PROCESSING`, `COMPLETED`, or `FAILED`; copy the `runId` immediately for follow-up checks
 
 In Supabase Table Editor, inspect `public.report_runs` for the returned `runId`.
 
@@ -533,7 +588,7 @@ Expected:
 - status `200`
 - response includes the same `runId`
 
-Optional PDF-route check before report completion:
+Optional PDF-route check while the run is still active or before report completion:
 
 ```js
 await fetch("/api/v1/report-runs/<runId>/pdf").then(async (r) => ({
@@ -542,7 +597,7 @@ await fetch("/api/v1/report-runs/<runId>/pdf").then(async (r) => ({
 }))
 ```
 
-Expected before report completion:
+Expected while the PDF artifact is not ready yet:
 
 - status `404`
 - body error code `ARTIFACT_NOT_FOUND`
@@ -635,7 +690,357 @@ Expected:
 - status `404` or equivalent not-found/not-owned response
 - no User A data is exposed
 
-## 4) Final Automated Gate
+## 4) Phase 4 Manual Testing
+
+Phase 4 covers:
+
+```text
+Ready portfolio -> Generate report -> Watch progress -> Download PDF -> Review report history
+```
+
+Before starting Phase 4:
+
+- complete the local setup steps above
+- keep Next.js running
+- keep the market-data adapter running
+- keep the Graphile worker running for the happy path
+- keep DevTools Console open
+- sign in through the app using Google or email OTP
+- use an active owned portfolio with at least one holding
+- prefer a small manual test portfolio with supported tickers such as `AAPL` and `MSFT`
+- use reporting currency `USD` first to avoid mixing Phase 4 UI validation with extra FX edge cases
+
+### 4.1 Reports Navigation
+
+1. Sign in.
+2. Visit `/app`.
+3. Click `Reports` in the app shell.
+
+Expected:
+
+- `/app/reports` loads
+- navigation item is live, not disabled
+- if no report runs exist, an empty state appears
+- if report runs exist, report rows appear
+- each row shows portfolio name, status, currency, requested date, completed/failed date when available, and a status-page link
+
+### 4.2 Ready Portfolio Report Controls
+
+1. Open an owned portfolio detail page:
+
+```text
+/app/portfolios/<portfolioId>
+```
+
+2. Confirm the portfolio has at least one saved holding.
+
+Expected:
+
+- readiness shows `Ready for report`
+- report-generation panel is visible
+- report currency selector is visible
+- selector options are `CAD` and `USD`
+- default selected currency matches the portfolio base currency
+- `Generate report` action is enabled
+- no raw pipeline JSON or provider errors are visible
+
+### 4.3 Generate Report From Portfolio Detail
+
+1. Set report currency to `USD` or the desired test currency.
+2. Click `Generate report`.
+
+Expected:
+
+- duplicate-click damping appears while the form is pending
+- browser redirects to:
+
+```text
+/app/reports/<runId>
+```
+
+- status page title is `Report Status | Second Act`
+- page shows source portfolio name
+- page shows selected reporting currency
+- page shows requested timestamp
+- page starts in `QUEUED` or quickly moves to `PROCESSING`
+- page shows calm active-state copy:
+  - queued: `Your report is in line to be generated.`
+  - processing: `We are building your report now.`
+- page shows `Checking for updates...` while active
+
+In the worker terminal, expected logs include:
+
+- report run job received
+- `QUEUED -> PROCESSING`
+- canonical model stage started/completed
+- analysis stage started/completed
+- narrative stage started/completed
+- PDF render stage started/completed
+- artifact storage stage started/completed
+- `PROCESSING -> COMPLETED`
+
+### 4.4 Completed Status And PDF Access
+
+Wait until the status page reaches `COMPLETED`.
+
+Expected:
+
+- status badge is `COMPLETED`
+- title is `Your report is ready.`
+- completed timestamp is populated
+- failed timestamp remains `Not yet`
+- `Open PDF` action is visible
+- `Retry report` is not visible on a completed run
+
+Click `Open PDF`.
+
+Expected:
+
+- signed PDF opens in a new tab or downloads, depending on browser settings
+- request returns `200 OK`
+- response content type is `application/pdf`
+- no signed URL is permanently displayed in app UI
+- no storage bucket secret or service-role key is visible
+
+Optional browser-console check from the completed status page:
+
+```js
+await fetch("/api/v1/report-runs/<runId>/pdf").then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `200`
+- body includes a temporary `url`
+- body does not include storage service credentials
+
+### 4.5 Report History Page
+
+After a report completes:
+
+1. Visit `/app/reports`.
+2. Locate the completed run.
+
+Expected:
+
+- row shows source portfolio name
+- row status is `COMPLETED`
+- row currency matches the generated run
+- row requested timestamp is present
+- row completed timestamp is present
+- `View status` links to `/app/reports/<runId>`
+- clicking source portfolio returns to the portfolio detail page
+
+### 4.6 Portfolio Detail Report Preview
+
+Return to:
+
+```text
+/app/portfolios/<portfolioId>
+```
+
+Expected:
+
+- report history panel is visible on the portfolio detail page
+- if there is no active run, copy says the latest completed report is ready to revisit
+- `Open completed report` links to `/app/reports/<runId>`
+- recent report list includes status, currency, date, and a status-page link
+- if an active run exists, the active run is prioritized over the completed run
+
+### 4.7 Supabase Report-Run Verification
+
+In Supabase Table Editor, inspect `public.report_runs` for the completed `runId`.
+
+Expected:
+
+- `id` equals the browser `runId`
+- `user_id` equals the signed-in Supabase Auth user ID
+- `portfolio_id` equals the source portfolio ID
+- `reporting_currency` equals the selected currency
+- `status` is `COMPLETED`
+- `payment_status` is `NOT_REQUIRED`
+- `started_at` is populated
+- `completed_at` is populated
+- `failed_at` is null
+- `market_data_provider` is populated
+- `narrative_provider` is populated
+- raw JSON columns are not exposed in browser/API responses
+
+Inspect `public.report_artifacts`.
+
+Expected:
+
+- row exists for the completed `runId`
+- `artifact_type` is `PDF_REPORT`
+- `storage_bucket` matches the configured reports bucket
+- `storage_path` ends with:
+
+```text
+/<runId>/report.pdf
+```
+
+- `mime_type` is `application/pdf`
+- `file_size_bytes` is greater than zero
+- checksum is present if configured by the pipeline
+
+Inspect Supabase Storage.
+
+Expected:
+
+- object exists at the artifact `storage_path`
+- object is in the configured private reports bucket
+- downloaded object opens as a PDF
+
+### 4.8 Report API Auth And Ownership Checks
+
+While signed out, run:
+
+```js
+await fetch("/api/v1/report-runs").then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `401`
+- body error code `UNAUTHORIZED`
+
+While signed in as the report owner, run:
+
+```js
+await fetch("/api/v1/report-runs").then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `200`
+- body includes only the signed-in user's report runs
+- completed run appears with safe summary fields
+- body does not include `canonicalSnapshot`, `analysisOutput`, `narrativeOutput`, or `errorDetails`
+
+Run:
+
+```js
+await fetch("/api/v1/report-runs/<runId>").then(async (r) => ({
+  status: r.status,
+  body: await r.json()
+}))
+```
+
+Expected:
+
+- status `200`
+- body includes the same `runId`
+- body includes portfolio name, status, payment status, reporting currency, and timestamps
+- body does not include raw pipeline JSON
+
+If you have two auth accounts, repeat the status and PDF-route checks as User B against User A's `runId`.
+
+Expected:
+
+- User B receives `404` or equivalent not-found/not-owned response
+- no User A report metadata or signed PDF URL is exposed
+
+### 4.9 Worker-Stopped Queued Drill
+
+Use a disposable test portfolio. Do not run this drill against data you care about preserving clean history for.
+
+1. Stop the Graphile worker.
+2. Keep Next.js and the market-data adapter running.
+3. Generate a report from a ready portfolio.
+
+Expected:
+
+- browser redirects to `/app/reports/<runId>`
+- status remains `QUEUED`
+- title is `Your report is in line to be generated.`
+- body says `We will keep checking for updates.`
+- started, completed, and failed timestamps remain `Not yet`
+- after the long-running threshold, the page explains that local queued reports wait until the background process is running
+
+Restart the worker when done.
+
+Expected:
+
+- report moves to `PROCESSING`
+- if all services are healthy, report eventually completes
+
+### 4.10 Market-Data Adapter Failure Drill
+
+Use a disposable test portfolio/run.
+
+1. Stop the Graphile worker.
+2. Generate a report and confirm the status page is `QUEUED`.
+3. Stop the market-data adapter.
+4. Restart the worker while the adapter remains stopped.
+
+Expected:
+
+- worker picks up the queued run
+- worker logs `QUEUED -> PROCESSING`
+- worker fails during the market-data/canonical stage
+- browser status page updates without manual refresh
+- final status is `FAILED`
+- title is `We could not finish this report.`
+- friendly message is shown:
+
+```text
+We could not prepare the market-data snapshot for this report. Check that the holdings use supported tickers and try again.
+```
+
+- failed timestamp is populated
+- completed timestamp remains `Not yet`
+- `Retry report` action is visible
+- raw provider exception text, worker stack traces, and secrets are not visible in the browser
+
+Restore services after the drill.
+
+Terminal 1:
+
+```bash
+npm run worker:dev
+```
+
+Terminal 2:
+
+```bash
+cd services/market-data-adapter
+source .venv/bin/activate
+export MARKET_DATA_ADAPTER_INTERNAL_API_SECRET="<same value as .env>"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Health-check the adapter again:
+
+```bash
+curl -i http://127.0.0.1:8000/health
+```
+
+### 4.11 Retry Failed Report
+
+From a failed report status page:
+
+1. Confirm `Retry report` is visible.
+2. Restore the worker and market-data adapter.
+3. Click `Retry report`.
+
+Expected:
+
+- browser redirects to an active or new report status page
+- retry does not mutate the failed run into completed
+- failed run remains visible in `/app/reports`
+- new run uses the same source portfolio and reporting currency
+- new run follows the normal queued/processing/completed flow if services are healthy
+
+## 5) Final Automated Gate
 
 Run after manual testing:
 
@@ -652,7 +1057,7 @@ Expected:
 
 - all commands pass
 
-## 5) Cleanup
+## 6) Cleanup
 
 Preferred cleanup:
 
@@ -661,16 +1066,20 @@ Preferred cleanup:
 
 If direct database cleanup is needed:
 
-1. Confirm the test portfolio has no important report runs.
+1. Confirm the test portfolio has no important report runs or report artifacts.
 2. Delete only test data you created.
-3. Keep ownership relationships in mind:
+3. Delete matching private Storage test PDFs only when you are sure they belong to test runs.
+4. Keep ownership relationships in mind:
    - `portfolio_holdings.portfolio_id`
    - `report_runs.portfolio_id`
+   - `report_artifacts.report_run_id`
+   - `report_artifacts.storage_path`
    - `portfolios.user_id`
    - `portfolio_holdings.user_id`
    - `report_runs.user_id`
+   - `report_artifacts.user_id`
 
-## 6) Signoff Summary
+## 7) Signoff Summary
 
 Use this section to record your manual test result.
 
@@ -695,6 +1104,17 @@ Phase 3 duplicate ticker handling:
 Phase 3 DB ownership checks:
 Phase 3 report API positive path:
 Phase 3 signed-out API checks:
+Phase 4 reports navigation:
+Phase 4 ready portfolio generate controls:
+Phase 4 generate/status flow:
+Phase 4 completed PDF access:
+Phase 4 reports history:
+Phase 4 portfolio report preview:
+Phase 4 Supabase report/artifact/storage checks:
+Phase 4 signed-out and cross-user report auth:
+Phase 4 queued drill:
+Phase 4 market-data failure drill:
+Phase 4 retry failed report:
 Final automated gate:
 Notes:
 ```

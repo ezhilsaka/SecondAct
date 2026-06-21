@@ -1,6 +1,6 @@
 # Phase 4 Report Generation UI Execution
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 ## 1) Purpose
 
@@ -36,7 +36,7 @@ Current status:
 - Stage 5 PDF open/download flow: complete
 - Stage 6 report history/list UI: complete
 - Stage 7 failure, retry, and long-running state polish: complete
-- Stage 8 local end-to-end report generation validation: not started
+- Stage 8 local end-to-end report generation validation: complete
 - Stage 9 full verification and quality gate: not started
 - Stage 10 documentation updates: in progress through this execution file
 
@@ -46,10 +46,12 @@ Review checkpoint:
 - User then requested implementation only through Step 3 and Step 4, then stop before Step 5.
 - User then requested implementation only through Step 5 and Step 6, then stop before Step 7.
 - User then requested implementation only through Step 7, then stop before Step 8.
+- User then requested implementation only through Step 8, then stop before Step 9.
 - No UX clarification blocked Step 3 or Step 4 because the planning document already called for the ready portfolio action, compact USD/CAD selector, redirect to status page, and 2-3 second polling behavior.
 - No UX clarification blocked Step 5 or Step 6 because the planning document already called for completion-only PDF access, friendly PDF errors, a Reports history route, live navigation, and portfolio-detail report previews.
 - No UX clarification blocked Step 7 because the planning document already included failure-copy mapping, retry behavior, and calm long-running queued/processing copy.
-- No backend knowledge base update was required for Step 3 through Step 7 because no new durable product clarification was discussed beyond the existing Phase 4 plan.
+- No UX clarification blocked Step 8 because the planning document already called for local Next.js, worker, market-data adapter, valid narrative-provider env, authenticated browser flow, ready portfolio, Supabase row checks, storage checks, and practical failure drills.
+- No backend knowledge base update was required for Step 3 through Step 8 because no new durable product clarification was discussed beyond the existing Phase 4 plan.
 
 ## 4) Stage 0: Baseline And Current-State Audit
 
@@ -412,11 +414,183 @@ Verification:
 - `npm run typecheck`: passed
 - `npm run lint`: passed
 
-## 12) Current Stop Point
+## 12) Stage 8: Local End-To-End Report Generation Validation
+
+Status: complete on 2026-06-21.
+
+Goal:
+
+- Validate the report-generation UI against the real local app, worker, market-data adapter, narrative provider, Supabase database, and Supabase Storage before starting the final quality gate.
+
+Setup:
+
+- Started the local Next.js app with `npm run dev`.
+- Started the Graphile worker with `npm run worker:dev`.
+- Started the Python market-data adapter with `uvicorn` from `services/market-data-adapter/.venv`.
+- Confirmed runtime env shape:
+  - server env valid
+  - narrative env valid
+  - `MARKET_DATA_SERVICE_URL` origin `http://127.0.0.1:8000`
+  - narrative provider `openai-compatible`
+  - narrative base URL origin `https://generativelanguage.googleapis.com`
+  - report bucket configured
+  - signed URL expiry defaulted to 300 seconds
+- Confirmed service health:
+  - `GET http://127.0.0.1:3000/login`: `200 OK`
+  - `GET http://127.0.0.1:8000/health`: `200 OK`, provider `yfinance`
+  - worker connected and polling task `report.run.generate`
+- Created an isolated Stage 8 Supabase auth user and matching app data:
+  - user/profile ID: `694e960b-34a8-439e-8642-91396debf9a1`
+  - email: `stage8+mqn5ocsg@secondact.app`
+  - portfolio ID: `df05817f-f37b-48c3-a70b-36e920b64df4`
+  - portfolio name: `Stage 8 E2E mqn5ocsg`
+  - base/reporting currency used: `USD`
+  - holdings: `AAPL`, `MSFT`
+- Signed into the app through Supabase magic-link callback using the app-supported `token_hash` flow.
+  - First attempted the hosted magic action link and a `127.0.0.1` callback URL.
+  - The hosted link produced an implicit-flow hash and the `127.0.0.1` callback lost the session when the app normalized back to `localhost`.
+  - Regenerating the callback URL on `http://localhost:3000/auth/callback` kept the cookie host consistent and landed on the portfolio detail route.
+
+Happy-path browser validation:
+
+- Opened portfolio detail route:
+  - `/app/portfolios/df05817f-f37b-48c3-a70b-36e920b64df4`
+- Confirmed the portfolio summary showed:
+  - base currency `USD`
+  - `2` holdings
+  - readiness `Ready for report`
+- Confirmed the generate panel showed:
+  - report currency selector
+  - selected currency `USD`
+  - `Generate report` action
+- Clicked `Generate report`.
+- Confirmed redirect to:
+  - `/app/reports/001ca892-5329-4cec-93a7-a1e2a8ea0f39`
+- Confirmed the status page displayed `PROCESSING`.
+- Worker log confirmed:
+  - `QUEUED -> PROCESSING`
+  - `canonical_model` completed
+  - `analysis_engine` completed
+  - `narrative_engine` completed
+  - `report_document_assembly` completed
+  - `pdf_render` completed with `playwright-chromium`
+  - `artifact_storage` completed
+  - `PROCESSING -> COMPLETED`
+- Confirmed completed status UI after route reload:
+  - status `COMPLETED`
+  - title `Your report is ready.`
+  - completed timestamp populated
+  - `Open PDF` action available
+- Opened the PDF action.
+- Confirmed the signed Supabase Storage PDF request returned:
+  - `200 OK`
+  - `content-type: application/pdf`
+  - `content-length: 241698`
+- Confirmed `/app/reports` listed the run with:
+  - portfolio `Stage 8 E2E mqn5ocsg`
+  - status `COMPLETED`
+  - currency `USD`
+  - completed timestamp
+  - status-page link
+- Confirmed portfolio detail report history showed:
+  - latest completed report copy
+  - `Open completed report`
+  - recent report row with `COMPLETED`, `USD`, and status link
+
+Supabase verification:
+
+- `report_runs` row for `001ca892-5329-4cec-93a7-a1e2a8ea0f39`:
+  - user ID `694e960b-34a8-439e-8642-91396debf9a1`
+  - portfolio ID `df05817f-f37b-48c3-a70b-36e920b64df4`
+  - reporting currency `USD`
+  - status `COMPLETED`
+  - payment status `NOT_REQUIRED`
+  - market data provider `yfinance`
+  - narrative provider `openai-compatible`
+  - narrative model `gemini-2.5-flash`
+  - started and completed timestamps populated
+  - failed timestamp `null`
+- `report_artifacts` row:
+  - artifact ID `8b770587-fed2-4a67-aa3d-b48ccde58cd4`
+  - type `PDF_REPORT`
+  - bucket `SecondAct_Dev`
+  - path `694e960b-34a8-439e-8642-91396debf9a1/001ca892-5329-4cec-93a7-a1e2a8ea0f39/report.pdf`
+  - MIME type `application/pdf`
+  - file size `241698`
+  - checksum present
+- Supabase Storage object:
+  - download succeeded
+  - content type `application/pdf`
+  - size `241698`
+  - path matched the artifact row
+
+Issue found and fixed during validation:
+
+- The status panel initially did not continue polling if the first refresh returned the same active status.
+- Root cause:
+  - The client effect scheduled a single timeout keyed by `runId` and `status`.
+  - If the first refresh returned `QUEUED` again, or `PROCESSING` again, those dependency values did not change, so no follow-up timeout was scheduled.
+- Fix:
+  - Updated `src/app/app/reports/[runId]/ReportStatusPanel.tsx` to use an interval while the run is active.
+  - The interval is cleaned up when the status becomes terminal or when the component unmounts.
+- Focused verification:
+  - `npm test -- src/app/app/reports/[runId]/ReportStatusPanel.test.tsx`: passed, 11 tests
+
+Failure-drill validation:
+
+- Worker-stopped queued drill:
+  - Stopped the worker.
+  - Generated a new report from the portfolio.
+  - Confirmed redirect to `/app/reports/4873820d-50b6-42a3-a531-1f8b3ed67301`.
+  - Confirmed user-facing queued state:
+    - status `QUEUED`
+    - title `Your report is in line to be generated.`
+    - body `We will keep checking for updates.`
+    - started/completed/failed timestamps `Not yet`
+- Market-data-adapter failure drill:
+  - Stopped the market-data adapter.
+  - Restarted the worker while a queued run was active.
+  - Worker transitioned the run through `QUEUED -> PROCESSING -> FAILED`.
+  - Worker failed early at `canonical_model` with `CANONICAL_FAILURE` / `MARKET_DATA_OR_CANONICAL_FAILURE`.
+  - Re-ran the drill after the polling fix with run `055f037e-2d3b-4b98-9c1c-f9d824e19e65`.
+  - Confirmed the browser updated without route refresh to:
+    - status `FAILED`
+    - title `We could not finish this report.`
+    - friendly message `We could not prepare the market-data snapshot for this report. Check that the holdings use supported tickers and try again.`
+    - failed timestamp populated
+    - `Retry report` action available
+- Restored the market-data adapter after the drill and confirmed:
+  - `GET http://127.0.0.1:8000/health`: `200 OK`, provider `yfinance`
+- Database verification for final drill run `055f037e-2d3b-4b98-9c1c-f9d824e19e65`:
+  - user ID `694e960b-34a8-439e-8642-91396debf9a1`
+  - portfolio ID `df05817f-f37b-48c3-a70b-36e920b64df4`
+  - reporting currency `USD`
+  - status `FAILED`
+  - payment status `NOT_REQUIRED`
+  - error code `CANONICAL_FAILURE`
+  - started and failed timestamps populated
+  - completed timestamp `null`
+  - artifact count `0`
+
+Verification:
+
+- Browser E2E happy path: passed
+- Browser PDF signed URL check: passed
+- Browser global report history check: passed
+- Browser portfolio-detail report preview/history check: passed
+- Browser queued failure-drill check: passed
+- Browser failed-state failure-drill check after polling fix: passed
+- Supabase database/storage checks: passed
+- `npm test -- src/app/app/reports/[runId]/ReportStatusPanel.test.tsx`: passed, 11 tests
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `git diff --check`: passed
+
+## 13) Current Stop Point
 
 Stop requested by user:
 
-- Complete only Step 7, then stop before Step 8.
+- Complete only Step 8, then stop before Step 9.
 
 Current stop point status:
 
@@ -427,6 +601,7 @@ Current stop point status:
 - Step 5 is implemented and focused tests pass.
 - Step 6 is implemented and focused tests pass.
 - Step 7 is implemented and focused tests pass.
+- Step 8 is complete with local E2E validation evidence.
 - Portfolio detail now starts report generation for ready portfolios.
 - `/app/reports/[runId]` now displays authenticated report status with polling for active runs.
 - Completed report status now exposes an `Open PDF` action.
@@ -435,8 +610,10 @@ Current stop point status:
 - Portfolio detail now shows a user-scoped report preview.
 - Failed report status now shows friendly failure copy and a retry action.
 - Queued/processing status now shows calm long-running copy after the threshold.
-- No Stage 8 local end-to-end report generation validation has been started yet.
-- Stage 8 remains untouched.
+- Local E2E validation confirmed the happy path from ready portfolio to completed PDF artifact.
+- Practical failure drills confirmed queued copy and market-data-adapter failure copy.
+- A Step 8 polling issue was fixed and revalidated in the browser.
+- Stage 9 full verification and quality gate has not been started.
 
 Verification at this stop point:
 
@@ -444,12 +621,13 @@ Verification at this stop point:
 - `npm test -- --run src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/api/v1/report-runs/[runId]/pdf/route.test.ts`: passed, 19 tests across 3 files
 - `npm test -- --run src/app/app/reports/page.test.tsx src/components/app/AppShell.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/server/services/report-run-service.test.ts`: passed, 28 tests across 4 files
 - `npm test -- --run src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/actions.test.ts src/app/app/reports/page.test.tsx`: passed, 20 tests across 3 files
+- `npm test -- src/app/app/reports/[runId]/ReportStatusPanel.test.tsx`: passed, 11 tests
+- Browser E2E happy path, PDF access, report history, portfolio preview, queued drill, and failed-state drill: passed
 - `npm run typecheck`: passed
 - `npm run lint`: passed
-- `npm test`: passed, 439 tests across 63 files
-- `npm run build`: passed
 - `git diff --check`: passed
+- Prior full-suite/build evidence from the Step 7 stop point remains recorded above; Stage 9 full quality gate has not been started.
 
 Next planned step after user review:
 
-- Stage 8: Local end-to-end report generation validation.
+- Stage 9: Full verification and quality gate.
