@@ -366,6 +366,34 @@ A:
 - Deleting queued or processing rows is intentionally blocked because the graphile-worker job can
   still be active or waiting to run.
 
+### Q: How should Phase 5 report-library actions preserve filters and avoid leaking report internals?
+
+A:
+
+- `/app/reports` uses the `status` query param for report-library filtering, not action feedback:
+  - `ACTIVE`
+  - `COMPLETED`
+  - `FAILED`
+- Report delete success uses `notice=report_deleted` so a user can delete from a filtered report
+  library without losing the selected `status`, `reportingCurrency`, or `portfolioId` filters.
+- Report delete failures use `error=<friendly-code>` alongside the preserved filters.
+- Library-row and detail-page PDF actions continue to call the owner-scoped signed-url route on
+  demand:
+  - `GET /api/v1/report-runs/:runId/pdf`
+- The report-list response and report-library UI should stay limited to safe summary fields:
+  - portfolio name
+  - report status
+  - reporting currency
+  - requested/completed/failed timestamps
+  - app links/actions
+- The report library and detail UI must not render raw pipeline JSON, provider payloads, storage
+  bucket/path internals, or raw failure codes.
+- Completed reports can start a fresh report for the same portfolio and reporting currency through
+  the existing generation action; active-run detection still redirects to the in-flight run instead
+  of creating a duplicate.
+- Failed reports keep the retry action and can also be deleted once the user no longer needs the
+  failed run in their private library.
+
 ## 7) Auth Clarifications
 
 ### Q: What does “Supabase Auth” mean here?

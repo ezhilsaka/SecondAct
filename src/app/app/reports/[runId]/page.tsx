@@ -28,6 +28,27 @@ export const metadata: Metadata = {
   description: "Track a Second Act report generation run."
 };
 
+function getReportPageCopy(status: string): { kicker: string; body: string } {
+  if (status === "COMPLETED") {
+    return {
+      kicker: "Report details",
+      body: "This report is ready and can be revisited from your private report library."
+    };
+  }
+
+  if (status === "FAILED") {
+    return {
+      kicker: "Report issue",
+      body: "Review what happened, retry the report, or remove this failed run from your library."
+    };
+  }
+
+  return {
+    kicker: "Report run",
+    body: "Track this report while it moves from request to completion."
+  };
+}
+
 async function loadReportStatus(runId: string): Promise<ReportRunStatusResult> {
   const parsedRunId = uuidSchema.safeParse(runId);
 
@@ -49,15 +70,18 @@ async function loadReportStatus(runId: string): Promise<ReportRunStatusResult> {
 }
 
 export function ReportStatusPageView({ status }: ReportStatusPageViewProps) {
+  const copy = getReportPageCopy(status.status);
+
   return (
     <div className={styles.reportPage}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.kicker}>Report run</p>
+          <p className={styles.kicker}>{copy.kicker}</p>
           <h1>{status.portfolioName}</h1>
-          <p>Track this report while it moves from request to completion.</p>
+          <p>{copy.body}</p>
         </div>
         <div className={styles.headerActions}>
+          <Link href="/app/reports">Back to Reports</Link>
           <Link href={`/app/portfolios/${status.portfolioId}`}>Back to Portfolio</Link>
         </div>
       </header>

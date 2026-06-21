@@ -218,7 +218,9 @@ describe("deleteReportRunFromForm", () => {
           returnTo: "/app/reports?status=completed&reportingCurrency=CAD"
         })
       )
-    ).rejects.toThrow("REDIRECT:/app/reports?reportingCurrency=CAD&status=report_deleted");
+    ).rejects.toThrow(
+      "REDIRECT:/app/reports?status=completed&reportingCurrency=CAD&notice=report_deleted"
+    );
 
     expect(mockDeleteTerminalReportRunForUser).toHaveBeenCalledWith(TEST_RUN_ID, TEST_USER_ID);
     expect(mockRevalidatePath).toHaveBeenCalledWith("/app/reports");
@@ -234,7 +236,9 @@ describe("deleteReportRunFromForm", () => {
           returnTo: "/app/reports?status=failed"
         })
       )
-    ).rejects.toThrow("REDIRECT:/app/reports?error=report_delete_validation_error");
+    ).rejects.toThrow(
+      "REDIRECT:/app/reports?status=failed&error=report_delete_validation_error"
+    );
 
     expect(mockRequireAuthenticatedUser).not.toHaveBeenCalled();
     expect(mockDeleteTerminalReportRunForUser).not.toHaveBeenCalled();
@@ -248,7 +252,7 @@ describe("deleteReportRunFromForm", () => {
           returnTo: "https://example.com/phish"
         })
       )
-    ).rejects.toThrow("REDIRECT:/app/reports?status=report_deleted");
+    ).rejects.toThrow("REDIRECT:/app/reports?notice=report_deleted");
   });
 
   it("redirects not-found deletes to a friendly reports error", async () => {

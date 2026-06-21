@@ -83,7 +83,23 @@ export function openReportPdfSignedUrl(
   return Boolean(openWindow(signedUrl, "_blank", "noopener,noreferrer"));
 }
 
-export function ReportDownloadButton({ runId }: { runId: string }) {
+type ReportDownloadButtonProps = {
+  runId: string;
+  containerClassName?: string;
+  buttonClassName?: string;
+  messageClassName?: string;
+  label?: string;
+  loadingLabel?: string;
+};
+
+export function ReportDownloadButton({
+  runId,
+  containerClassName,
+  buttonClassName,
+  messageClassName,
+  label = "Open PDF",
+  loadingLabel = "Opening PDF..."
+}: ReportDownloadButtonProps) {
   const [isOpening, setIsOpening] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -105,12 +121,17 @@ export function ReportDownloadButton({ runId }: { runId: string }) {
   }
 
   return (
-    <div className={styles.downloadAction}>
-      <button type="button" onClick={handleOpenPdf} disabled={isOpening}>
-        {isOpening ? "Opening PDF..." : "Open PDF"}
+    <div className={containerClassName ?? styles.downloadAction}>
+      <button
+        type="button"
+        className={buttonClassName}
+        onClick={handleOpenPdf}
+        disabled={isOpening}
+      >
+        {isOpening ? loadingLabel : label}
       </button>
       {message ? (
-        <p className={styles.inlineError} role="status">
+        <p className={messageClassName ?? styles.inlineError} role="status">
           {message}
         </p>
       ) : null}

@@ -30,9 +30,9 @@ function getReportStatusPath(runId: string): string {
   return `/app/reports/${runId}`;
 }
 
-function appendReportActionParam(path: string, key: "status" | "error", value: string): string {
+function appendReportActionParam(path: string, key: "notice" | "error", value: string): string {
   const url = new URL(path, "http://localhost");
-  url.searchParams.delete("status");
+  url.searchParams.delete("notice");
   url.searchParams.delete("error");
   url.searchParams.set(key, value);
 
@@ -154,5 +154,5 @@ export async function deleteReportRunFromForm(formData: FormData) {
     handleDeleteReportError(error, returnPath);
   }
 
-  redirect(appendReportActionParam(returnPath, "status", "report_deleted"));
+  redirect(appendReportActionParam(returnPath, "notice", "report_deleted"));
 }

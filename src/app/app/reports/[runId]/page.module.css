@@ -180,8 +180,7 @@
   color: #ffd7a5;
 }
 
-.downloadAction,
-.retryAction {
+.panelActions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -190,8 +189,16 @@
   padding-top: 18px;
 }
 
+.downloadAction,
+.inlineActionForm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .downloadAction button,
-.retryAction button {
+.inlineActionForm button {
   min-height: 42px;
   border: 1px solid rgba(170, 207, 128, 0.42);
   border-radius: 6px;
@@ -206,16 +213,40 @@
 
 .downloadAction button:hover,
 .downloadAction button:focus-visible,
-.retryAction button:hover,
-.retryAction button:focus-visible {
+.inlineActionForm button:hover,
+.inlineActionForm button:focus-visible {
   background: #c2e79a;
   outline: none;
 }
 
 .downloadAction button:disabled,
-.retryAction button:disabled {
+.inlineActionForm button:disabled {
   cursor: progress;
   opacity: 0.72;
+}
+
+.inlineActionForm .secondaryActionButton {
+  border-color: rgba(255, 248, 238, 0.18);
+  background: rgba(10, 15, 22, 0.6);
+  color: #fff8ee;
+}
+
+.inlineActionForm .secondaryActionButton:hover,
+.inlineActionForm .secondaryActionButton:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  background: rgba(255, 248, 238, 0.08);
+}
+
+.inlineActionForm .dangerActionButton {
+  border-color: rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.inlineActionForm .dangerActionButton:hover,
+.inlineActionForm .dangerActionButton:focus-visible {
+  border-color: rgba(255, 216, 196, 0.62);
+  background: rgba(122, 47, 28, 0.46);
 }
 
 .statusFacts {
@@ -277,5 +308,12 @@
 
   .statusFacts {
     grid-template-columns: 1fr;
+  }
+
+  .panelActions,
+  .downloadAction,
+  .inlineActionForm,
+  .panelActions button {
+    width: 100%;
   }
 }

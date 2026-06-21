@@ -71,6 +71,9 @@ describe("ReportStatusPanel", () => {
 
     expect(html).toContain("Your report is ready.");
     expect(html).toContain("Open PDF");
+    expect(html).toContain("Generate fresh report");
+    expect(html).toContain("Delete report");
+    expect(html).toContain('name="returnTo"');
     expect(html).not.toContain("Checking for updates...");
   });
 
@@ -89,8 +92,25 @@ describe("ReportStatusPanel", () => {
     expect(html).toContain("We could not finish this report.");
     expect(html).toContain("We could not prepare the market-data snapshot for this report.");
     expect(html).toContain("Retry report");
+    expect(html).toContain("Delete failed report");
     expect(html).toContain('name="retrySourceRunId"');
     expect(html).not.toContain("Checking for updates...");
+  });
+
+  it("hides terminal management actions while a report is active", () => {
+    const html = renderToStaticMarkup(
+      <ReportStatusPanel
+        initialStatus={buildStatus({
+          status: "PROCESSING",
+          startedAt: "2026-06-20T12:01:00.000Z"
+        })}
+      />
+    );
+
+    expect(html).toContain("Checking for updates...");
+    expect(html).not.toContain("Delete report");
+    expect(html).not.toContain("Generate fresh report");
+    expect(html).not.toContain("Retry report");
   });
 
   it("maps known and unknown failure codes to friendly copy", () => {

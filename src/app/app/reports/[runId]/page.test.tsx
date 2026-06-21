@@ -62,9 +62,47 @@ describe("ReportStatusPageView", () => {
 
     expect(html).toContain("Report run");
     expect(html).toContain("Retirement Portfolio");
+    expect(html).toContain('href="/app/reports"');
     expect(html).toContain(`href="/app/portfolios/${TEST_PORTFOLIO_ID}"`);
+    expect(html).toContain("Back to Reports");
     expect(html).toContain("Back to Portfolio");
     expect(html).toContain("Your report is in line to be generated.");
+  });
+
+  it("renders completed reports as reusable report details", () => {
+    const html = renderToStaticMarkup(
+      <ReportStatusPageView
+        status={buildStatus({
+          status: "COMPLETED",
+          startedAt: "2026-06-20T12:01:00.000Z",
+          completedAt: "2026-06-20T12:03:00.000Z"
+        })}
+      />
+    );
+
+    expect(html).toContain("Report details");
+    expect(html).toContain("This report is ready and can be revisited");
+    expect(html).toContain("Open PDF");
+    expect(html).toContain("Generate fresh report");
+    expect(html).toContain("Delete report");
+  });
+
+  it("renders failed reports with retry and delete actions", () => {
+    const html = renderToStaticMarkup(
+      <ReportStatusPageView
+        status={buildStatus({
+          status: "FAILED",
+          startedAt: "2026-06-20T12:01:00.000Z",
+          failedAt: "2026-06-20T12:02:00.000Z",
+          errorCode: "ANALYSIS_FAILURE"
+        })}
+      />
+    );
+
+    expect(html).toContain("Report issue");
+    expect(html).toContain("Retry report");
+    expect(html).toContain("Delete failed report");
+    expect(html).toContain("Back to Reports");
   });
 });
 

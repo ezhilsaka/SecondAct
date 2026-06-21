@@ -36,8 +36,8 @@ Current status:
 - Stage 0 baseline audit: complete
 - Stage 1 report management service contract: complete
 - Stage 2 report API and server actions: complete
-- Stage 3 report library UI: pending
-- Stage 4 report detail UI: pending
+- Stage 3 report library UI: complete
+- Stage 4 report detail UI: complete
 - Stage 5 portfolio preview and dashboard polish: pending
 - Stage 6 account/profile polish: pending
 - Stage 7 full local E2E runbook and documentation: pending
@@ -45,13 +45,26 @@ Current status:
 
 Current stop point requested by user:
 
-- Implement Stage 0, Stage 1, and Stage 2.
-- Stop after Stage 2 verification and provide a summary for review.
+- Implement Stage 3 and Stage 4 only.
+- Stop after Stage 4 verification and before Stage 5 portfolio preview/dashboard polish.
 
 UX clarification status:
 
-- No UX question blocks Stages 0-2.
-- The plan already defines the relevant Stage 1-2 behavior:
+- No UX question blocks Stages 3-4.
+- The plan already defines the relevant Stage 3-4 behavior:
+  - report library summary counts and filters
+  - completed report library actions for PDF open, fresh report generation, and deletion
+  - failed report library actions for retry and deletion
+  - no delete action for active reports
+  - report detail navigation back to Reports and source portfolio
+  - completed and failed report detail management actions
+- Stage 3 required a small query-state clarification:
+  - `status` is now reserved for report-library filtering
+  - successful delete feedback uses `notice=report_deleted`
+  - delete failures continue to use `error=<friendly-code>`
+
+Prior Stage 1-2 UX behavior:
+
   - hard deletion for owner-owned terminal reports only
   - no deletion for active runs
   - storage cleanup before database deletion for completed reports
@@ -191,7 +204,9 @@ Server action behavior:
 
 - `deleteReportRunFromForm` validates `runId`, authenticates the user, calls the owner-scoped
   delete service, revalidates affected app paths, and redirects back to `/app/reports` with
-  friendly `status` or `error` query state.
+  friendly `notice` or `error` query state.
+- Delete success uses `notice=report_deleted` so report-library `status` filters can remain in
+  the URL after deleting from a filtered view.
 - Delete return paths are limited to `/app/reports` and `/app/reports?...` so form input cannot
   redirect away from the report library.
 - `generateReportFromPortfolio` remains the shared action for both completed-report fresh reruns
@@ -214,32 +229,175 @@ Verification:
 - Full `npm test`: initially failed because Prisma Client was stale/missing `.prisma/client/default`;
   `npm run build` regenerated Prisma Client, then `npm test` passed with 463 tests across 63 files.
 
-## 7) Current Stop Point
+## 7) Stage 3: Report Library UI
+
+Status: complete on 2026-06-21.
+
+Implemented:
+
+- Upgraded `/app/reports` from basic report history to report library.
+- Added owner-scoped summary counts for:
+  - active reports
+  - completed reports
+  - failed reports
+- Added URL-backed filters for:
+  - `status=ACTIVE|COMPLETED|FAILED`
+  - `reportingCurrency=CAD|USD`
+  - existing `portfolioId` scoping
+- Preserved selected filters in library links, form submissions, and delete return paths.
+- Added friendly action feedback:
+  - `notice=report_deleted`
+  - `error=<friendly-delete-error-code>`
+- Added completed-row actions:
+  - report details
+  - direct `Open PDF`
+  - `Generate fresh report`
+  - `Delete report`
+- Added failed-row actions:
+  - report details
+  - `Retry report`
+  - `Delete report`
+- Kept active-row management locked until the run finishes.
+- Added empty states for:
+  - no reports yet
+  - no matching reports for selected filters
+- Kept report-list rendering limited to safe summary fields.
+
+Files changed:
+
+- `src/app/app/reports/page.tsx`
+- `src/app/app/reports/page.module.css`
+- `src/app/app/reports/page.test.tsx`
+- `src/app/app/reports/ReportFormSubmitButton.tsx`
+- `src/app/app/reports/[runId]/ReportDownloadButton.tsx`
+- `src/app/app/reports/actions.ts`
+- `src/app/app/reports/actions.test.ts`
+
+Behavior notes:
+
+- The report library remains a Server Component page. Filters are parsed from `searchParams` and
+  passed to `ReportRunService.listReportRunsForUser`.
+- Summary counts are derived from the current portfolio scope when `portfolioId` is present.
+- Status/currency filters trigger a second list call so counts remain scoped but unfiltered by the
+  selected status/currency.
+- Invalid portfolio query values are ignored by the page parser; valid but not-owned portfolio IDs
+  are handled through the existing owner-scoped service check and render `notFound()`.
+- Completed-row PDF open still uses the existing signed-url route on demand instead of embedding
+  signed URLs in the report-list response.
+- Delete confirmation is handled by a small client submit button while the form action remains the
+  Stage 2 server action.
+- `status` is no longer used for delete success feedback because it is the report-library filter
+  query param. Delete success now uses `notice=report_deleted`.
+
+Focused tests added/updated:
+
+- empty report library renders the next step
+- summary counts render
+- filter controls preserve selected `status`, `reportingCurrency`, and `portfolioId`
+- completed rows show Open PDF, Generate fresh report, and Delete
+- failed rows show Retry and Delete
+- active rows hide terminal management actions
+- filtered empty state renders when reports exist but none match
+- raw pipeline/storage/internal details are not rendered
+- report page passes URL filters to `ReportRunService`
+- portfolio-scoped library returns not found when the portfolio cannot be accessed
+- delete action preserves filters and uses `notice=report_deleted`
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/page.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/actions.test.ts`: passed, 44 tests across 5 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- Full `npm test`: passed, 473 tests across 63 files.
+- `git diff --check`: passed.
+
+## 8) Stage 4: Report Detail UI
+
+Status: complete on 2026-06-21.
+
+Implemented:
+
+- Polished `/app/reports/[runId]` page copy by report state:
+  - completed reports now use "Report details" framing
+  - failed reports now use recovery-oriented copy
+  - active reports keep the status-tracking copy
+- Added `Back to Reports` navigation.
+- Kept `Back to Portfolio` navigation.
+- Added completed detail actions:
+  - open PDF
+  - generate fresh report
+  - delete report
+- Added failed detail actions:
+  - retry report
+  - delete failed report
+- Kept active polling behavior unchanged.
+- Kept long-running active report copy unchanged.
+- Kept delete action hidden for active reports.
+
+Files changed:
+
+- `src/app/app/reports/[runId]/page.tsx`
+- `src/app/app/reports/[runId]/page.module.css`
+- `src/app/app/reports/[runId]/page.test.tsx`
+- `src/app/app/reports/[runId]/ReportStatusPanel.tsx`
+- `src/app/app/reports/[runId]/ReportStatusPanel.test.tsx`
+- `src/app/app/reports/ReportFormSubmitButton.tsx`
+
+Behavior notes:
+
+- Completed-report fresh generation and failed-report retry both use
+  `generateReportFromPortfolio`; existing active-run detection continues to prevent duplicate
+  active reports.
+- Completed and failed detail delete actions use `deleteReportRunFromForm` and return to
+  `/app/reports`.
+- Active statuses continue polling exactly as Phase 4 designed; the Stage 4 changes only add
+  terminal-state actions and navigation.
+
+Focused tests added/updated:
+
+- completed detail shows PDF, re-run, delete, and navigation actions
+- failed detail shows retry, delete, and navigation actions
+- active detail keeps polling and hides delete/fresh-run/retry actions
+- long-running active copy remains covered
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/page.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/actions.test.ts`: passed, 44 tests across 5 files.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run build`: passed.
+- Full `npm test`: passed, 473 tests across 63 files.
+- `git diff --check`: passed.
+
+## 9) Current Stop Point
 
 Stop requested by user:
 
-- Complete Stage 0, Stage 1, and Stage 2, then stop for review before Stage 3.
+- Complete Stage 3 and Stage 4 only.
+- Stop before Stage 5 portfolio preview/dashboard polish.
 
 Current stop point status:
 
 - Stage 0 baseline audit is complete.
 - Stage 1 report management service contract is complete.
 - Stage 2 report API and server actions are complete.
-- No report-library UI changes have been started.
-- No report-detail UI polish has been started.
-- No portfolio preview/dashboard polish has been started.
-- No account/profile polish has been started.
+- Stage 3 report library UI is complete.
+- Stage 4 report detail UI is complete.
+- No Stage 5 portfolio preview/dashboard polish has been started.
+- No Stage 6 account/profile polish has been started.
+- No Stage 7 manual runbook work has been started.
 - No production worker, production market-data, or payment scope was added.
 
 Verification at this stop point:
 
-- `npm test -- --run src/server/services/report-run-service.test.ts src/app/api/v1/report-runs/route.test.ts src/app/api/v1/report-runs/[runId]/route.test.ts src/app/app/reports/actions.test.ts`: passed, 67 tests across 4 files.
+- `npm test -- --run src/app/app/reports/page.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/actions.test.ts`: passed, 44 tests across 5 files.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run build`: passed.
-- `npm test`: passed, 463 tests across 63 files after `npm run build` regenerated stale Prisma Client output.
+- `npm test`: passed, 473 tests across 63 files.
 - `git diff --check`: passed.
 
 Next planned step after user review:
 
-- Stage 3: Report Library UI.
+- Stage 5: Portfolio Preview And Dashboard Polish.

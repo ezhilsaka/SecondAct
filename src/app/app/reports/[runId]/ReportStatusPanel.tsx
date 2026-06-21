@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useFormStatus } from "react-dom";
 
 import type { ReportRunStatusResult } from "@/server/services/report-run-service";
 
-import { generateReportFromPortfolio } from "../actions";
+import { ReportFormSubmitButton } from "../ReportFormSubmitButton";
+import { deleteReportRunFromForm, generateReportFromPortfolio } from "../actions";
 import { ReportDownloadButton } from "./ReportDownloadButton";
 import styles from "./page.module.css";
 
@@ -160,16 +160,6 @@ function formatTimestamp(value: string | null): string {
   }).format(new Date(value));
 }
 
-function RetryReportSubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button type="submit" disabled={pending}>
-      {pending ? "Starting retry..." : "Retry report"}
-    </button>
-  );
-}
-
 export function ReportStatusPanel({
   initialStatus,
   pollIntervalMs = 3000,
@@ -256,15 +246,55 @@ export function ReportStatusPanel({
         </div>
       </dl>
 
-      {status.status === "COMPLETED" ? <ReportDownloadButton runId={status.runId} /> : null}
+      {status.status === "COMPLETED" ? (
+        <div className={styles.panelActions} aria-label="Completed report actions">
+          <ReportDownloadButton runId={status.runId} />
+          <form action={generateReportFromPortfolio} className={styles.inlineActionForm}>
+            <input type="hidden" name="portfolioId" value={status.portfolioId} />
+            <input type="hidden" name="reportingCurrency" value={status.reportingCurrency} />
+            <ReportFormSubmitButton
+              className={styles.secondaryActionButton}
+              pendingLabel="Starting report..."
+            >
+              Generate fresh report
+            </ReportFormSubmitButton>
+          </form>
+          <form action={deleteReportRunFromForm} className={styles.inlineActionForm}>
+            <input type="hidden" name="runId" value={status.runId} />
+            <input type="hidden" name="returnTo" value="/app/reports" />
+            <ReportFormSubmitButton
+              className={styles.dangerActionButton}
+              pendingLabel="Deleting report..."
+              confirmMessage="Delete this completed report? This removes the saved report from your library."
+            >
+              Delete report
+            </ReportFormSubmitButton>
+          </form>
+        </div>
+      ) : null}
 
       {status.status === "FAILED" ? (
-        <form action={generateReportFromPortfolio} className={styles.retryAction}>
-          <input type="hidden" name="portfolioId" value={status.portfolioId} />
-          <input type="hidden" name="reportingCurrency" value={status.reportingCurrency} />
-          <input type="hidden" name="retrySourceRunId" value={status.runId} />
-          <RetryReportSubmitButton />
-        </form>
+        <div className={styles.panelActions} aria-label="Failed report actions">
+          <form action={generateReportFromPortfolio} className={styles.inlineActionForm}>
+            <input type="hidden" name="portfolioId" value={status.portfolioId} />
+            <input type="hidden" name="reportingCurrency" value={status.reportingCurrency} />
+            <input type="hidden" name="retrySourceRunId" value={status.runId} />
+            <ReportFormSubmitButton pendingLabel="Starting retry...">
+              Retry report
+            </ReportFormSubmitButton>
+          </form>
+          <form action={deleteReportRunFromForm} className={styles.inlineActionForm}>
+            <input type="hidden" name="runId" value={status.runId} />
+            <input type="hidden" name="returnTo" value="/app/reports" />
+            <ReportFormSubmitButton
+              className={styles.dangerActionButton}
+              pendingLabel="Deleting failed report..."
+              confirmMessage="Delete this failed report? This removes it from your library."
+            >
+              Delete failed report
+            </ReportFormSubmitButton>
+          </form>
+        </div>
       ) : null}
     </section>
   );
