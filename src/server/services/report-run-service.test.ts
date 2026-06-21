@@ -4,10 +4,13 @@ import {
   ArtifactNotFoundError,
   type JobEnqueuer,
   PortfolioNotFoundError,
+  ReportRunNotTerminalError,
   type ReportRunRepository,
   ReportRunNotFoundError,
   ReportRunService,
+  ReportStorageDeleteError,
   SignedUrlError,
+  type StorageDeleter,
   type StorageSigner
 } from "@/server/services/report-run-service";
 
@@ -32,6 +35,7 @@ function buildMockRepository(overrides: Partial<ReportRunRepository> = {}): Repo
     verifyPortfolioBelongsToUser: vi.fn().mockResolvedValue(true),
     createReportRun: vi.fn().mockResolvedValue({ id: TEST_RUN_ID }),
     deleteReportRun: vi.fn().mockResolvedValue(undefined),
+    deleteReportRunForUser: vi.fn().mockResolvedValue(undefined),
     getReportRunByIdAndUser: vi.fn().mockResolvedValue(null),
     listReportRunsByUser: vi.fn().mockResolvedValue([]),
     findActiveReportRunForPortfolio: vi.fn().mockResolvedValue(null),
@@ -50,6 +54,13 @@ function buildMockJobEnqueuer(overrides: Partial<JobEnqueuer> = {}): JobEnqueuer
 function buildMockStorageSigner(overrides: Partial<StorageSigner> = {}): StorageSigner {
   return {
     createSignedUrl: vi.fn().mockResolvedValue({ signedUrl: "https://storage.example.com/signed" }),
+    ...overrides
+  };
+}
+
+function buildMockStorageDeleter(overrides: Partial<StorageDeleter> = {}): StorageDeleter {
+  return {
+    deleteObject: vi.fn().mockResolvedValue({ missing: false }),
     ...overrides
   };
 }
@@ -358,6 +369,64 @@ describe("ReportRunService", () => {
       expect(result.reportRuns[0]?.portfolioId).toBe(TEST_PORTFOLIO_ID);
     });
 
+    it("passes status and currency filters to the repository", async () => {
+      const run = buildRunRow({
+        status: "COMPLETED",
+        reportingCurrency: "USD"
+      });
+      const repository = buildMockRepository({
+        listReportRunsByUser: vi.fn().mockResolvedValue([run])
+      });
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      await service.listReportRunsForUser(TEST_USER_ID, {
+        status: "COMPLETED",
+        reportingCurrency: "USD"
+      });
+
+      expect(repository.listReportRunsByUser).toHaveBeenCalledWith(TEST_USER_ID, {
+        portfolioId: undefined,
+        limit: 20,
+        status: "COMPLETED",
+        reportingCurrency: "USD"
+      });
+    });
+
+    it("passes the active status filter to the repository", async () => {
+      const repository = buildMockRepository();
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      await service.listReportRunsForUser(TEST_USER_ID, {
+        status: "ACTIVE"
+      });
+
+      expect(repository.listReportRunsByUser).toHaveBeenCalledWith(TEST_USER_ID, {
+        portfolioId: undefined,
+        limit: 20,
+        status: "ACTIVE",
+        reportingCurrency: undefined
+      });
+    });
+
+    it("rejects invalid list status and currency filters", async () => {
+      const repository = buildMockRepository();
+      const service = new ReportRunService({ repository, env: BASE_ENV });
+
+      await expect(
+        service.listReportRunsForUser(TEST_USER_ID, {
+          status: "ARCHIVED" as "COMPLETED"
+        })
+      ).rejects.toThrow("Report run list status");
+
+      await expect(
+        service.listReportRunsForUser(TEST_USER_ID, {
+          reportingCurrency: "EUR" as "USD"
+        })
+      ).rejects.toThrow("Report run list reporting currency");
+
+      expect(repository.listReportRunsByUser).not.toHaveBeenCalled();
+    });
+
     it("does not leak runs when portfolio filtering targets a not-owned portfolio", async () => {
       const repository = buildMockRepository({
         verifyPortfolioBelongsToUser: vi.fn().mockResolvedValue(false),
@@ -581,6 +650,178 @@ describe("ReportRunService", () => {
 
       await expect(service.getPdfSignedUrl(TEST_RUN_ID, TEST_USER_ID)).rejects.toThrow(
         SignedUrlError
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // deleteTerminalReportRunForUser
+  // ---------------------------------------------------------------------------
+
+  describe("deleteTerminalReportRunForUser", () => {
+    it("deletes a completed report storage object before deleting database metadata", async () => {
+      const run = buildRunRow({
+        status: "COMPLETED",
+        completedAt: new Date("2025-01-01T01:00:00Z")
+      });
+      const artifact = {
+        storageBucket: "reports",
+        storagePath: `${TEST_USER_ID}/${TEST_RUN_ID}/report.pdf`
+      };
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(run),
+        getArtifactForCompletedRun: vi.fn().mockResolvedValue(artifact)
+      });
+      const storageDeleter = buildMockStorageDeleter();
+      const service = new ReportRunService({
+        repository,
+        storageDeleter,
+        logger: buildMockLogger(),
+        env: BASE_ENV
+      });
+
+      const result = await service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID);
+
+      expect(result).toEqual({
+        runId: TEST_RUN_ID,
+        portfolioId: TEST_PORTFOLIO_ID,
+        status: "COMPLETED",
+        deletedStorageObject: true,
+        storageObjectMissing: false
+      });
+      expect(storageDeleter.deleteObject).toHaveBeenCalledWith(
+        "reports",
+        `${TEST_USER_ID}/${TEST_RUN_ID}/report.pdf`
+      );
+      expect(repository.deleteReportRunForUser).toHaveBeenCalledWith(TEST_RUN_ID, TEST_USER_ID);
+      expect(
+        vi.mocked(storageDeleter.deleteObject).mock.invocationCallOrder[0]
+      ).toBeLessThan(
+        vi.mocked(repository.deleteReportRunForUser).mock.invocationCallOrder[0] ?? 0
+      );
+    });
+
+    it("deletes a failed report without requiring a PDF artifact", async () => {
+      const run = buildRunRow({
+        status: "FAILED",
+        failedAt: new Date("2025-01-01T01:00:00Z")
+      });
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(run)
+      });
+      const storageDeleter = buildMockStorageDeleter();
+      const service = new ReportRunService({
+        repository,
+        storageDeleter,
+        logger: buildMockLogger(),
+        env: BASE_ENV
+      });
+
+      const result = await service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID);
+
+      expect(result).toEqual({
+        runId: TEST_RUN_ID,
+        portfolioId: TEST_PORTFOLIO_ID,
+        status: "FAILED",
+        deletedStorageObject: false,
+        storageObjectMissing: false
+      });
+      expect(repository.getArtifactForCompletedRun).not.toHaveBeenCalled();
+      expect(storageDeleter.deleteObject).not.toHaveBeenCalled();
+      expect(repository.deleteReportRunForUser).toHaveBeenCalledWith(TEST_RUN_ID, TEST_USER_ID);
+    });
+
+    it("rejects deletion for active report runs", async () => {
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(buildRunRow({ status: "PROCESSING" }))
+      });
+      const storageDeleter = buildMockStorageDeleter();
+      const service = new ReportRunService({
+        repository,
+        storageDeleter,
+        env: BASE_ENV
+      });
+
+      await expect(
+        service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID)
+      ).rejects.toThrow(ReportRunNotTerminalError);
+
+      expect(storageDeleter.deleteObject).not.toHaveBeenCalled();
+      expect(repository.deleteReportRunForUser).not.toHaveBeenCalled();
+    });
+
+    it("returns not-found for cross-user report deletion", async () => {
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(null)
+      });
+      const service = new ReportRunService({
+        repository,
+        storageDeleter: buildMockStorageDeleter(),
+        env: BASE_ENV
+      });
+
+      await expect(
+        service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID)
+      ).rejects.toThrow(ReportRunNotFoundError);
+
+      expect(repository.deleteReportRunForUser).not.toHaveBeenCalled();
+    });
+
+    it("preserves database metadata when storage deletion fails", async () => {
+      const run = buildRunRow({ status: "COMPLETED" });
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(run),
+        getArtifactForCompletedRun: vi.fn().mockResolvedValue({
+          storageBucket: "reports",
+          storagePath: `${TEST_USER_ID}/${TEST_RUN_ID}/report.pdf`
+        })
+      });
+      const storageDeleter = buildMockStorageDeleter({
+        deleteObject: vi.fn().mockRejectedValue(new ReportStorageDeleteError("storage failed"))
+      });
+      const service = new ReportRunService({
+        repository,
+        storageDeleter,
+        env: BASE_ENV
+      });
+
+      await expect(
+        service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID)
+      ).rejects.toThrow(ReportStorageDeleteError);
+
+      expect(repository.deleteReportRunForUser).not.toHaveBeenCalled();
+    });
+
+    it("treats an already-missing storage object as cleanup success", async () => {
+      const logger = buildMockLogger();
+      const repository = buildMockRepository({
+        getReportRunByIdAndUser: vi.fn().mockResolvedValue(buildRunRow({ status: "COMPLETED" })),
+        getArtifactForCompletedRun: vi.fn().mockResolvedValue({
+          storageBucket: "reports",
+          storagePath: `${TEST_USER_ID}/${TEST_RUN_ID}/report.pdf`
+        })
+      });
+      const storageDeleter = buildMockStorageDeleter({
+        deleteObject: vi.fn().mockResolvedValue({ missing: true })
+      });
+      const service = new ReportRunService({
+        repository,
+        storageDeleter,
+        logger,
+        env: BASE_ENV
+      });
+
+      const result = await service.deleteTerminalReportRunForUser(TEST_RUN_ID, TEST_USER_ID);
+
+      expect(result.storageObjectMissing).toBe(true);
+      expect(repository.deleteReportRunForUser).toHaveBeenCalledWith(TEST_RUN_ID, TEST_USER_ID);
+      expect(logger.info).toHaveBeenCalledWith(
+        "Report storage object was already missing during deletion.",
+        expect.objectContaining({
+          event: "report_run.storage_object_missing_on_delete",
+          runId: TEST_RUN_ID,
+          userId: TEST_USER_ID
+        })
       );
     });
   });

@@ -1,6 +1,6 @@
 # Backend Knowledge Base
 
-Last updated: 2026-06-16
+Last updated: 2026-06-21
 
 ## 1) Purpose
 
@@ -339,6 +339,32 @@ A:
   - a hosted Graphile worker is still required for production completion
   - a production-ready market-data service/provider is still required
   - narrative/model and secret-handling production hardening remain tracked in `production-readiness.md`
+
+### Q: How does Phase 5 report deletion protect private PDFs and active worker runs?
+
+A:
+
+- Phase 5 uses hard deletion only for terminal report runs:
+  - `COMPLETED`
+  - `FAILED`
+- Active or non-terminal runs are not user-deletable:
+  - `QUEUED`
+  - `PROCESSING`
+  - `DRAFT`
+  - `AWAITING_PAYMENT`
+- User-facing deletion must stay owner-scoped.
+- The existing unscoped report-run delete helper is only for enqueue-failure cleanup and should not
+  be used directly for user-facing deletion.
+- Completed-report deletion deletes the Supabase Storage PDF object before deleting the
+  `report_runs` row.
+- If storage deletion fails, the app preserves database metadata so the user can retry cleanup
+  instead of orphaning a private PDF.
+- If artifact metadata exists but the storage object is already gone, the app treats storage cleanup
+  as successful, logs the missing-object condition, and then deletes the report-run row.
+- Failed-report deletion does not require a PDF artifact; deleting the `report_runs` row lets
+  database cascade remove related `report_artifacts` metadata if any exists.
+- Deleting queued or processing rows is intentionally blocked because the graphile-worker job can
+  still be active or waiting to run.
 
 ## 7) Auth Clarifications
 

@@ -28,6 +28,14 @@ export class SignedUrlError extends Error {
   override name = "SignedUrlError";
 }
 
+export class ReportRunNotTerminalError extends Error {
+  override name = "ReportRunNotTerminalError";
+}
+
+export class ReportStorageDeleteError extends Error {
+  override name = "ReportStorageDeleteError";
+}
+
 // ---------------------------------------------------------------------------
 // Repository interface + Prisma implementation
 // ---------------------------------------------------------------------------
@@ -56,11 +64,15 @@ export type ReportRunRow = {
 export type ReportRunListOptions = {
   portfolioId?: string;
   limit?: number;
+  status?: "ACTIVE" | "COMPLETED" | "FAILED";
+  reportingCurrency?: "USD" | "CAD";
 };
 
 type NormalizedReportRunListOptions = {
   portfolioId: string | undefined;
   limit: number;
+  status: "ACTIVE" | "COMPLETED" | "FAILED" | undefined;
+  reportingCurrency: "USD" | "CAD" | undefined;
 };
 
 export type ReportRunListRow = ReportRunRow;
@@ -75,6 +87,7 @@ export interface ReportRunRepository {
   verifyPortfolioBelongsToUser(userId: string, portfolioId: string): Promise<boolean>;
   createReportRun(input: CreateReportRunInput): Promise<{ id: string }>;
   deleteReportRun(runId: string): Promise<void>;
+  deleteReportRunForUser(runId: string, userId: string): Promise<void>;
   getReportRunByIdAndUser(runId: string, userId: string): Promise<ReportRunRow | null>;
   listReportRunsByUser(
     userId: string,
@@ -188,7 +201,13 @@ export class PrismaReportRunRepository implements ReportRunRepository {
   ): Promise<ReportRunListRow[]> {
     const where = {
       userId,
-      ...(options.portfolioId ? { portfolioId: options.portfolioId } : {})
+      ...(options.portfolioId ? { portfolioId: options.portfolioId } : {}),
+      ...(options.status === "ACTIVE"
+        ? { status: { in: ["QUEUED", "PROCESSING"] } }
+        : options.status
+          ? { status: options.status }
+          : {}),
+      ...(options.reportingCurrency ? { reportingCurrency: options.reportingCurrency } : {})
     } satisfies Prisma.ReportRunWhereInput;
 
     const runs = await this.prismaClient.reportRun.findMany({
@@ -226,6 +245,15 @@ export class PrismaReportRunRepository implements ReportRunRepository {
 
   async deleteReportRun(runId: string): Promise<void> {
     await this.prismaClient.reportRun.delete({ where: { id: runId } });
+  }
+
+  async deleteReportRunForUser(runId: string, userId: string): Promise<void> {
+    await this.prismaClient.reportRun.deleteMany({
+      where: {
+        id: runId,
+        userId
+      }
+    });
   }
 
   async getArtifactForCompletedRun(runId: string, userId: string): Promise<ArtifactRow | null> {
@@ -278,6 +306,51 @@ export class SupabaseStorageSigner implements StorageSigner {
 }
 
 // ---------------------------------------------------------------------------
+// Storage delete interface
+// ---------------------------------------------------------------------------
+
+export interface StorageDeleter {
+  deleteObject(bucket: string, path: string): Promise<{ missing: boolean }>;
+}
+
+function isMissingStorageObjectError(error: unknown): boolean {
+  const errorLike = error as { message?: string; status?: number; statusCode?: number | string };
+  const message = errorLike.message?.toLowerCase() ?? "";
+  const status = String(errorLike.statusCode ?? errorLike.status ?? "");
+
+  return (
+    status === "404" ||
+    message.includes("not found") ||
+    message.includes("does not exist") ||
+    message.includes("no such")
+  );
+}
+
+export class SupabaseStorageDeleter implements StorageDeleter {
+  constructor(private readonly client: SupabaseClient = supabaseAdmin) {}
+
+  async deleteObject(bucket: string, path: string): Promise<{ missing: boolean }> {
+    const { data, error } = await this.client.storage.from(bucket).remove([path]);
+
+    if (error) {
+      if (isMissingStorageObjectError(error)) {
+        return { missing: true };
+      }
+
+      throw new ReportStorageDeleteError(
+        `Failed to delete storage object ${bucket}/${path}: ${error.message}`
+      );
+    }
+
+    if (Array.isArray(data) && data.length === 0) {
+      return { missing: true };
+    }
+
+    return { missing: false };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Job enqueue interface
 // ---------------------------------------------------------------------------
 
@@ -316,6 +389,7 @@ export class GraphileJobEnqueuer implements JobEnqueuer {
 export type ReportRunServiceDependencies = {
   repository?: ReportRunRepository;
   storageSigner?: StorageSigner;
+  storageDeleter?: StorageDeleter;
   jobEnqueuer?: JobEnqueuer;
   logger?: Pick<typeof console, "info" | "error">;
   env?: Pick<
@@ -369,15 +443,56 @@ export type PdfSignedUrlResult = {
   expiresInSeconds: number;
 };
 
+export type DeleteTerminalReportRunResult = {
+  runId: string;
+  portfolioId: string;
+  status: string;
+  deletedStorageObject: boolean;
+  storageObjectMissing: boolean;
+};
+
 const DEFAULT_REPORT_RUN_LIST_LIMIT = 20;
 const MAX_REPORT_RUN_LIST_LIMIT = 50;
 const ACTIVE_REPORT_RUN_STATUSES = new Set(["QUEUED", "PROCESSING"]);
+const TERMINAL_REPORT_RUN_STATUSES = new Set(["COMPLETED", "FAILED"]);
+const REPORT_RUN_LIST_STATUS_FILTERS = new Set(["ACTIVE", "COMPLETED", "FAILED"]);
+const REPORT_RUN_CURRENCY_FILTERS = new Set(["USD", "CAD"]);
+
+function normalizeStatusFilter(
+  status: ReportRunListOptions["status"]
+): NormalizedReportRunListOptions["status"] {
+  if (!status) {
+    return undefined;
+  }
+
+  if (REPORT_RUN_LIST_STATUS_FILTERS.has(status)) {
+    return status;
+  }
+
+  throw new Error("Report run list status must be ACTIVE, COMPLETED, or FAILED.");
+}
+
+function normalizeReportingCurrencyFilter(
+  reportingCurrency: ReportRunListOptions["reportingCurrency"]
+): NormalizedReportRunListOptions["reportingCurrency"] {
+  if (!reportingCurrency) {
+    return undefined;
+  }
+
+  if (REPORT_RUN_CURRENCY_FILTERS.has(reportingCurrency)) {
+    return reportingCurrency;
+  }
+
+  throw new Error("Report run list reporting currency must be USD or CAD.");
+}
 
 function normalizeReportRunListOptions(
   options: ReportRunListOptions = {}
 ): NormalizedReportRunListOptions {
   const portfolioId = options.portfolioId ? uuidSchema.parse(options.portfolioId) : undefined;
   const limit = options.limit ?? DEFAULT_REPORT_RUN_LIST_LIMIT;
+  const status = normalizeStatusFilter(options.status);
+  const reportingCurrency = normalizeReportingCurrencyFilter(options.reportingCurrency);
 
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_REPORT_RUN_LIST_LIMIT) {
     throw new Error(
@@ -387,7 +502,9 @@ function normalizeReportRunListOptions(
 
   return {
     portfolioId,
-    limit
+    limit,
+    status,
+    reportingCurrency
   };
 }
 
@@ -410,6 +527,7 @@ function mapReportRunSummary(row: ReportRunRow): ReportRunSummaryResult {
 export class ReportRunService {
   private readonly repository: ReportRunRepository;
   private readonly storageSigner: StorageSigner;
+  private readonly storageDeleter: StorageDeleter;
   private readonly jobEnqueuer: JobEnqueuer;
   private readonly logger: Pick<typeof console, "info" | "error">;
   private readonly env: Pick<
@@ -423,6 +541,7 @@ export class ReportRunService {
   constructor(dependencies: ReportRunServiceDependencies = {}) {
     this.repository = dependencies.repository ?? new PrismaReportRunRepository();
     this.storageSigner = dependencies.storageSigner ?? new SupabaseStorageSigner();
+    this.storageDeleter = dependencies.storageDeleter ?? new SupabaseStorageDeleter();
     this.jobEnqueuer = dependencies.jobEnqueuer ?? new GraphileJobEnqueuer();
     this.logger = dependencies.logger ?? console;
     this.env = dependencies.env ?? serverEnv;
@@ -624,5 +743,71 @@ export class ReportRunService {
     );
 
     return { signedUrl, expiresInSeconds };
+  }
+
+  async deleteTerminalReportRunForUser(
+    runId: string,
+    userId: string
+  ): Promise<DeleteTerminalReportRunResult> {
+    const validatedRunId = uuidSchema.parse(runId);
+    const validatedUserId = uuidSchema.parse(userId);
+
+    const run = await this.repository.getReportRunByIdAndUser(validatedRunId, validatedUserId);
+    if (!run) {
+      throw new ReportRunNotFoundError("Report run not found.");
+    }
+
+    if (!TERMINAL_REPORT_RUN_STATUSES.has(run.status)) {
+      throw new ReportRunNotTerminalError("Only completed or failed reports can be deleted.");
+    }
+
+    let deletedStorageObject = false;
+    let storageObjectMissing = false;
+
+    if (run.status === "COMPLETED") {
+      const artifact = await this.repository.getArtifactForCompletedRun(
+        validatedRunId,
+        validatedUserId
+      );
+
+      if (artifact) {
+        const deleteResult = await this.storageDeleter.deleteObject(
+          artifact.storageBucket,
+          artifact.storagePath
+        );
+
+        deletedStorageObject = true;
+        storageObjectMissing = deleteResult.missing;
+
+        if (deleteResult.missing) {
+          this.logger.info("Report storage object was already missing during deletion.", {
+            event: "report_run.storage_object_missing_on_delete",
+            runId: validatedRunId,
+            userId: validatedUserId,
+            storageBucket: artifact.storageBucket,
+            storagePath: artifact.storagePath
+          });
+        }
+      }
+    }
+
+    await this.repository.deleteReportRunForUser(validatedRunId, validatedUserId);
+    this.logger.info("Report run deleted.", {
+      event: "report_run.deleted",
+      runId: validatedRunId,
+      userId: validatedUserId,
+      portfolioId: run.portfolioId,
+      status: run.status,
+      deletedStorageObject,
+      storageObjectMissing
+    });
+
+    return {
+      runId: run.id,
+      portfolioId: run.portfolioId,
+      status: run.status,
+      deletedStorageObject,
+      storageObjectMissing
+    };
   }
 }

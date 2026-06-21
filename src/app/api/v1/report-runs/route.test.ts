@@ -83,6 +83,8 @@ describe("GET /api/v1/report-runs", () => {
     expect(response.status).toBe(200);
     expect(mockListReportRunsForUser).toHaveBeenCalledWith(TEST_USER_ID, {
       portfolioId: undefined,
+      status: undefined,
+      reportingCurrency: undefined,
       limit: undefined
     });
     await expect(response.json()).resolves.toEqual(LIST_RESULT);
@@ -96,6 +98,8 @@ describe("GET /api/v1/report-runs", () => {
     expect(response.status).toBe(200);
     expect(mockListReportRunsForUser).toHaveBeenCalledWith(TEST_USER_ID, {
       portfolioId: undefined,
+      status: undefined,
+      reportingCurrency: undefined,
       limit: undefined
     });
   });
@@ -106,7 +110,23 @@ describe("GET /api/v1/report-runs", () => {
     expect(response.status).toBe(200);
     expect(mockListReportRunsForUser).toHaveBeenCalledWith(TEST_USER_ID, {
       portfolioId: TEST_PORTFOLIO_ID,
+      status: undefined,
+      reportingCurrency: undefined,
       limit: 10
+    });
+  });
+
+  it("passes status and reporting currency filters to the service", async () => {
+    const response = await GET(
+      buildGetRequest("?status=ACTIVE&reportingCurrency=USD")
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockListReportRunsForUser).toHaveBeenCalledWith(TEST_USER_ID, {
+      portfolioId: undefined,
+      status: "ACTIVE",
+      reportingCurrency: "USD",
+      limit: undefined
     });
   });
 
@@ -135,6 +155,21 @@ describe("GET /api/v1/report-runs", () => {
     expect(response.status).toBe(400);
     const json = await response.json();
     expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(mockListReportRunsForUser).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when status or reporting currency filters are invalid", async () => {
+    const invalidStatusResponse = await GET(buildGetRequest("?status=DRAFT"));
+    const invalidCurrencyResponse = await GET(buildGetRequest("?reportingCurrency=EUR"));
+
+    expect(invalidStatusResponse.status).toBe(400);
+    await expect(invalidStatusResponse.json()).resolves.toMatchObject({
+      error: { code: "VALIDATION_ERROR" }
+    });
+    expect(invalidCurrencyResponse.status).toBe(400);
+    await expect(invalidCurrencyResponse.json()).resolves.toMatchObject({
+      error: { code: "VALIDATION_ERROR" }
+    });
     expect(mockListReportRunsForUser).not.toHaveBeenCalled();
   });
 

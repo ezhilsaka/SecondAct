@@ -17,6 +17,8 @@ const MAX_REPORT_RUN_LIST_LIMIT = 50;
 
 const listReportRunsQuerySchema = z.object({
   portfolioId: uuidSchema.optional(),
+  status: z.enum(["ACTIVE", "COMPLETED", "FAILED"]).optional(),
+  reportingCurrency: z.enum(["USD", "CAD"]).optional(),
   limit: z.preprocess((value) => {
     if (value === undefined) {
       return undefined;
@@ -29,10 +31,14 @@ const listReportRunsQuerySchema = z.object({
 function parseListReportRunsQuery(request: Request): z.infer<typeof listReportRunsQuerySchema> {
   const url = new URL(request.url);
   const portfolioId = url.searchParams.get("portfolioId") ?? undefined;
+  const status = url.searchParams.get("status") ?? undefined;
+  const reportingCurrency = url.searchParams.get("reportingCurrency") ?? undefined;
   const limit = url.searchParams.get("limit") ?? undefined;
 
   return listReportRunsQuerySchema.parse({
     portfolioId,
+    status,
+    reportingCurrency,
     limit
   });
 }
@@ -77,6 +83,8 @@ export async function GET(request: Request) {
     const service = new ReportRunService();
     const result = await service.listReportRunsForUser(userId, {
       portfolioId: query.portfolioId,
+      status: query.status,
+      reportingCurrency: query.reportingCurrency,
       limit: query.limit
     });
 
