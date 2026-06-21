@@ -25,6 +25,8 @@ describe("AppShell", () => {
     expect(html).toContain("Portfolios");
     expect(html).toContain("href=\"/app/portfolios\"");
     expect(html).toContain("Reports");
+    expect(html).toContain("href=\"/app/reports\"");
+    expect(html).not.toContain("aria-disabled=\"true\"");
     expect(html).toContain("Account");
     expect(html).toContain("action=\"/auth/logout\"");
     expect(html).toContain("method=\"post\"");

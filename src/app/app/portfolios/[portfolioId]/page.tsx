@@ -7,6 +7,7 @@ import {
   HoldingForm,
   type HoldingFormValues
 } from "@/components/portfolio/HoldingForm";
+import { GenerateReportSubmitButton } from "@/components/report/GenerateReportSubmitButton";
 import { HoldingRowActions } from "./HoldingRowActions";
 import { requireAuthenticatedAppUser } from "@/server/auth/app-session";
 import {
@@ -16,12 +17,18 @@ import {
   type PortfolioDetailResult,
   type PortfolioHoldingResult
 } from "@/server/services/portfolio-service";
+import {
+  PortfolioNotFoundError as ReportPortfolioNotFoundError,
+  ReportRunService,
+  type ReportRunSummaryResult
+} from "@/server/services/report-run-service";
 
 import {
   addHoldingFromForm,
   removeHoldingFromForm,
   updateHoldingFromForm
 } from "../actions";
+import { generateReportFromPortfolio } from "../../reports/actions";
 import styles from "./page.module.css";
 
 type PortfolioDetailPageProps = {
@@ -31,8 +38,14 @@ type PortfolioDetailPageProps = {
 
 type PortfolioDetailViewProps = {
   portfolio: PortfolioDetailResult;
+  reportRuns: ReportRunSummaryResult[];
   notice: string | null;
   error: string | null;
+};
+
+type PortfolioDetailPageData = {
+  portfolio: PortfolioDetailResult;
+  reportRuns: ReportRunSummaryResult[];
 };
 
 const NOTICE_MESSAGES: Record<string, string> = {
@@ -54,6 +67,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_ticker: "Ticker can only contain letters, numbers, dots, and hyphens.",
   missing_ticker: "Enter a ticker.",
   remove_not_confirmed: "Confirm the holding removal before submitting.",
+  report_create_failed: "We could not start the report. Please try again.",
+  report_validation_error: "Choose USD or CAD as the report currency.",
   security_name_too_long: "Name must be 120 characters or fewer.",
   validation_error: "Check the holding details and try again."
 };
@@ -92,16 +107,118 @@ function getReadinessClass(portfolio: PortfolioDetailResult): string {
   return portfolio.readiness.isReadyForReport ? styles.readyBadge : styles.needsHoldingsBadge;
 }
 
-async function loadPortfolioDetail(portfolioId: string): Promise<PortfolioDetailResult> {
+function ReportGenerationPanel({ portfolio }: { portfolio: PortfolioDetailResult }) {
+  if (!portfolio.readiness.isReadyForReport) {
+    return (
+      <button type="button" disabled>
+        Add holdings first
+      </button>
+    );
+  }
+
+  return (
+    <form action={generateReportFromPortfolio} className={styles.reportForm}>
+      <input type="hidden" name="portfolioId" value={portfolio.id} />
+      <label>
+        <span>Report currency</span>
+        <select name="reportingCurrency" defaultValue={portfolio.baseCurrency}>
+          <option value="CAD">CAD</option>
+          <option value="USD">USD</option>
+        </select>
+      </label>
+      <GenerateReportSubmitButton />
+    </form>
+  );
+}
+
+function isActiveReportRun(run: ReportRunSummaryResult): boolean {
+  return run.status === "QUEUED" || run.status === "PROCESSING";
+}
+
+function formatReportTimestamp(value: string | null): string {
+  if (!value) {
+    return "Not yet";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date(value));
+}
+
+function PortfolioReportPreview({ reportRuns }: { reportRuns: ReportRunSummaryResult[] }) {
+  const activeRun = reportRuns.find(isActiveReportRun) ?? null;
+  const latestCompletedRun = reportRuns.find((run) => run.status === "COMPLETED") ?? null;
+  const highlightedRun = activeRun ?? latestCompletedRun;
+
+  return (
+    <section className={styles.reportPreviewPanel} aria-labelledby="report-preview-heading">
+      <div className={styles.reportPreviewLead}>
+        <div>
+          <p className={styles.cardLabel}>Reports</p>
+          <h2 id="report-preview-heading">Report history</h2>
+          <p>
+            {activeRun
+              ? "A report is already in progress for this portfolio."
+              : latestCompletedRun
+                ? "The latest completed report is ready to revisit."
+                : "Reports for this portfolio will appear here after generation starts."}
+          </p>
+        </div>
+
+        {highlightedRun ? (
+          <Link className={styles.reportPreviewAction} href={`/app/reports/${highlightedRun.runId}`}>
+            {activeRun ? "View active report" : "Open completed report"}
+          </Link>
+        ) : (
+          <Link className={styles.reportPreviewAction} href="/app/reports">
+            View all reports
+          </Link>
+        )}
+      </div>
+
+      {reportRuns.length > 0 ? (
+        <ul className={styles.reportPreviewList} aria-label="Recent reports for this portfolio">
+          {reportRuns.map((run) => (
+            <li key={run.runId}>
+              <span>{run.status}</span>
+              <span>{run.reportingCurrency}</span>
+              <span>{formatReportTimestamp(run.requestedAt)}</span>
+              <Link href={`/app/reports/${run.runId}`}>View status</Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+async function loadPortfolioDetailData(portfolioId: string): Promise<PortfolioDetailPageData> {
   const user = await requireAuthenticatedAppUser();
 
   try {
-    return await new PortfolioService().getPortfolioDetail({
-      userId: user.id,
-      portfolioId
-    });
+    const [portfolio, reportHistory] = await Promise.all([
+      new PortfolioService().getPortfolioDetail({
+        userId: user.id,
+        portfolioId
+      }),
+      new ReportRunService().listReportRunsForUser(user.id, {
+        portfolioId,
+        limit: 3
+      })
+    ]);
+
+    return {
+      portfolio,
+      reportRuns: reportHistory.reportRuns
+    };
   } catch (error) {
-    if (error instanceof PortfolioNotFoundError || error instanceof PortfolioArchivedError) {
+    if (
+      error instanceof PortfolioNotFoundError ||
+      error instanceof PortfolioArchivedError ||
+      error instanceof ReportPortfolioNotFoundError
+    ) {
       redirect("/app/portfolios?error=portfolio_not_found");
     }
 
@@ -167,7 +284,12 @@ function HoldingsTable({ portfolio }: { portfolio: PortfolioDetailResult }) {
   );
 }
 
-export function PortfolioDetailView({ portfolio, notice, error }: PortfolioDetailViewProps) {
+export function PortfolioDetailView({
+  portfolio,
+  reportRuns,
+  notice,
+  error
+}: PortfolioDetailViewProps) {
   return (
     <div className={styles.detailPage}>
       <header className={styles.pageHeader}>
@@ -220,19 +342,19 @@ export function PortfolioDetailView({ portfolio, notice, error }: PortfolioDetai
           <p className={styles.cardLabel}>Next step</p>
           <h2 id="readiness-heading">
             {portfolio.readiness.isReadyForReport
-              ? "This portfolio is ready for the next phase"
+              ? "Generate a portfolio report"
               : "Add at least one holding"}
           </h2>
           <p>
             {portfolio.readiness.isReadyForReport
-              ? "Report generation comes next."
-              : "A saved holding is required before this portfolio can be used for a future report."}
+              ? "Start a report from the saved holdings. You can leave and come back while it runs."
+              : "A saved holding is required before this portfolio can be used for a report."}
           </p>
         </div>
-        <button type="button" disabled>
-          Report generation comes next
-        </button>
+        <ReportGenerationPanel portfolio={portfolio} />
       </section>
+
+      <PortfolioReportPreview reportRuns={reportRuns} />
 
       <section className={styles.addHoldingPanel} aria-labelledby="add-holding-heading">
         <div className={styles.sectionHeader}>
@@ -267,7 +389,7 @@ export default async function PortfolioDetailPage({
   searchParams
 }: PortfolioDetailPageProps) {
   const { portfolioId } = await params;
-  const portfolio = await loadPortfolioDetail(portfolioId);
+  const { portfolio, reportRuns } = await loadPortfolioDetailData(portfolioId);
   const query = await searchParams;
   const noticeCode = readSearchParam(query?.status);
   const errorCode = readSearchParam(query?.error);
@@ -275,6 +397,7 @@ export default async function PortfolioDetailPage({
   return (
     <PortfolioDetailView
       portfolio={portfolio}
+      reportRuns={reportRuns}
       notice={noticeCode ? NOTICE_MESSAGES[noticeCode] ?? null : null}
       error={errorCode ? ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.holding_save_failed : null}
     />

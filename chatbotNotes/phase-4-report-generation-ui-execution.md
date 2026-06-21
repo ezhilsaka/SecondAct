@@ -31,20 +31,25 @@ Current status:
 - Stage 0 baseline and current-state audit: complete
 - Stage 1 report-run history service and contracts: complete
 - Stage 2 report-run API extensions: complete
-- Stage 3 generate report from portfolio detail: not started
-- Stage 4 report status page and polling: not started
-- Stage 5 PDF open/download flow: not started
-- Stage 6 report history/list UI: not started
-- Stage 7 failure, retry, and long-running state polish: not started
+- Stage 3 generate report from portfolio detail: complete
+- Stage 4 report status page and polling: complete
+- Stage 5 PDF open/download flow: complete
+- Stage 6 report history/list UI: complete
+- Stage 7 failure, retry, and long-running state polish: complete
 - Stage 8 local end-to-end report generation validation: not started
 - Stage 9 full verification and quality gate: not started
 - Stage 10 documentation updates: in progress through this execution file
 
 Review checkpoint:
 
-- User requested implementation only through Step 1 and Step 2, then stop for review.
-- No UX clarification blocked Step 1 or Step 2 because these steps are backend service/API contract work.
-- No backend knowledge base update was required for Step 1 or Step 2 because no new durable product clarification was discussed beyond the existing Phase 4 plan.
+- User first requested implementation only through Step 1 and Step 2, then stop for review.
+- User then requested implementation only through Step 3 and Step 4, then stop before Step 5.
+- User then requested implementation only through Step 5 and Step 6, then stop before Step 7.
+- User then requested implementation only through Step 7, then stop before Step 8.
+- No UX clarification blocked Step 3 or Step 4 because the planning document already called for the ready portfolio action, compact USD/CAD selector, redirect to status page, and 2-3 second polling behavior.
+- No UX clarification blocked Step 5 or Step 6 because the planning document already called for completion-only PDF access, friendly PDF errors, a Reports history route, live navigation, and portfolio-detail report previews.
+- No UX clarification blocked Step 7 because the planning document already included failure-copy mapping, retry behavior, and calm long-running queued/processing copy.
+- No backend knowledge base update was required for Step 3 through Step 7 because no new durable product clarification was discussed beyond the existing Phase 4 plan.
 
 ## 4) Stage 0: Baseline And Current-State Audit
 
@@ -175,20 +180,276 @@ Verification:
 - `npm run build`: passed
 - `git diff --check`: passed
 
-## 7) Current Stop Point
+## 7) Stage 3: Generate Report From Portfolio Detail
+
+Status: complete on 2026-06-20.
+
+Goal:
+
+- Replace the disabled report-generation placeholder on portfolio detail with the first real generate-report action.
+
+Implemented:
+
+- Added a server action at `src/app/app/reports/actions.ts`.
+- The action reads `portfolioId` and `reportingCurrency` from form data.
+- The action validates:
+  - `portfolioId` as UUID
+  - `reportingCurrency` as supported `USD` or `CAD`
+- The action uses `requireAuthenticatedUser()` and never accepts a spoofable user ID from the browser.
+- The action checks for an active report run before creating a new one.
+- Active runs redirect to their existing status page instead of creating a duplicate queued job.
+- New runs use `ReportRunService.createAndEnqueue()`.
+- Successful submissions redirect to `/app/reports/[runId]`.
+- Invalid currency redirects back to the portfolio detail with safe error copy.
+- Portfolio-not-found errors redirect to the portfolio list with safe error copy.
+- Generic create failures redirect back to portfolio detail with safe error copy.
+- The portfolio detail readiness panel now renders:
+  - disabled `Add holdings first` action while not ready
+  - a report-generation form when ready
+  - compact report currency selector with `CAD` and `USD`
+  - default selected currency from the portfolio base currency
+  - duplicate-submit damping through a pending submit button state
+
+Focused tests:
+
+- Not-ready portfolio renders blocked report action.
+- Ready portfolio renders generate action and currency selector.
+- Generate action validates currency before auth/service work.
+- Generate action uses the authenticated user and ignores spoofed form user IDs.
+- Generate action redirects new runs to the status page.
+- Generate action redirects active runs to the existing status page.
+- Portfolio-not-found errors return safe user-facing redirects.
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/actions.test.ts src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`: passed, 19 tests across 4 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+
+## 8) Stage 4: Report Status Page And Polling
+
+Status: complete on 2026-06-20.
+
+Goal:
+
+- Add the authenticated report status page that users land on after starting a report.
+
+Implemented:
+
+- Added `/app/reports/[runId]`.
+- The status page validates `runId` before loading authenticated user state.
+- The status page uses `requireAuthenticatedAppUser()`.
+- The status page loads status through `ReportRunService.getStatus(runId, user.id)`.
+- Not-found or not-owned report runs render Next.js `notFound()` without leaking IDs.
+- Added a client status panel for polling.
+- Polling runs only while status is:
+  - `QUEUED`
+  - `PROCESSING`
+- Polling stops once status is terminal:
+  - `COMPLETED`
+  - `FAILED`
+- Status panel shows:
+  - status badge
+  - user-facing status copy
+  - source portfolio name
+  - report currency
+  - requested, started, completed, and failed timestamps
+  - link back to the source portfolio
+- Transient polling failures keep the page intact and show retry copy instead of replacing the current status.
+- Internal pipeline JSON and raw provider details remain absent from the status UI.
+
+Focused tests:
+
+- Queued status render includes active polling copy.
+- Processing status render includes active polling copy.
+- Completed status render omits active polling copy.
+- Failed status render omits active polling copy.
+- Polling helper continues only for queued/processing.
+- Polling refresh success returns the next status and clears retry copy.
+- Polling refresh failure returns safe retry copy without throwing.
+- Status page renders a source portfolio link.
+- Status page loads status for the authenticated app user.
+- Invalid run IDs return not found before user/service loading.
+- Not-owned/missing report runs return not found.
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/actions.test.ts src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`: passed, 19 tests across 4 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+
+## 9) Stage 5: PDF Open/Download Flow
+
+Status: complete on 2026-06-20.
+
+Goal:
+
+- Let the user access the generated PDF after a report completes.
+
+Implemented:
+
+- Added `ReportDownloadButton` to the report status page.
+- The PDF action renders only when the current status is `COMPLETED`.
+- Non-completed statuses continue to show progress/failure copy without a PDF action.
+- The button fetches `GET /api/v1/report-runs/:runId/pdf` on click.
+- Successful signed URL responses open the PDF in a new tab.
+- Signed URLs stay transient and are not stored as durable UI metadata.
+- Missing artifacts map to:
+  - `The PDF is not available yet. Try refreshing in a moment.`
+- Signed URL failures, malformed success responses, and network failures map to retryable friendly copy.
+- Browser popup blocking maps to a friendly local message.
+- Existing authenticated PDF API behavior remains unchanged.
+
+Focused tests:
+
+- Completed run shows `Open PDF`.
+- Queued run does not show `Open PDF`.
+- Successful signed URL response opens the URL in a new tab.
+- Artifact-not-found response maps to the planned friendly message.
+- Signed URL error maps to retryable friendly copy.
+- Malformed success response maps to retryable friendly copy.
+- Existing PDF route tests still cover unauthorized, invalid run ID, missing run, artifact missing, signed URL failure, and successful response behavior.
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/api/v1/report-runs/[runId]/pdf/route.test.ts`: passed, 19 tests across 3 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+
+## 10) Stage 6: Report History/List UI
+
+Status: complete on 2026-06-20.
+
+Goal:
+
+- Give the user a place to find report runs after leaving the status page.
+
+Implemented:
+
+- Added `/app/reports`.
+- Reports page uses `requireAuthenticatedAppUser()`.
+- Reports page loads user-owned report history through `ReportRunService.listReportRunsForUser(user.id, { limit: 50 })`.
+- Reports navigation in `AppShell` is now live and links to `/app/reports`.
+- Reports page renders an empty state when no reports exist.
+- Reports page renders report rows with:
+  - portfolio name
+  - link to source portfolio
+  - status
+  - reporting currency
+  - requested timestamp
+  - completed/failed timestamp where applicable
+  - action to open the status page
+- Portfolio detail now loads a short user-scoped report preview through `ReportRunService.listReportRunsForUser(user.id, { portfolioId, limit: 3 })`.
+- Portfolio detail preview shows:
+  - active queued/processing report link when present
+  - latest completed report link when present and no active run exists
+  - short recent report history list
+  - fallback link to all reports when the portfolio has no runs
+- The portfolio-detail preview relies on the authenticated user ID and portfolio filter, so another user's report runs are not loaded into the view.
+- No retry, failure-code mapping, or long-running state polish was added; those remain Stage 7.
+
+Focused tests:
+
+- Reports empty state renders.
+- Reports list renders report rows.
+- Report row links to status page.
+- Reports navigation link is live.
+- Portfolio detail shows active run link.
+- Portfolio detail shows latest completed report link when no report is active.
+- Portfolio detail loads report preview through authenticated user-scoped service call.
+- Existing report-run service tests still cover user-owned listing, portfolio filtering, and not-owned portfolio rejection.
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/page.test.tsx src/components/app/AppShell.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/server/services/report-run-service.test.ts`: passed, 28 tests across 4 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+
+## 11) Stage 7: Failure, Retry, And Long-Running State Polish
+
+Status: complete on 2026-06-20.
+
+Goal:
+
+- Make report failures understandable and recoverable without exposing internals.
+
+Implemented:
+
+- Added friendly failure-copy mapping for backend error codes:
+  - `CANONICAL_FAILURE`
+  - `MARKET_DATA_OR_CANONICAL_FAILURE`
+  - `ANALYSIS_FAILURE`
+  - `NARRATIVE_FAILURE`
+  - `RENDER_FAILURE`
+  - `PDF_FAILURE`
+  - `STORAGE_FAILURE`
+  - `ORCHESTRATION_FAILURE`
+  - unknown or missing error codes
+- Failure copy follows the Phase 4 plan's non-technical language and avoids raw implementation terms such as graphile-worker, canonical snapshot, narrative provider, artifact storage, and orchestration failure.
+- Failed status page now shows the friendly failure reason.
+- Failed status page now shows a retry form.
+- Retry uses the existing authenticated report-generation server action.
+- Retry submits the failed run's portfolio ID and reporting currency to create a fresh run.
+- Retry keeps the failed run ID as non-authoritative context only; the server action ignores it for mutation and creates or redirects to a separate active/new run.
+- Failed runs remain visible in `/app/reports` history.
+- Queued and processing status pages now show calm long-running copy after the threshold.
+- Long-running queued copy explains that in local development the report can remain queued until the background process is running.
+- No local end-to-end pipeline validation was started; that remains Stage 8.
+
+Focused tests:
+
+- Known backend error codes map to expected friendly messages.
+- Unknown and missing error codes map to generic friendly failure copy.
+- Failed status renders friendly reason and retry action.
+- Retry creates/redirects to a fresh report run instead of mutating the failed run.
+- Failed report remains visible in report history.
+- Long-running queued copy renders after the threshold.
+- Long-running processing copy renders after the threshold.
+
+Verification:
+
+- `npm test -- --run src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/actions.test.ts src/app/app/reports/page.test.tsx`: passed, 20 tests across 3 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+
+## 12) Current Stop Point
 
 Stop requested by user:
 
-- Complete only Step 1 and Step 2, then stop for review.
+- Complete only Step 7, then stop before Step 8.
 
 Current stop point status:
 
 - Step 1 is implemented and focused tests pass.
 - Step 2 is implemented and focused tests pass.
-- Stage 3 has not been started.
-- No portfolio detail UI changes have been made yet.
-- No report status page, polling UI, PDF button, report history page, or Reports navigation activation has been started yet.
+- Step 3 is implemented and focused tests pass.
+- Step 4 is implemented and focused tests pass.
+- Step 5 is implemented and focused tests pass.
+- Step 6 is implemented and focused tests pass.
+- Step 7 is implemented and focused tests pass.
+- Portfolio detail now starts report generation for ready portfolios.
+- `/app/reports/[runId]` now displays authenticated report status with polling for active runs.
+- Completed report status now exposes an `Open PDF` action.
+- `/app/reports` now displays authenticated report history.
+- Reports navigation is live.
+- Portfolio detail now shows a user-scoped report preview.
+- Failed report status now shows friendly failure copy and a retry action.
+- Queued/processing status now shows calm long-running copy after the threshold.
+- No Stage 8 local end-to-end report generation validation has been started yet.
+- Stage 8 remains untouched.
+
+Verification at this stop point:
+
+- `npm test -- --run src/app/app/reports/actions.test.ts src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`: passed, 19 tests across 4 files
+- `npm test -- --run src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/api/v1/report-runs/[runId]/pdf/route.test.ts`: passed, 19 tests across 3 files
+- `npm test -- --run src/app/app/reports/page.test.tsx src/components/app/AppShell.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx src/server/services/report-run-service.test.ts`: passed, 28 tests across 4 files
+- `npm test -- --run src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/actions.test.ts src/app/app/reports/page.test.tsx`: passed, 20 tests across 3 files
+- `npm run typecheck`: passed
+- `npm run lint`: passed
+- `npm test`: passed, 439 tests across 63 files
+- `npm run build`: passed
+- `git diff --check`: passed
 
 Next planned step after user review:
 
-- Stage 3: Generate report from portfolio detail.
+- Stage 8: Local end-to-end report generation validation.

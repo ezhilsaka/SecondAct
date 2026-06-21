@@ -5,6 +5,7 @@
 
 .pageHeader,
 .readinessPanel,
+.reportPreviewPanel,
 .emptyHoldings {
   border: 1px solid rgba(255, 248, 238, 0.12);
   border-radius: 8px;
@@ -37,6 +38,7 @@
 
 .pageHeader h1,
 .readinessPanel h2,
+.reportPreviewPanel h2,
 .sectionHeader h2,
 .emptyHoldings h2 {
   margin: 0;
@@ -52,6 +54,7 @@
 
 .pageHeader p,
 .readinessPanel p,
+.reportPreviewPanel p,
 .emptyHoldings p {
   margin: 0;
   color: rgba(255, 248, 238, 0.68);
@@ -193,6 +196,129 @@
   font-weight: 700;
 }
 
+.reportForm {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.reportForm label {
+  display: grid;
+  gap: 7px;
+  color: rgba(255, 248, 238, 0.68);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reportForm label span {
+  color: #aacf80;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.reportForm select {
+  min-width: 108px;
+  min-height: 42px;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 15, 22, 0.72);
+  color: #fff8ee;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.reportForm select:focus-visible {
+  border-color: rgba(170, 207, 128, 0.55);
+  outline: none;
+}
+
+.reportForm button {
+  border-color: rgba(170, 207, 128, 0.42);
+  background: #aacf80;
+  color: #0a0f16;
+}
+
+.reportForm button:hover,
+.reportForm button:focus-visible {
+  background: #c2e79a;
+  outline: none;
+}
+
+.reportForm button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.reportPreviewPanel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.reportPreviewLead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.reportPreviewLead > div {
+  display: grid;
+  gap: 10px;
+}
+
+.reportPreviewAction,
+.reportPreviewList a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 15, 22, 0.6);
+  color: #fff8ee;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.reportPreviewAction:hover,
+.reportPreviewAction:focus-visible,
+.reportPreviewList a:hover,
+.reportPreviewList a:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  outline: none;
+}
+
+.reportPreviewList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reportPreviewList li {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(70px, 0.5fr) minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 248, 238, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 15, 22, 0.42);
+  padding: 12px;
+}
+
+.reportPreviewList span {
+  color: rgba(255, 248, 238, 0.78);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .addHoldingPanel,
 .holdingsPanel {
   display: grid;
@@ -302,13 +428,24 @@
   }
 
   .pageHeader,
-  .readinessPanel {
+  .readinessPanel,
+  .reportPreviewLead {
     align-items: stretch;
     flex-direction: column;
   }
 
   .headerActions {
     justify-content: flex-start;
+  }
+
+  .reportForm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reportPreviewList li {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 
@@ -322,7 +459,10 @@
   }
 
   .headerActions a,
-  .readinessPanel button {
+  .readinessPanel button,
+  .reportPreviewAction,
+  .reportPreviewList a,
+  .reportForm select {
     width: 100%;
   }
 }

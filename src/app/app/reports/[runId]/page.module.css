@@ -1,0 +1,281 @@
+.reportPage {
+  display: grid;
+  gap: 22px;
+}
+
+.pageHeader,
+.statusPanel {
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.pageHeader > div:first-child {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.kicker,
+.cardLabel,
+.statusFacts dt {
+  margin: 0;
+  color: #aacf80;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pageHeader h1,
+.statusCopy h2 {
+  margin: 0;
+  color: #fff8ee;
+}
+
+.pageHeader h1 {
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 0.96;
+}
+
+.pageHeader p,
+.statusCopy p {
+  margin: 0;
+  color: rgba(255, 248, 238, 0.68);
+  line-height: 1.6;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.headerActions a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 15, 22, 0.6);
+  color: #fff8ee;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.headerActions a:hover,
+.headerActions a:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  outline: none;
+}
+
+.statusPanel {
+  display: grid;
+  gap: 22px;
+  padding: 22px;
+}
+
+.statusHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.waitingBadge,
+.workingBadge,
+.successBadge,
+.failedBadge,
+.neutralBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.waitingBadge {
+  border: 1px solid rgba(242, 179, 109, 0.38);
+  background: rgba(242, 179, 109, 0.12);
+  color: #ffd7a5;
+}
+
+.workingBadge {
+  border: 1px solid rgba(117, 178, 245, 0.4);
+  background: rgba(117, 178, 245, 0.12);
+  color: #cde4ff;
+}
+
+.successBadge {
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  background: rgba(170, 207, 128, 0.14);
+  color: #dff8bf;
+}
+
+.failedBadge {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.neutralBadge {
+  border: 1px solid rgba(255, 248, 238, 0.16);
+  background: rgba(255, 248, 238, 0.08);
+  color: rgba(255, 248, 238, 0.72);
+}
+
+.statusCopy {
+  display: grid;
+  gap: 10px;
+  max-width: 720px;
+}
+
+.statusCopy h2 {
+  font-size: 26px;
+  line-height: 1.12;
+}
+
+.inlineError {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  border-radius: 8px;
+  background: rgba(95, 38, 25, 0.34);
+  padding: 10px 12px;
+  color: #ffd8c4;
+}
+
+.failureReason,
+.longRunningNote {
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.failureReason {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.longRunningNote {
+  border: 1px solid rgba(242, 179, 109, 0.34);
+  background: rgba(242, 179, 109, 0.1);
+  color: #ffd7a5;
+}
+
+.downloadAction,
+.retryAction {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 248, 238, 0.1);
+  padding-top: 18px;
+}
+
+.downloadAction button,
+.retryAction button {
+  min-height: 42px;
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  border-radius: 6px;
+  background: #aacf80;
+  color: #0a0f16;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.downloadAction button:hover,
+.downloadAction button:focus-visible,
+.retryAction button:hover,
+.retryAction button:focus-visible {
+  background: #c2e79a;
+  outline: none;
+}
+
+.downloadAction button:disabled,
+.retryAction button:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.statusFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.statusFacts div {
+  display: grid;
+  gap: 7px;
+  border: 1px solid rgba(255, 248, 238, 0.1);
+  border-radius: 8px;
+  background: rgba(10, 15, 22, 0.42);
+  padding: 14px;
+}
+
+.statusFacts dt {
+  font-size: 11px;
+}
+
+.statusFacts dd {
+  margin: 0;
+  color: #fff8ee;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .pageHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+
+  .statusFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .pageHeader h1 {
+    font-size: 38px;
+  }
+
+  .headerActions a {
+    width: 100%;
+  }
+
+  .statusHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .statusFacts {
+    grid-template-columns: 1fr;
+  }
+}

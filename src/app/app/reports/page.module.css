@@ -1,0 +1,260 @@
+.reportsPage {
+  display: grid;
+  gap: 22px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.pageHeader > div {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.kicker,
+.cardLabel,
+.reportFacts dt {
+  margin: 0;
+  color: #aacf80;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.pageHeader h1,
+.emptyState h2 {
+  margin: 0;
+  color: #fff8ee;
+}
+
+.pageHeader h1 {
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 48px;
+  font-weight: 400;
+  line-height: 0.96;
+}
+
+.pageHeader p,
+.emptyState p {
+  margin: 0;
+  color: rgba(255, 248, 238, 0.68);
+  line-height: 1.6;
+}
+
+.primaryAction,
+.secondaryAction {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.primaryAction {
+  min-width: 166px;
+  padding: 0 18px;
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  background: #aacf80;
+  color: #0a0f16;
+}
+
+.primaryAction:hover,
+.primaryAction:focus-visible {
+  background: #c2e79a;
+  outline: none;
+}
+
+.secondaryAction {
+  padding: 0 14px;
+  border: 1px solid rgba(255, 248, 238, 0.18);
+  color: #fff8ee;
+}
+
+.secondaryAction:hover,
+.secondaryAction:focus-visible {
+  border-color: rgba(170, 207, 128, 0.5);
+  outline: none;
+}
+
+.reportList {
+  display: grid;
+  gap: 12px;
+}
+
+.reportRow,
+.emptyState {
+  border: 1px solid rgba(255, 248, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 238, 0.055);
+}
+
+.reportRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(460px, 1.35fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+}
+
+.reportIdentity {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.reportIdentity a {
+  color: rgba(255, 248, 238, 0.68);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.reportIdentity a:hover,
+.reportIdentity a:focus-visible {
+  color: #fff8ee;
+  outline: none;
+}
+
+.reportName {
+  margin: 0;
+  color: #fff8ee;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.reportFacts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.reportFacts div {
+  display: grid;
+  gap: 6px;
+}
+
+.reportFacts dt {
+  color: rgba(255, 248, 238, 0.52);
+  font-size: 11px;
+}
+
+.reportFacts dd {
+  margin: 0;
+  color: #fff8ee;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.queuedBadge,
+.processingBadge,
+.completedBadge,
+.failedBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.queuedBadge {
+  border: 1px solid rgba(242, 179, 109, 0.38);
+  background: rgba(242, 179, 109, 0.12);
+  color: #ffd7a5;
+}
+
+.processingBadge {
+  border: 1px solid rgba(117, 178, 245, 0.4);
+  background: rgba(117, 178, 245, 0.12);
+  color: #cde4ff;
+}
+
+.completedBadge {
+  border: 1px solid rgba(170, 207, 128, 0.42);
+  background: rgba(170, 207, 128, 0.14);
+  color: #dff8bf;
+}
+
+.failedBadge {
+  border: 1px solid rgba(242, 130, 92, 0.45);
+  background: rgba(95, 38, 25, 0.34);
+  color: #ffd8c4;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.emptyState > div {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.emptyState h2 {
+  font-size: 24px;
+  line-height: 1.14;
+}
+
+@media (max-width: 980px) {
+  .reportRow {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .reportFacts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rowActions {
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .secondaryAction {
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .pageHeader,
+  .emptyState {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pageHeader h1 {
+    font-size: 38px;
+  }
+
+  .primaryAction {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .reportFacts {
+    grid-template-columns: 1fr;
+  }
+}

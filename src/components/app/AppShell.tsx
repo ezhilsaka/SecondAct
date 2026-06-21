@@ -45,9 +45,9 @@ export function AppShell({ profile, children }: AppShellProps) {
           <Link href="/app/portfolios" className={styles.navItem}>
             Portfolios
           </Link>
-          <span className={styles.navItemDisabled} aria-disabled="true">
+          <Link href="/app/reports" className={styles.navItem}>
             Reports
-          </span>
+          </Link>
           <Link href="/app/account" className={styles.navItem}>
             Account
           </Link>
