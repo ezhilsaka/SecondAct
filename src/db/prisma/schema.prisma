@@ -132,6 +132,8 @@ model ReportRun {
   artifacts          ReportArtifact[]
 
   @@index([userId, createdAt], map: "report_runs_user_id_created_at_idx")
+  @@index([userId, requestedAt(sort: Desc)], map: "report_runs_user_id_requested_at_desc_idx")
+  @@index([userId, portfolioId, requestedAt(sort: Desc)], map: "report_runs_user_id_portfolio_id_requested_at_desc_idx")
   @@index([portfolioId, createdAt], map: "report_runs_portfolio_id_created_at_idx")
   @@index([status, createdAt], map: "report_runs_status_created_at_idx")
   @@index([paymentStatus, createdAt], map: "report_runs_payment_status_created_at_idx")

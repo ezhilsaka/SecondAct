@@ -5,16 +5,40 @@
 Performance-only repo audit for the current Second Act worktree. Focus areas:
 
 - Public landing/login first-load behavior.
-- Authenticated app shell, portfolio list, and portfolio detail routes.
+- Authenticated app shell, portfolio list, portfolio detail, report library, and report status routes.
 - Portfolio APIs and Prisma/Postgres query paths.
 - Report-run queue, external provider calls, and PDF rendering.
 - Fixes that should not change user-facing behavior.
 
 ## Current Performance Status
 
-Overall status: Green for the audited code-level fixes.
+Overall status: Green for the audited code-level fixes after the 2026-06-21 re-audit.
 
-The app has a strong baseline: most portfolio UI is server-rendered, heavy report generation is queued through Graphile Worker, external provider calls have timeout guards, and Prisma queries generally select only needed columns. The homepage cacheability issue, protected-render auth/profile duplication, up-front saved-holding edit/remove form rendering, dashboard summary query shape, PDF render cost visibility, and narrative retry latency visibility have now been addressed. No open code-level performance findings remain from this audit; the next work is operational monitoring before changing worker concurrency, PDF renderer lifecycle, or provider strategy.
+The app has a strong baseline: most portfolio and report UI is server-rendered, heavy report generation is queued through Graphile Worker, external provider calls have timeout guards, report history reads are bounded, and Prisma queries generally select only needed columns. The homepage cacheability issue, protected-render auth/profile duplication, up-front saved-holding edit/remove form rendering, dashboard summary query shape, PDF render cost visibility, narrative retry latency visibility, and report-history requested-time query shape have now been addressed. No open code-level performance findings remain from this audit; the next work is operational monitoring before changing worker concurrency, PDF renderer lifecycle, report-status polling cadence, or provider strategy.
+
+## 2026-06-21 Re-Audit After Phase 4/5 Changes
+
+Baseline:
+
+- Previous performance checkpoint: `cd35760b325665fac2adbc7161701a7555690cbe` (`PerformanceFixes-2`).
+- Current audited head: `b02a7fd` (`Phase5-reporthistory-functionalmvp-Step7-8`).
+
+Changed areas reviewed:
+
+- Report generation/status/library UI under `src/app/app/reports`.
+- Report-run API routes under `src/app/api/v1/report-runs`.
+- Dashboard latest-report card in `src/app/app/page.tsx`.
+- Portfolio detail report-history preview in `src/app/app/portfolios/[portfolioId]/page.tsx`.
+- Report-run service list/status/download/delete methods in `src/server/services/report-run-service.ts`.
+- Account/profile app-shell changes that affect protected app render paths.
+
+Re-audit observations:
+
+- Report library server render is bounded to `limit: 50`; portfolio detail preview is bounded to `limit: 3`; dashboard latest report is bounded to `limit: 1`.
+- Dashboard report and portfolio summary loads run in parallel.
+- Report download buttons fetch signed URLs only on click; completed rows do not create signed URLs during initial render.
+- Report status polling is limited to `QUEUED` and `PROCESSING` statuses and stops after terminal status.
+- The one new code-level finding was the report-history query/index mismatch fixed in item 8 below.
 
 ## Fixes Applied In This Pass
 
@@ -161,6 +185,27 @@ Files:
 - `src/server/providers/openai-compatible-narrative-provider.ts`
 - `src/server/providers/openai-compatible-narrative-provider.test.ts`
 
+### 8. Report history queries now have requested-time indexes
+
+Evidence:
+
+- Phase 4/5 added report-history surfaces that list report runs by `requestedAt desc`:
+  - Dashboard latest report: `limit: 1`.
+  - Portfolio detail report preview: `portfolioId`, `limit: 3`.
+  - Report library: `limit: 50`, with optional portfolio/status/currency filters.
+- Existing report-run indexes were on `createdAt`, while the new service queries order by `requestedAt`.
+
+Resolution:
+
+- Added a user-level requested-time index for dashboard and report-library reads.
+- Added a user+portfolio requested-time index for portfolio-scoped report previews and report-library filters.
+- Kept existing `createdAt` indexes in place for compatibility with the original schema.
+
+Files:
+
+- `src/db/prisma/schema.prisma`
+- `src/db/prisma/migrations/20260621000000_add_report_run_requested_at_indexes/migration.sql`
+
 ## Completed Findings
 
 ### P1 - Protected routes repeat auth/profile work per request
@@ -193,6 +238,12 @@ Status: Fixed.
 
 Completed by fix 7 above.
 
+### P2 - Report history queries order by requested time without matching indexes
+
+Status: Fixed.
+
+Completed by fix 8 above.
+
 ## Remaining Findings And Resolutions
 
 No open code-level performance findings remain from this audit.
@@ -201,6 +252,7 @@ Operational follow-ups:
 
 - Monitor `pdf_render` duration and `pdfByteSize` before raising worker concurrency or changing the renderer lifecycle.
 - Monitor `narrative_provider.first_attempt_invalid`, `narrative_provider.retry_recovered`, and `narrative_provider.retry_invalid` before deciding whether prompt/schema or provider changes are needed.
+- Monitor report-status polling load as concurrent active report users grow; current polling is intentionally scoped to active report status pages only.
 
 ## Verification Completed
 
@@ -217,6 +269,13 @@ Commands run:
 - `git diff --check`
 - `npm run build`
 - `npm run db:format`
+- `npm test`
+- `npm test -- --run src/server/services/report-run-service.test.ts src/app/api/v1/report-runs/route.test.ts src/app/api/v1/report-runs/[runId]/route.test.ts src/app/app/reports/page.test.tsx src/app/app/reports/[runId]/page.test.tsx src/app/app/reports/[runId]/ReportStatusPanel.test.tsx src/app/app/reports/[runId]/ReportDownloadButton.test.tsx src/app/app/reports/actions.test.ts src/app/app/page.test.tsx src/app/app/portfolios/[portfolioId]/page.test.tsx`
+- `npm run db:format`
+- `npm run typecheck`
+- `npm run lint`
+- `git diff --check`
+- `npm run build`
 - `npm test`
 
 Results:
@@ -236,3 +295,10 @@ Results:
 - Full test suite passed after lazy holding row actions: 58 files, 396 tests.
 - Full test suite passed after final audit fixes: 58 files, 397 tests.
 - Note: one concurrent `npm test` + `npm run build` attempt hit a Prisma client generation race while build ran `prisma generate`; rerunning `npm test` after build completed passed cleanly.
+- Phase 4/5 report-history focused tests: 10 files passed, 109 tests passed.
+- Prisma schema format passed after adding report-run requested-time indexes.
+- 2026-06-21 re-audit typecheck passed.
+- 2026-06-21 re-audit lint passed.
+- 2026-06-21 re-audit diff whitespace check passed.
+- 2026-06-21 re-audit build passed and confirmed `/app/reports` and `/app/reports/[runId]` are dynamic routes.
+- Full test suite passed after the 2026-06-21 re-audit: 65 files, 483 tests.

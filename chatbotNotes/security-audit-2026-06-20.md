@@ -1,14 +1,18 @@
 # Security Audit: Repo Deep Dive
 
 - **Reviewed by:** Security Engineer persona
-- **Date:** 2026-06-20
-- **Audit checkpoint commit:** `cd35760b325665fac2adbc7161701a7555690cbe` (`PerformanceFixes-2`, committed 2026-06-20 17:27:51 -04:00)
+- **Latest audit date:** 2026-06-21
+- **Audit checkpoint commit:** `b02a7fd35e2473a493c20a3ee04e8452c333edec` (`Phase5-reporthistory-functionalmvp-Step7-8`, committed 2026-06-21 17:29:21 -04:00)
+- **Previous audit checkpoint:** `cd35760b325665fac2adbc7161701a7555690cbe` (`PerformanceFixes-2`, committed 2026-06-20 17:27:51 -04:00)
+- **Uncommitted worktree addendum:** Also reviewed the current uncommitted report-run `requestedAt` index migration/schema changes present on 2026-06-21.
 - **Scope:** Current Second Act worktree, with focus on Next.js App Router auth, API routes, server actions, Prisma data access, CSP/security headers, env parsing, and report artifact access.
-- **Status:** Security audit completed through the checkpoint commit above. All confirmed repo-evidence findings from this audit are fixed except the two explicitly tracked pending items: moderate/low dependency advisories not force-fixed, and app-side rate limiting for pre-public launch.
+- **Status:** Security audit completed through the checkpoint commit above. The 2026-06-21 incremental review of changes since the previous checkpoint found no new confirmed code-level security findings. The only pending items remain: moderate/low dependency advisories not force-fixed, and app-side rate limiting for pre-public launch.
 
 ## Summary
 
-The app already had strong foundations in the current worktree: request-level auth in `src/proxy.ts`, route-level API auth, server-side user identity sourcing, Supabase auth helpers, Zod validation, Prisma parameterization, untracked `.env`, and security headers/CSP. The audit found several concrete hardening gaps that could disclose sensitive metadata or weaken security controls. All confirmed code-level issues listed below were fixed with focused security-only changes, regression tests, and a non-force dependency audit fix for high-severity advisories. Future security audit work should start from code added after the checkpoint commit, while carrying forward only the two pending items listed in `Remaining Recommendations`.
+The app already had strong foundations in the current worktree: request-level auth in `src/proxy.ts`, route-level API auth, server-side user identity sourcing, Supabase auth helpers, Zod validation, Prisma parameterization, untracked `.env`, and security headers/CSP. The original audit found several concrete hardening gaps that could disclose sensitive metadata or weaken security controls. All confirmed code-level issues listed below were fixed with focused security-only changes, regression tests, and a non-force dependency audit fix for high-severity advisories.
+
+The 2026-06-21 incremental audit reviewed the changes from `cd35760b325665fac2adbc7161701a7555690cbe` through `b02a7fd35e2473a493c20a3ee04e8452c333edec`, including the report generation UI, report history/status pages, account profile update flow, report-run API extensions, and report-run service changes. It also reviewed the current uncommitted report-run `requestedAt` index migration/schema addendum. No new confirmed code-level security finding was identified. Future security audit work should start from code added after the current checkpoint commit plus the reviewed uncommitted index addendum, while carrying forward only the two pending items listed in `Remaining Recommendations`.
 
 ## Remediation Workflow
 
@@ -18,6 +22,24 @@ Handle the remaining audit items one at a time in the sequence below. After each
 2. App-side rate limiting for pre-public launch - add product-approved limits for auth, report creation, and market-data search while preserving normal user workflows.
 
 No other audit findings are pending from this security review.
+
+## Incremental Audit - 2026-06-21
+
+**Reviewed range:** `cd35760b325665fac2adbc7161701a7555690cbe..b02a7fd35e2473a493c20a3ee04e8452c333edec`
+
+**Changed areas reviewed:**
+
+- Report-run API list/status/delete extensions under `src/app/api/v1/report-runs`
+- Report generation, report library, report status, PDF download, retry, and delete server-action flows under `src/app/app/reports`
+- Portfolio detail/dashboard report integrations under `src/app/app/portfolios/[portfolioId]` and `src/app/app`
+- Account profile update flow under `src/app/app/account`
+- Profile bootstrap/update logic under `src/server/auth/profile-bootstrap.ts`
+- Report-run ownership, list, artifact, signed URL, and deletion logic under `src/server/services/report-run-service.ts`
+- Uncommitted report-run `requestedAt` index additions in `src/db/prisma/schema.prisma` and `src/db/prisma/migrations/20260621000000_add_report_run_requested_at_indexes/migration.sql`
+
+**Result:** No new confirmed code-level security finding. The reviewed code continues to source user identity server-side, validates UUID/currency/status inputs, scopes report-run reads/deletes/downloads by authenticated user, returns generic client-facing errors for cross-user/not-found cases, sanitizes report delete return paths to same-app report-library paths, and uses fixed notice/error codes instead of reflecting free-form user input into redirects. The uncommitted DB addendum adds non-unique report-run indexes only; it does not change row visibility, access control, data mutation behavior, or secret handling.
+
+**Functional-impact note:** This incremental security audit did not change product code. The only file changed by this security-audit pass is this audit document; the separate uncommitted Prisma/performance-audit changes were reviewed for security impact as current worktree state.
 
 ## Fixed Findings
 
@@ -100,7 +122,17 @@ No other audit findings are pending from this security review.
 
 ## Verification
 
-Commands run after fixes:
+Latest incremental verification run for `cd35760b325665fac2adbc7161701a7555690cbe..b02a7fd35e2473a493c20a3ee04e8452c333edec`:
+
+- `git diff --check cd35760b325665fac2adbc7161701a7555690cbe..HEAD` - passed
+- `npm run security:audit` - passed at `--audit-level=high`; remaining advisories are still 1 low / 5 moderate in the tracked dependency follow-up bucket
+- `npm run db:format` - passed for the current Prisma schema
+- `npm test` - passed, 65 files / 483 tests, including a rerun after the uncommitted DB index addendum was detected
+- `npm run typecheck` - passed
+- `npm run lint` - passed
+- `npm run build` - passed, including a rerun after the uncommitted DB index addendum was detected
+
+Prior fix verification:
 
 - `npm test` - passed, 56 files / 393 tests
 - `npm run typecheck` - passed
