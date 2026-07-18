@@ -33,7 +33,7 @@ export const securitySearchResultSchema = z.object({
   name: nonEmptyStringSchema.nullable().optional(),
   exchange: nonEmptyStringSchema.nullable().optional(),
   region: nonEmptyStringSchema.nullable().optional(),
-  currency: supportedCurrencySchema.optional(),
+  currency: supportedCurrencySchema.nullish().transform((value) => value ?? undefined),
   matchScore: decimalStringSchema.optional(),
   provider: nonEmptyStringSchema
 });

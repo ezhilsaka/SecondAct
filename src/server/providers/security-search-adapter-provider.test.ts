@@ -72,6 +72,38 @@ describe("SecuritySearchAdapterProvider", () => {
     );
   });
 
+  it("accepts adapter results with an unknown null currency", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...validSearchPayload,
+          results: [
+            {
+              ...validSearchPayload.results[0],
+              currency: null
+            }
+          ]
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      )
+    );
+    const provider = createProvider(fetchMock);
+
+    const result = await provider.searchSecurities({ query: "Apple" });
+
+    expect(result.results[0]).toEqual({
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      exchange: "NASDAQ",
+      region: "United States",
+      matchScore: "0.9300",
+      provider: "yfinance"
+    });
+  });
+
   it("rejects invalid input before making a network request", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     const provider = createProvider(fetchMock);

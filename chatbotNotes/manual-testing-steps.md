@@ -108,7 +108,7 @@ Expected:
 - no hydration errors
 - no uncaught runtime errors
 
-## 2) Phase 2 Manual Testing
+## 2) Phase 2 Manual Testing - Completed. 
 
 Phase 2 covers Supabase Auth, profile bootstrap, protected `/app`, logout, report API auth migration, and auth-aware landing CTAs.
 
@@ -345,7 +345,7 @@ Expected:
 - report-related dashboard or navigation affordances should not expose data while signed out
 - full report-generation behavior is covered in Phase 4 below
 
-### 3.2 Portfolio List Empty State
+### 3.2 Portfolio List Empty State - Completed
 
 1. Click `Portfolios` in the app shell.
 2. Confirm `/app/portfolios` opens.
