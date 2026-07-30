@@ -1545,3 +1545,28 @@ A:
 - If a job was enqueued with an invalid or missing `reportRunId`, the orchestrator would receive bad input and either fail confusingly or (in a worst case with a crafted payload) pass an unexpected value to database queries.
 - Adding `uuidSchema.parse(reportRunId)` at the task handler boundary ensures the worker fails fast with a clear Zod error on any invalid payload, before any orchestrator or database logic runs.
 - This follows the defense-in-depth principle: even though the enqueue side validates, the consume side must validate independently because the queue is a trust boundary.
+
+### Q: Why do the Supabase RLS baseline policies deny direct client access instead of using owner-readable policies?
+
+A:
+
+- The current product architecture is server/API-first:
+  - browser clients use Supabase for Auth/session handling
+  - app data reads and writes go through Next.js route handlers/server actions
+  - backend services use Prisma and owner-scoped service methods
+  - PDF object work goes through server-side Supabase Storage clients and short-lived signed URLs
+- Several app tables contain fields that should not be exposed directly through the Supabase Data API:
+  - `report_runs.canonical_snapshot`
+  - `report_runs.analysis_output`
+  - `report_runs.narrative_output`
+  - `report_runs.error_details`
+  - `report_artifacts.storage_bucket`
+  - `report_artifacts.storage_path`
+- RLS filters rows, not columns. A simple "users can select their own report_runs" policy would still expose raw report JSON for that user's rows.
+- The RLS baseline therefore:
+  - enables RLS on app-owned tables
+  - revokes direct `anon` and `authenticated` table grants
+  - adds an explicit restrictive `secondact_no_direct_client_access` policy
+  - leaves the backend API/service layer as the only supported data path
+- If the frontend later needs direct Supabase Data API reads, prefer safe views or purpose-built API responses that expose only approved columns instead of granting direct access to raw tables.
+- The same baseline keeps Graphile Worker private queue tables and Prisma migration metadata away from client roles.

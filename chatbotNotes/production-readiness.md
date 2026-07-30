@@ -1,8 +1,72 @@
 # Production Readiness Notes
 
-Last updated: 2026-06-10
+Last updated: 2026-07-30
 
 This note captures the main items that must be addressed before moving the report-generation flow from local/dev execution to a production-ready setup.
+
+## Production Setup Sequence
+
+When creating a fresh production database/project, the expected setup flow is:
+
+1. Create or select the production Supabase project.
+2. Configure production database connection strings and secrets:
+   - `DATABASE_URL`
+   - `DIRECT_URL`, if used for migration/admin workflows
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` or newer publishable key equivalent
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_REPORTS_BUCKET`
+3. Create the private Supabase Storage bucket for report PDFs.
+   - The Prisma migrations do not create the bucket itself.
+   - The bucket should remain private.
+   - Allowed MIME type should include `application/pdf`.
+4. Ensure the Graphile Worker schema is installed/available in the production database.
+   - The queue stays in Supabase Postgres.
+   - The worker process still runs outside Supabase in a production runtime.
+5. Run Prisma migrations against production:
+
+```bash
+npm run db:migrate:deploy
+```
+
+The migrations should create:
+
+- application enums
+- application tables
+- indexes
+- foreign keys
+- Prisma migration metadata
+- app-table RLS baseline policies
+- storage/object RLS baseline policy
+- Graphile private-table hardening if the `graphile_worker` schema/tables already exist
+
+Important migration-order caveat:
+
+- The RLS migration safely skips Graphile private tables if the `graphile_worker` schema does not exist yet.
+- If the Graphile Worker schema is created after the RLS baseline migration has already run, apply a follow-up Graphile hardening migration or rerun the equivalent Graphile-specific hardening SQL manually.
+- Do not add public/client policies to Graphile Worker private tables. They are internal queue infrastructure, not Data API resources.
+
+Production resources not created by Prisma migrations:
+
+- Supabase project
+- Supabase Auth provider configuration
+- Supabase Storage bucket
+- deployment platform environment variables
+- production worker runtime
+- production market-data provider/account
+- LLM provider account/key
+- payment provider/account
+
+After setup, run a production smoke test:
+
+1. Sign in through the deployed app.
+2. Create or open a ready portfolio.
+3. Generate a report.
+4. Confirm the Vercel/API route creates and enqueues the report run.
+5. Confirm the production worker picks up the queued job.
+6. Confirm the report reaches `COMPLETED`.
+7. Confirm the PDF opens through the signed URL flow.
+8. Run Supabase security advisors and confirm no app-table `RLS Enabled No Policy` warnings remain.
 
 ## 1) Run the Graphile Worker in a Production Runtime
 

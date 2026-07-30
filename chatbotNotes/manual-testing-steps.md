@@ -345,7 +345,7 @@ Expected:
 - report-related dashboard or navigation affordances should not expose data while signed out
 - full report-generation behavior is covered in Phase 4 below
 
-### 3.2 Portfolio List Empty State - Completed
+### 3.2 Portfolio List Empty State 
 
 1. Click `Portfolios` in the app shell.
 2. Confirm `/app/portfolios` opens.
@@ -361,7 +361,7 @@ If active portfolios exist:
 - each active portfolio has a view/detail path
 - archived portfolios should not appear
 
-### 3.3 Create Manual Portfolio
+### 3.3 Create Manual Portfolio 
 
 1. Open `/app/portfolios/new`.
 2. Create a test portfolio:
@@ -388,7 +388,7 @@ Expected:
 - `base_currency` is `CAD` or `USD`
 - `archived_at` is empty/null
 
-### 3.5 Edit Portfolio Metadata
+### 3.5 Edit Portfolio Metadata 
 
 1. From the detail page or list, open portfolio edit.
 2. Change:
@@ -449,7 +449,7 @@ Expected:
 - estimated cost basis appears if the UI shows it
 - portfolio readiness changes to ready once at least one holding exists
 
-### 3.8 Verify Holding DB Ownership
+### 3.8 Verify Holding DB Ownership 
 
 In Supabase Table Editor, inspect the new `public.portfolio_holdings` row.
 
@@ -496,7 +496,7 @@ Expected:
 - app does not crash
 - no duplicate holding row is created
 
-### 3.11 Edit Holding
+### 3.11 Edit Holding 
 
 1. Edit an existing holding.
 2. Change one or more fields:
@@ -513,7 +513,7 @@ Expected:
 - duplicate ticker update is rejected if the new ticker already exists in the same portfolio
 - decimal values remain precise enough for the entered values
 
-### 3.12 Remove Holding
+### 3.12 Remove Holding  
 
 1. Attempt to remove a holding.
 2. If confirmation is required, first try without confirmation if the UI exposes that path.
@@ -545,12 +545,12 @@ await fetch("/api/v1/report-runs", {
   method: "POST",
   headers: {
     "content-type": "application/json",
-    "x-user-id": "11111111-1111-4111-8111-111111111111"
+    "x-user-id": "b7a6e76d-c1fb-4756-8bfb-0b8e05427e87"
   },
   body: JSON.stringify({
-    portfolioId: "<portfolioId>",
+    portfolioId: "8f15a14e-efa4-41df-bd68-c256242b68c8",
     reportingCurrency: "CAD",
-    userId: "11111111-1111-4111-8111-111111111111"
+    userId: "b7a6e76d-c1fb-4756-8bfb-0b8e05427e87"
   })
 }).then(async (r) => ({
   status: r.status,
@@ -834,7 +834,7 @@ Expected:
 - `View status` links to `/app/reports/<runId>`
 - clicking source portfolio returns to the portfolio detail page
 
-### 4.6 Portfolio Detail Report Preview
+### 4.6 Portfolio Detail Report Preview - Completed
 
 Return to:
 
