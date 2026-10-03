@@ -1,6 +1,6 @@
 # Backend Knowledge Base
 
-Last updated: 2026-06-21
+Last updated: 2026-10-02
 
 ## 1) Purpose
 
@@ -1570,3 +1570,34 @@ A:
   - leaves the backend API/service layer as the only supported data path
 - If the frontend later needs direct Supabase Data API reads, prefer safe views or purpose-built API responses that expose only approved columns instead of granting direct access to raw tables.
 - The same baseline keeps Graphile Worker private queue tables and Prisma migration metadata away from client roles.
+
+## 22. Report Status Timing And Polling Clarifications
+
+### Q: What does the long-running report threshold mean?
+
+A:
+
+- The current UI threshold is **10 minutes**.
+- It is implemented as a client-side constant, `LONG_RUNNING_THRESHOLD_MS = 10 * 60 * 1000`.
+- The threshold is evaluated dynamically from the report timestamps:
+  - `QUEUED` runs use elapsed time since `requestedAt`.
+  - `PROCESSING` runs use elapsed time since `startedAt`, falling back to `requestedAt` if needed.
+- Reaching the threshold only changes the explanatory message. It does not cancel the run, mark it failed, or stop the report pipeline.
+
+### Q: Does the page continue polling after the long-running message appears?
+
+A:
+
+- Yes. The current default status polling interval is 3 seconds.
+- Polling continues while the report status is `QUEUED` or `PROCESSING`.
+- Polling stops when the status becomes terminal (`COMPLETED` or `FAILED`) or when the status page is unmounted because the user leaves it.
+- If the Graphile Worker is down but the status API remains available, the run stays `QUEUED` and the open page continues polling.
+- There is currently no maximum polling duration, retry limit, or automatic backoff in the client. A failed status request shows a transient refresh message, but the next interval still attempts another request.
+
+### Q: Is indefinite 3-second polling the intended production behavior?
+
+A:
+
+- It is acceptable for local development and the Phase 4 worker-stopped manual drill because it makes recovery visible as soon as the worker restarts.
+- It is not the preferred final production behavior because abandoned tabs and stalled worker incidents can create unnecessary status traffic indefinitely.
+- Production should use bounded polling with backoff. The browser should stop automatic polling after a defined client-side budget, while the server-side report run remains active and can finish normally.

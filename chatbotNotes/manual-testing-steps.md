@@ -834,7 +834,7 @@ Expected:
 - `View status` links to `/app/reports/<runId>`
 - clicking source portfolio returns to the portfolio detail page
 
-### 4.6 Portfolio Detail Report Preview - Completed
+### 4.6 Portfolio Detail Report Preview
 
 Return to:
 
@@ -1126,7 +1126,7 @@ If no report runs exist:
 - if no portfolios exist, CTA points to `/app/portfolios/new`
 - if portfolios exist, CTA points to `/app/portfolios`
 
-### 5.3 Portfolio-Scoped Report Library Link
+### 5.3 Portfolio-Scoped Report Library Link 
 
 1. Open an owned portfolio detail page:
 
@@ -1215,7 +1215,7 @@ Expected:
 - if no active report exists for that portfolio, a new report run is created
 - browser redirects to `/app/reports/<newRunId>`
 - new run uses the same source portfolio and reporting currency
-- if an active report already exists for the portfolio, browser redirects to that active run instead of creating a duplicate
+- if an active report already exists for the portfolio, browser redirects to that active run instead of creating a duplicate. Active report means if there is a report already in in-progress or queued status. If there is a report already in completed or failed status, it will create a new report for that portfolio.
 
 ### 5.6 Completed Report Delete And Storage Cleanup
 
@@ -1407,7 +1407,7 @@ Expected:
 - status `404`
 - User A report row and artifact remain untouched
 
-### 5.11 Signed-Out Phase 5 API Checks
+### 5.11 Signed-Out Phase 5 API Checks - Completed
 
 Sign out or use incognito/private mode.
 

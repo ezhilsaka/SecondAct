@@ -1,6 +1,6 @@
 # Production Readiness Notes
 
-Last updated: 2026-07-30
+Last updated: 2026-10-02
 
 This note captures the main items that must be addressed before moving the report-generation flow from local/dev execution to a production-ready setup.
 
@@ -94,7 +94,33 @@ Important note:
 
 - This is not a queue redesign. The queue stays in Supabase Postgres. The missing production piece is only where the long-running worker process runs.
 
-## 2) Replace or Productionize Market Data
+## 2) Bound Report Status Polling In The Production UI
+
+Current state:
+
+- The report status page polls every 3 seconds while a run is `QUEUED` or `PROCESSING`.
+- After 10 minutes, the UI changes its copy to explain that the report is taking longer than usual.
+- The current implementation continues polling indefinitely while the page remains open. The 10-minute threshold is a messaging threshold, not a polling timeout.
+- If the worker is stopped, the report remains queued and the browser continues making status requests as long as the status API is available.
+
+Production requirement:
+
+- Keep fast feedback while the user is actively waiting: poll every 3 seconds for the first 10 minutes.
+- After 10 minutes, back off to a slower interval such as 30 seconds. The UI should continue explaining that the report can be left running in the background.
+- Stop automatic polling after a bounded total client budget, initially recommended at 30 minutes. This should be a UI polling limit only; it must not cancel or fail the server-side report run.
+- When automatic polling stops, show a clear stale/long-running state with:
+  - a manual `Refresh status` action
+  - a link back to the Reports page
+  - wording that the report may still complete in the background
+- When the user revisits the status page or Reports page, fetch the latest server status and resume polling if the run is still active.
+- Consider pausing or reducing polling for hidden browser tabs so background tabs do not consume the same request budget as an actively viewed page.
+
+Operational note:
+
+- The client polling budget is separate from worker execution and queue policy. Worker monitoring, queue depth alerts, job age alerts, and server-side retry/failure handling are still required for production operations.
+- A worker outage should eventually be visible through operational monitoring, not depend on every user's browser polling forever.
+
+## 3) Replace or Productionize Market Data
 
 Current state:
 
