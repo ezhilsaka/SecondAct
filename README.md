@@ -1,5 +1,7 @@
 # Second Act
 
+> **Project status:** This is a personal portfolio project and is not currently offered for public use. The source code is available for technical review; the application is not currently offered as a public service.
+
 ## Product Thesis
 
 Second Act is a report-first, quarterly portfolio checkup product for long-term DIY equity investors who want meaningful portfolio evaluation without a monthly subscription or a daily dashboard habit.
