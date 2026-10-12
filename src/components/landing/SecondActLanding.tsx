@@ -5,6 +5,7 @@ import {
   navItems,
   pricingStats
 } from "@/features/marketing/constants/landing-content";
+import Image from "next/image";
 import styles from "./SecondActLanding.module.css";
 
 const SAMPLE_REPORT_PREVIEW_ID = "sample-report-preview";
@@ -28,26 +29,13 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
 function HeroReportPreview() {
   return (
     <div className={styles.heroPreviewCard}>
-      <p className={styles.previewTitle}>Quarterly Portfolio Grading Report</p>
-      <div className={styles.previewHeaderLine} />
-
-      <div className={styles.previewMetricRow}>
-        <div className={styles.previewMetricCard}>
-          <p className={styles.previewMetricLabel}>Score 78/100</p>
-          <div className={styles.previewMetricBarStrong} />
-        </div>
-        <div className={styles.previewMetricCardMuted}>
-          <p className={styles.previewMetricLabel}>Risk: Moderate</p>
-          <div className={styles.previewMetricBarSoft} />
-        </div>
-      </div>
-
-      <div className={styles.previewChartCard}>
-        <p className={styles.previewMetricLabel}>Return Contribution</p>
-        <div className={styles.previewRowDark} />
-        <div className={styles.previewRowMid} />
-        <div className={styles.previewRowLight} />
-      </div>
+      <Image
+        className={styles.previewImage}
+        src="/images/sample-report-preview.png"
+        alt="Sample Second Act portfolio report showing an executive summary and portfolio allocation"
+        fill
+        sizes="(max-width: 900px) 100vw, 50vw"
+      />
     </div>
   );
 }

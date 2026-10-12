@@ -258,102 +258,21 @@
 
 .heroPreviewCard {
   flex: 1;
+  min-height: 0;
+  position: relative;
   border-radius: 16px;
   background: #fbfcfe;
   border: 1px solid #d8dee8;
-  padding: 12px;
   box-shadow: 0 6px 12px rgba(10, 16, 42, 0.2);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  overflow: hidden;
 }
 
-.previewTitle,
-.previewMetricLabel {
-  margin: 0;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  color: #2a3750;
-}
-
-.previewTitle {
-  color: #182033;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.previewMetricLabel {
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.previewHeaderLine,
-.previewMetricBarStrong,
-.previewMetricBarSoft,
-.previewRowDark,
-.previewRowMid,
-.previewRowLight {
+.previewImage {
+  display: block;
   width: 100%;
-  border-radius: 4px;
-  height: 8px;
-}
-
-.previewHeaderLine {
-  background: #dde6f2;
-}
-
-.previewMetricRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.previewMetricCard,
-.previewMetricCardMuted {
-  border-radius: 8px;
-  padding: 8px;
-  border: 1px solid #d6dce6;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.previewMetricCard {
-  background: #eaf1fa;
-}
-
-.previewMetricCardMuted {
-  background: #f1f4f8;
-}
-
-.previewMetricBarStrong {
-  background: #7da7d6;
-}
-
-.previewMetricBarSoft {
-  background: #9fb4cd;
-}
-
-.previewChartCard {
-  flex: 1;
-  border-radius: 8px;
-  border: 1px solid #d5dce8;
-  background: #f4f7fc;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.previewRowDark {
-  background: #4d89c8;
-}
-
-.previewRowMid {
-  background: #7fa9d2;
-}
-
-.previewRowLight {
-  background: #b1c7df;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
 }
 
 .gapSection,

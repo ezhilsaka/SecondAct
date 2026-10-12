@@ -14,12 +14,13 @@ describe("SecondActLanding", () => {
     expect(html).toContain("Generate My Report");
   });
 
-  it("keeps the sample PDF action separate as a safe preview placeholder", () => {
+  it("keeps the sample PDF action separate and renders the report preview image", () => {
     const html = renderToStaticMarkup(<SecondActLanding reportCtaHref="/app" />);
 
     expect(html.match(/href="\/app"/g)).toHaveLength(3);
     expect(html).toContain('href="#sample-report-preview"');
     expect(html).toContain('id="sample-report-preview"');
     expect(html).toContain("View Sample PDF");
+    expect(html).toContain("sample-report-preview.png");
   });
 });
