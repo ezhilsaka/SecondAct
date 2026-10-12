@@ -186,9 +186,9 @@ describe("OpenAICompatibleNarrativeProvider", () => {
         : null;
     expect(requestBody).toMatchObject({
       model: "qwen3.5:9b",
-      temperature: 0.2,
       response_format: { type: "json_object" }
     });
+    expect(requestBody).not.toHaveProperty("temperature");
     const userPayload = JSON.parse(String(requestBody.messages[1]?.content));
     expect(userPayload.output_template.sections).toHaveLength(narrativeInput.sections.length);
     expect(userPayload.output_template.sections[0]?.metrics).toHaveLength(

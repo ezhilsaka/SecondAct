@@ -54,11 +54,11 @@ function formatDateTime(iso: string | null): string {
 function emphasisColor(emphasis: string | undefined): string {
   switch (emphasis) {
     case "positive":
-      return "#1a7f37";
+      return "#059669";
     case "negative":
-      return "#cf222e";
+      return "#e11d48";
     case "cautionary":
-      return "#bf6a00";
+      return "#ea580c";
     default:
       return "#24292f";
   }
@@ -177,6 +177,124 @@ function cardDisplayValue(value: string): string {
   return value === "N/A" ? "Not available" : value;
 }
 
+const REPORT_VISUAL_COLORS = [
+  "#4338ca",
+  "#5b4de1",
+  "#059669",
+  "#e11d48",
+  "#ea580c",
+  "#7c3aed",
+  "#64748b"
+];
+
+function allocationLabel(ticker: string, securityName: string | null | undefined): string {
+  const trimmedName = securityName?.trim();
+  return trimmedName ? `${ticker} - ${trimmedName}` : ticker;
+}
+
+function buildPortfolioAllocationVisual(report: ReportDocument): string {
+  const weightedHoldings = report.canonicalSnapshot.holdings
+    .map((holding) => ({
+      ticker: holding.ticker,
+      securityName: holding.securityName,
+      weight: parseReportNumber(holding.portfolioWeightPercent)
+    }))
+    .filter(
+      (holding): holding is typeof holding & { weight: number } =>
+        holding.weight !== null && holding.weight > 0
+    )
+    .sort((a, b) => b.weight - a.weight);
+
+  if (weightedHoldings.length === 0) {
+    return `
+      <div class="allocation-visual allocation-visual-empty">
+        <div class="visual-kicker">Portfolio structure</div>
+        <p>Allocation is not available because holding weights could not be calculated safely.</p>
+      </div>
+    `;
+  }
+
+  const totalWeight = weightedHoldings.reduce((total, holding) => total + holding.weight, 0);
+  const normalizedHoldings = weightedHoldings.map((holding) => ({
+    ...holding,
+    weight: (holding.weight / totalWeight) * 100
+  }));
+  const visibleHoldings = normalizedHoldings.slice(0, 5);
+  const visibleWeight = visibleHoldings.reduce((total, holding) => total + holding.weight, 0);
+  const remainder = Math.max(0, 100 - visibleWeight);
+  const segments = [
+    ...visibleHoldings.map((holding) => ({
+      label: allocationLabel(holding.ticker, holding.securityName),
+      shortLabel: holding.ticker,
+      weight: holding.weight
+    })),
+    ...(remainder > 0.25
+      ? [{ label: "Other holdings", shortLabel: "Other", weight: remainder }]
+      : [])
+  ];
+
+  let offset = 0;
+  const donutSegments = segments
+    .map((segment, index) => {
+      const segmentMarkup = `
+        <circle
+          class="allocation-donut-segment"
+          cx="50"
+          cy="50"
+          r="36"
+          pathLength="100"
+          stroke="${REPORT_VISUAL_COLORS[index % REPORT_VISUAL_COLORS.length]}"
+          stroke-dasharray="${segment.weight.toFixed(3)} ${(100 - segment.weight).toFixed(3)}"
+          stroke-dashoffset="-${offset.toFixed(3)}"
+          transform="rotate(-90 50 50)"
+        />
+      `;
+      offset += segment.weight;
+      return segmentMarkup;
+    })
+    .join("");
+
+  const legend = segments
+    .map(
+      (segment, index) => `
+        <div class="allocation-legend-item">
+          <span class="allocation-legend-swatch" style="background: ${REPORT_VISUAL_COLORS[index % REPORT_VISUAL_COLORS.length]};"></span>
+          <span class="allocation-legend-name">${esc(segment.shortLabel)}</span>
+          <span class="allocation-legend-value">${formatReportPercentage(segment.weight)}</span>
+        </div>
+      `
+    )
+    .join("");
+
+  const stackedBar = segments
+    .map(
+      (segment, index) =>
+        `<span class="allocation-bar-segment" style="width: ${Math.min(100, segment.weight)}%; background: ${REPORT_VISUAL_COLORS[index % REPORT_VISUAL_COLORS.length]};"></span>`
+    )
+    .join("");
+
+  return `
+    <div class="allocation-visual">
+      <div class="allocation-visual-copy">
+        <div class="visual-kicker">Portfolio structure</div>
+        <h3>Capital Allocation</h3>
+        <p>Top holdings by portfolio weight, with the remaining positions grouped for readability.</p>
+        <div class="allocation-bar" aria-label="Portfolio allocation bar">${stackedBar}</div>
+        <div class="allocation-total"><span>${formatReportCount(report.canonicalSnapshot.portfolioTotals.holdingCount)} positions</span><strong>${formatReportPercentage(100)} allocated</strong></div>
+      </div>
+      <div class="allocation-visual-chart">
+        <svg class="allocation-donut" viewBox="0 0 100 100" role="img" aria-label="Portfolio allocation by holding">
+          <circle cx="50" cy="50" r="36" pathLength="100" class="allocation-donut-track" />
+          ${donutSegments}
+          <text x="50" y="47" class="allocation-donut-value">${formatReportCount(report.canonicalSnapshot.portfolioTotals.holdingCount)}</text>
+          <text x="50" y="58" class="allocation-donut-label">positions</text>
+        </svg>
+        <div class="allocation-legend">${legend}</div>
+      </div>
+    </div>
+  `;
+}
+
 // ---------------------------------------------------------------------------
 // CSS
 // ---------------------------------------------------------------------------
@@ -185,7 +303,7 @@ function buildStyles(): string {
   return `
     @page {
       size: A4;
-      margin: 24mm 20mm 24mm 20mm;
+      margin: 16mm 16mm 18mm 16mm;
     }
 
     * {
@@ -194,29 +312,50 @@ function buildStyles(): string {
       box-sizing: border-box;
     }
 
+    :root {
+      --canvas: #faf8ff;
+      --surface: #ffffff;
+      --surface-low: #f2f3ff;
+      --surface-high: #e2e7ff;
+      --surface-deep: #dae2fd;
+      --ink: #131b2e;
+      --muted: #64748b;
+      --outline: #c7c4d7;
+      --primary: #4338ca;
+      --primary-dark: #2a14b4;
+      --positive: #059669;
+      --positive-soft: #d1fae5;
+      --negative: #e11d48;
+      --negative-soft: #ffe4e6;
+      --warning: #ea580c;
+      --warning-soft: #ffedd5;
+      --warm-legacy: #f96b2a;
+    }
+
     body {
-      font-family: Helvetica, Arial, sans-serif;
+      font-family: 'Avenir Next', 'Helvetica Neue', Helvetica, Arial, sans-serif;
       font-size: 10pt;
-      line-height: 1.55;
-      color: #24292f;
-      background: #ffffff;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--canvas);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     h1, h2, h3, h4 {
-      font-family: Georgia, 'Times New Roman', serif;
-      color: #24292f;
+      font-family: 'Avenir Next', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: var(--ink);
     }
 
-    h1 { font-size: 26pt; font-weight: 700; }
-    h2 { font-size: 16pt; font-weight: 700; margin-bottom: 8pt; }
-    h3 { font-size: 12pt; font-weight: 600; margin-bottom: 6pt; }
-    h4 { font-size: 10pt; font-weight: 600; margin-bottom: 4pt; }
+    h1 { font-size: 28pt; font-weight: 800; letter-spacing: -0.5pt; }
+    h2 { font-size: 16pt; font-weight: 700; margin-bottom: 0; letter-spacing: -0.2pt; }
+    h3 { font-size: 11.5pt; font-weight: 700; margin-bottom: 6pt; }
+    h4 { font-size: 9pt; font-weight: 700; margin-bottom: 4pt; }
 
-    .accent { color: #f96b2a; }
-    .muted { color: #656d76; }
-    .mono { font-family: 'Courier New', Courier, monospace; }
-
-    .page-break { page-break-before: always; }
+    .accent { color: var(--primary); }
+    .accent-warm { color: var(--warm-legacy); }
+    .muted { color: var(--muted); }
+    .mono { font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace; }
 
     /* Cover page */
     .cover {
@@ -224,62 +363,121 @@ function buildStyles(): string {
       flex-direction: column;
       justify-content: center;
       align-items: flex-start;
-      min-height: 100vh;
-      padding: 40pt 0;
+      min-height: 250mm;
+      padding: 34pt 30pt;
+      background: var(--surface-low);
+      border-left: 10pt solid var(--primary);
+      page-break-after: always;
     }
     .cover-brand {
-      font-size: 11pt;
+      display: inline-flex;
+      align-items: center;
+      gap: 8pt;
+      font-size: 8pt;
       font-weight: 700;
-      letter-spacing: 2pt;
+      letter-spacing: 1.4pt;
       text-transform: uppercase;
-      color: #f96b2a;
-      margin-bottom: 16pt;
+      color: #ffffff;
+      background: var(--primary-dark);
+      padding: 7pt 10pt;
+      border-radius: 4pt;
+      margin-bottom: 18pt;
     }
     .cover h1 {
       margin-bottom: 12pt;
-      line-height: 1.2;
+      line-height: 1.12;
+      max-width: 390pt;
+    }
+    .cover-subtitle {
+      max-width: 390pt;
+      font-size: 11pt;
+      color: var(--muted);
+      margin-bottom: 12pt;
     }
     .cover-meta {
-      font-size: 10pt;
-      color: #656d76;
-      margin-top: 24pt;
-      line-height: 1.8;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7pt;
+      width: 100%;
+      max-width: 430pt;
+      margin-top: 22pt;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .cover-meta-item {
+      background: var(--surface);
+      border: 1pt solid var(--outline);
+      border-radius: 5pt;
+      padding: 8pt 10pt;
+    }
+    .cover-meta-label {
+      display: block;
+      color: var(--muted);
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.7pt;
+      text-transform: uppercase;
+      margin-bottom: 3pt;
     }
     .cover-divider {
-      width: 60pt;
-      height: 3pt;
-      background: #f96b2a;
-      margin: 24pt 0;
+      width: 100%;
+      max-width: 430pt;
+      height: 5pt;
+      background: var(--primary);
+      margin: 20pt 0 14pt;
       border: none;
+      border-radius: 999pt;
     }
 
     /* Executive summary */
     .exec-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10pt;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8pt;
       margin: 12pt 0 16pt;
+    }
+    .exec-grid-secondary .exec-card {
+      grid-column: span 2;
     }
     .exec-overview {
       margin: 0 0 12pt;
       font-size: 10.5pt;
-      color: #24292f;
+      color: var(--ink);
+      max-width: 540pt;
     }
     .exec-card {
-      background: #f6f8fa;
-      border: 1pt solid #d0d7de;
-      border-radius: 4pt;
-      padding: 10pt 12pt;
+      min-height: 62pt;
+      background: var(--surface);
+      border: 1pt solid var(--outline);
+      border-top: 3pt solid var(--primary);
+      border-radius: 5pt;
+      padding: 9pt 10pt;
+      box-shadow: 0 2pt 8pt rgba(42, 20, 180, 0.06);
+    }
+    .exec-card-positive {
+      border-top-color: var(--positive);
+      background: var(--positive-soft);
+    }
+    .exec-card-negative {
+      border-top-color: var(--negative);
+      background: var(--negative-soft);
+    }
+    .exec-card-warning {
+      border-top-color: var(--warning);
+      background: var(--warning-soft);
     }
     .exec-card-label {
-      font-size: 8pt;
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7pt;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5pt;
-      color: #656d76;
+      letter-spacing: 0.7pt;
+      color: var(--muted);
       margin-bottom: 4pt;
     }
     .exec-card-value {
-      font-size: 14pt;
+      font-size: 13pt;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
@@ -288,11 +486,137 @@ function buildStyles(): string {
     /* Section blocks */
     .section-block {
       margin-bottom: 20pt;
+      break-before: auto;
+      page-break-before: auto;
     }
     .section-header {
-      border-bottom: 2pt solid #f96b2a;
-      padding-bottom: 4pt;
+      display: flex;
+      align-items: center;
+      background: var(--surface-low);
+      border-left: 4pt solid var(--primary);
+      border-bottom: 1pt solid var(--outline);
+      border-radius: 4pt;
+      padding: 8pt 10pt;
       margin-bottom: 12pt;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
+    /* Portfolio visual summary */
+    .allocation-visual {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14pt;
+      align-items: center;
+      margin: 10pt 0 18pt;
+      padding: 12pt;
+      background: var(--surface);
+      border: 1pt solid var(--outline);
+      border-radius: 6pt;
+      box-shadow: 0 3pt 10pt rgba(42, 20, 180, 0.07);
+    }
+    .allocation-visual-empty {
+      display: block;
+    }
+    .visual-kicker {
+      color: var(--primary);
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.8pt;
+      text-transform: uppercase;
+      margin-bottom: 4pt;
+    }
+    .allocation-visual h3 {
+      margin-bottom: 4pt;
+    }
+    .allocation-visual p {
+      color: var(--muted);
+      font-size: 8.5pt;
+      max-width: 250pt;
+    }
+    .allocation-bar {
+      display: flex;
+      width: 100%;
+      height: 8pt;
+      overflow: hidden;
+      margin: 13pt 0 6pt;
+      border-radius: 999pt;
+      background: var(--surface-deep);
+    }
+    .allocation-bar-segment {
+      display: block;
+      height: 100%;
+    }
+    .allocation-total {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7.5pt;
+    }
+    .allocation-total strong {
+      color: var(--positive);
+    }
+    .allocation-visual-chart {
+      display: grid;
+      grid-template-columns: 92pt 1fr;
+      gap: 9pt;
+      align-items: center;
+    }
+    .allocation-donut {
+      width: 92pt;
+      height: 92pt;
+    }
+    .allocation-donut-track,
+    .allocation-donut-segment {
+      fill: none;
+      stroke-width: 12;
+    }
+    .allocation-donut-track {
+      stroke: var(--surface-deep);
+    }
+    .allocation-donut-value,
+    .allocation-donut-label {
+      text-anchor: middle;
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+    }
+    .allocation-donut-value {
+      fill: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .allocation-donut-label {
+      fill: var(--muted);
+      font-size: 5px;
+    }
+    .allocation-legend {
+      display: grid;
+      gap: 4pt;
+    }
+    .allocation-legend-item {
+      display: grid;
+      grid-template-columns: 6pt 1fr auto;
+      gap: 5pt;
+      align-items: center;
+      font-size: 7.5pt;
+    }
+    .allocation-legend-swatch {
+      width: 6pt;
+      height: 6pt;
+      border-radius: 1pt;
+    }
+    .allocation-legend-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .allocation-legend-value {
+      color: var(--muted);
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7pt;
     }
 
     /* Metrics list */
@@ -303,18 +627,23 @@ function buildStyles(): string {
       margin: 10pt 0;
     }
     .metric-item {
-      background: #f6f8fa;
-      border-radius: 3pt;
-      padding: 6pt 8pt;
+      background: var(--surface);
+      border: 1pt solid var(--outline);
+      border-top: 3pt solid var(--primary);
+      border-radius: 4pt;
+      padding: 7pt 8pt;
+      box-shadow: 0 2pt 7pt rgba(42, 20, 180, 0.05);
     }
     .metric-label {
-      font-size: 8pt;
-      color: #656d76;
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.3pt;
+      letter-spacing: 0.5pt;
     }
     .metric-value {
-      font-size: 11pt;
+      font-size: 12pt;
       font-weight: 700;
       margin-top: 2pt;
       font-variant-numeric: tabular-nums;
@@ -326,7 +655,11 @@ function buildStyles(): string {
       width: 100%;
       border-collapse: collapse;
       margin: 8pt 0;
-      font-size: 8.5pt;
+      font-size: 8.25pt;
+      background: var(--surface);
+      border: 1pt solid var(--outline);
+      border-radius: 4pt;
+      overflow: hidden;
     }
     .data-table thead {
       display: table-header-group;
@@ -340,21 +673,24 @@ function buildStyles(): string {
       font-weight: 600;
       font-size: 9pt;
       margin-bottom: 4pt;
-      color: #656d76;
+      color: var(--muted);
     }
     .data-table th {
       text-align: left;
       font-size: 8pt;
       text-transform: uppercase;
       letter-spacing: 0.3pt;
-      color: #656d76;
+      color: var(--muted);
       padding: 5pt 7pt;
-      border-bottom: 1.5pt solid #d0d7de;
-      background: #f6f8fa;
+      border-bottom: 1.5pt solid var(--outline);
+      background: var(--surface-high);
     }
     .data-table td {
       padding: 4pt 7pt;
-      border-bottom: 0.5pt solid #d0d7de;
+      border-bottom: 0.5pt solid var(--outline);
+    }
+    .data-table tbody tr:nth-child(even) td {
+      background: var(--surface-low);
     }
     .data-table .numeric-cell {
       text-align: right;
@@ -370,11 +706,12 @@ function buildStyles(): string {
 
     /* Narrative blocks */
     .narrative-block {
-      background: #fffbf0;
-      border-left: 3pt solid #f96b2a;
+      background: var(--surface-low);
+      border-left: 4pt solid var(--primary);
       padding: 10pt 14pt;
       margin: 10pt 0;
-      border-radius: 0 4pt 4pt 0;
+      border-radius: 0 5pt 5pt 0;
+      box-shadow: inset 0 1pt 0 rgba(255, 255, 255, 0.8);
     }
     .narrative-block p {
       margin-bottom: 6pt;
@@ -390,7 +727,7 @@ function buildStyles(): string {
     }
     .takeaway-list li {
       margin-bottom: 3pt;
-      color: #24292f;
+      color: var(--ink);
     }
 
     /* Findings */
@@ -406,8 +743,8 @@ function buildStyles(): string {
     .dq-flags {
       margin: 8pt 0;
       padding: 8pt 10pt;
-      background: #fff8c5;
-      border: 1pt solid #d4a72c;
+      background: var(--warning-soft);
+      border: 1pt solid #fdba74;
       border-radius: 3pt;
       font-size: 9pt;
       break-inside: avoid;
@@ -434,34 +771,34 @@ function buildStyles(): string {
       text-align: left;
       width: 30%;
       padding: 5pt 8pt;
-      background: #f6f8fa;
-      border-bottom: 0.5pt solid #d0d7de;
-      color: #656d76;
+      background: var(--surface-high);
+      border-bottom: 0.5pt solid var(--outline);
+      color: var(--muted);
       font-size: 8pt;
       text-transform: uppercase;
     }
     .methodology-table td {
       padding: 5pt 8pt;
-      border-bottom: 0.5pt solid #d0d7de;
+      border-bottom: 0.5pt solid var(--outline);
     }
 
     /* Disclaimer */
     .disclaimer {
       margin-top: 24pt;
       padding: 14pt 16pt;
-      background: #f6f8fa;
-      border: 1pt solid #d0d7de;
+      background: var(--negative-soft);
+      border: 1pt solid #fda4af;
       border-radius: 4pt;
       font-size: 8.5pt;
       line-height: 1.5;
-      color: #656d76;
+      color: #881337;
     }
     .disclaimer-title {
       font-size: 9pt;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5pt;
-      color: #24292f;
+      color: #881337;
       margin-bottom: 6pt;
     }
   `;
@@ -478,15 +815,15 @@ function buildCoverPage(report: ReportDocument): string {
       <div class="cover-brand">Second Act</div>
       <h1>Quarterly Portfolio<br/>Grading Report</h1>
       <hr class="cover-divider" />
-      <div style="font-size: 14pt; font-weight: 600; margin-bottom: 4pt;">
+      <div style="font-size: 15pt; font-weight: 700; margin-bottom: 4pt;">
         ${esc(portfolio.name)}
       </div>
-      ${portfolio.description ? `<div class="muted" style="font-size: 10pt;">${esc(portfolio.description)}</div>` : ""}
+      ${portfolio.description ? `<div class="cover-subtitle">${esc(portfolio.description)}</div>` : ""}
       <div class="cover-meta">
-        <div><strong>Report ID:</strong> <span class="mono">${esc(metadata.runId)}</span></div>
-        <div><strong>Generated:</strong> ${formatDate(metadata.generatedAt)}</div>
-        <div><strong>Valuation As Of:</strong> ${formatDateTime(metadata.valuationAsOf)}</div>
-        <div><strong>Reporting Currency:</strong> ${esc(metadata.reportingCurrency)}</div>
+        <div class="cover-meta-item"><span class="cover-meta-label">Report ID</span><span class="mono">${esc(metadata.runId)}</span></div>
+        <div class="cover-meta-item"><span class="cover-meta-label">Generated</span>${formatDate(metadata.generatedAt)}</div>
+        <div class="cover-meta-item"><span class="cover-meta-label">Valuation As Of</span>${formatDateTime(metadata.valuationAsOf)}</div>
+        <div class="cover-meta-item"><span class="cover-meta-label">Reporting Currency</span>${esc(metadata.reportingCurrency)}</div>
       </div>
     </div>
   `;
@@ -585,42 +922,42 @@ function buildExecutiveSummary(report: ReportDocument): string {
   const executiveOverview = buildExecutiveOverview(report);
 
   return `
-    <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
         <h2><span class="accent">01</span> Executive Summary</h2>
       </div>
       <p class="exec-overview">${esc(executiveOverview)}</p>
       <div class="exec-grid">
-        <div class="exec-card">
+        <div class="exec-card exec-card-primary">
           <div class="exec-card-label">Total Market Value</div>
           <div class="exec-card-value">${cardDisplayValue(formatReportCurrency(totals.totalMarketValue, currency))}</div>
         </div>
-        <div class="exec-card">
+        <div class="exec-card exec-card-primary">
           <div class="exec-card-label">Total Cost Basis</div>
           <div class="exec-card-value">${cardDisplayValue(formatReportCurrency(totals.totalCostBasis, currency))}</div>
         </div>
-        <div class="exec-card">
+        <div class="exec-card exec-card-positive">
           <div class="exec-card-label">Paper Gain / Loss</div>
           <div class="exec-card-value" style="color: ${pnlColor};">
             ${cardDisplayValue(formatPnlWithOptionalPercent(summary.totalUnrealizedPnL, summary.totalUnrealizedPnLPercent, currency))}
           </div>
         </div>
-        <div class="exec-card">
+        <div class="exec-card exec-card-primary">
           <div class="exec-card-label">Holdings</div>
           <div class="exec-card-value">${cardDisplayValue(formatReportCount(totals.holdingCount))}</div>
         </div>
       </div>
-      <div class="exec-grid">
-        <div class="exec-card">
+      <div class="exec-grid exec-grid-secondary">
+        <div class="exec-card exec-card-positive">
           <div class="exec-card-label">Winners / Losers</div>
           <div class="exec-card-value">${cardDisplayValue(formatReportCount(summary.gainersCount))} / ${cardDisplayValue(formatReportCount(summary.losersCount))}</div>
         </div>
-        <div class="exec-card">
+        <div class="exec-card exec-card-warning">
           <div class="exec-card-label">Concentration Score</div>
           <div class="exec-card-value">${cardDisplayValue(formatReportRatio(summary.concentrationHhi))}</div>
         </div>
       </div>
+      ${buildPortfolioAllocationVisual(report)}
       ${
         executiveFindings.length > 0
           ? `
@@ -735,12 +1072,11 @@ function buildNarrativeBlock(
     ${
       narrative.metrics.length > 0
         ? narrative.metrics
-            .map(
-              (m) => {
-                const metricTakeaways = unavailableMetrics.has(m.name)
-                  ? []
-                  : renderedTakeaways(m.takeaways);
-                return `
+            .map((m) => {
+              const metricTakeaways = unavailableMetrics.has(m.name)
+                ? []
+                : renderedTakeaways(m.takeaways);
+              return `
       <h4>${esc(m.displayName)}</h4>
       <p style="margin-bottom: 4pt;">${esc(renderedMetricNarrative(m.narrative))}</p>
       ${
@@ -749,8 +1085,7 @@ function buildNarrativeBlock(
           : ""
       }
     `;
-              }
-            )
+            })
             .join("")
         : ""
     }
@@ -768,7 +1103,6 @@ function buildAnalysisSections(report: ReportDocument): string {
       const unavailableMetrics = unavailableMetricNames(section.metrics, currency);
 
       return `
-      <div class="page-break"></div>
       <div class="section-block">
         <div class="section-header">
           <h2><span class="accent">${sectionNumber}</span> ${esc(section.sectionTitle)}</h2>
@@ -855,7 +1189,6 @@ function buildMethodologySection(report: ReportDocument): string {
   const sectionNumber = String(analysis.sections.length + 2).padStart(2, "0");
 
   return `
-    <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
         <h2><span class="accent">${sectionNumber}</span> Methodology &amp; Assumptions</h2>
@@ -899,7 +1232,6 @@ function buildDisclaimerSection(report: ReportDocument): string {
   const sectionNumber = String(report.analysis.sections.length + 3).padStart(2, "0");
 
   return `
-    <div class="page-break"></div>
     <div class="section-block">
       <div class="section-header">
         <h2><span class="accent">${sectionNumber}</span> Important Disclaimer</h2>

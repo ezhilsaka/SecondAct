@@ -81,6 +81,31 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Holdings");
   });
 
+  it("renders a colorful allocation visual from holding weights", () => {
+    const html = buildReportHtml(getFixtureReport());
+
+    expect(html).toContain('class="allocation-visual"');
+    expect(html).toContain('class="allocation-donut"');
+    expect(html).toContain('stroke="#4338ca"');
+    expect(html).toContain('class="allocation-legend-name">AAPL</span>');
+    expect(html).toContain('class="allocation-legend-name">SHOP.TO</span>');
+    expect(html).toContain("100% allocated");
+  });
+
+  it("renders a safe allocation fallback when holding weights are unavailable", () => {
+    const report = getFixtureReport();
+    report.canonicalSnapshot.holdings = report.canonicalSnapshot.holdings.map((holding) => ({
+      ...holding,
+      portfolioWeightPercent: null
+    }));
+
+    const html = buildReportHtml(report);
+
+    expect(html).toContain('class="allocation-visual allocation-visual-empty"');
+    expect(html).toContain("Allocation is not available");
+    expect(html).not.toContain('class="allocation-donut"');
+  });
+
   it("renders portfolio totals in executive summary", () => {
     const report = getFixtureReport();
     const html = buildReportHtml(report);
@@ -461,6 +486,9 @@ describe("buildReportHtml", () => {
   it("adds PDF page-break guardrails for long table continuations", () => {
     const html = buildReportHtml(getFixtureReport());
 
+    expect(html).not.toContain('class="page-break"');
+    expect(html).toContain("page-break-before: auto;");
+    expect(html).toContain("page-break-after: always;");
     expect(html).toContain(".data-table thead");
     expect(html).toContain("display: table-header-group;");
     expect(html).toContain(".data-table tbody tr");

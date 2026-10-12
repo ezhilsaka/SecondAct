@@ -437,7 +437,6 @@ export class OpenAICompatibleNarrativeProvider implements NarrativeProvider {
           },
           body: JSON.stringify({
             model: this.model,
-            temperature: 0.2,
             response_format: { type: "json_object" },
             messages
           }),
