@@ -56,3 +56,6 @@ __pycache__/
 
 # AI Personas (internal project docs — not shipped)
 ai-personas/
+
+# Chatbot notes (internal project history and planning — not shipped)
+/chatbotNotes/
